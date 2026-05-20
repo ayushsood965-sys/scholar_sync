@@ -1,0 +1,26 @@
+import React, { useContext } from 'react';
+import { Navigate } from 'react-router-dom';
+import { AuthContext } from '../context/AuthContext';
+
+const ProtectedRoute = ({ children, allowedRoles }) => {
+  const { user, loading } = useContext(AuthContext);
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
+    // Redirect to their appropriate dashboard if they try to access another role's route
+    if (user.role === 'ADMIN') return <Navigate to="/admin-dashboard" />;
+    if (user.role === 'FACULTY') return <Navigate to="/faculty-dashboard" />;
+    return <Navigate to="/student-dashboard" />;
+  }
+
+  return children;
+};
+
+export default ProtectedRoute;
