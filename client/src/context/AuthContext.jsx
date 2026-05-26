@@ -54,6 +54,22 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const updateProfile = async (profileData) => {
+    try {
+      const token = localStorage.getItem('token');
+      const { data } = await axios.put('http://localhost:5000/api/auth/profile', profileData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const updatedUser = { ...user, ...data };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+      addNotification('Profile updated successfully!');
+      return { success: true };
+    } catch (error) {
+      return { success: false, message: error.response?.data?.message || 'Profile update failed' };
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -61,7 +77,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, register, logout, loading, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
@@ -8,22 +8,33 @@ const Signup = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('STUDENT');
+  const [department, setDepartment] = useState('');
+  const [depts, setDepts] = useState([]);
   const [error, setError] = useState('');
   const { register } = useContext(AuthContext);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    fetch('http://localhost:5000/api/departments')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setDepts(data);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     
-    if (!name || !username || !password) {
+    if (!name || !username || !password || !department) {
       setError('Please fill in all fields');
       return;
     }
 
-    const result = await register({ name, username, password, role });
+    const result = await register({ name, username, password, role, department });
     if (result.success) {
-      if (result.role === 'ADMIN') navigate('/admin-dashboard');
+      if (result.role === 'ADMIN' || result.role === 'HOD') navigate('/admin-dashboard');
       else if (result.role === 'FACULTY') navigate('/faculty-dashboard');
       else navigate('/student-dashboard');
     } else {
@@ -36,9 +47,22 @@ const Signup = () => {
       <Navbar />
       <div className="glass-panel auth-panel">
         <h1 className="page-title">Join ScholarSync</h1>
-        <p className="page-desc">Create your profile to start collaborating.</p>
+        <p className="page-desc">Create your credentials to join your department.</p>
         
-        {error && <div style={{ color: 'red', marginBottom: '15px', textAlign: 'center' }}>{error}</div>}
+        {error && (
+          <div style={{ 
+            color: '#DC2626', 
+            background: '#FEF2F2', 
+            border: '1px solid #FEE2E2', 
+            padding: '10px', 
+            borderRadius: '8px', 
+            marginBottom: '15px', 
+            textAlign: 'center',
+            fontSize: '0.85rem'
+          }}>
+            {error}
+          </div>
+        )}
         
         <form onSubmit={handleSubmit}>
           <div className="form-group">
@@ -46,19 +70,21 @@ const Signup = () => {
             <input 
               type="text" 
               className="form-input" 
-              placeholder="Dr. Jane Doe" 
+              placeholder="Dr. Jane Doe or Student Name" 
               value={name}
               onChange={(e) => setName(e.target.value)}
+              required
             />
           </div>
           <div className="form-group">
-            <label className="form-label">Username</label>
+            <label className="form-label">Email Address (Username)</label>
             <input 
-              type="text" 
+              type="email" 
               className="form-input" 
-              placeholder="jane_doe" 
+              placeholder="jane.doe@university.edu" 
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              required
             />
           </div>
           <div className="form-group">
@@ -69,7 +95,31 @@ const Signup = () => {
               placeholder="••••••••" 
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              required
             />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Academic Department</label>
+            <select 
+              className="form-input" 
+              value={department} 
+              onChange={(e) => setDepartment(e.target.value)}
+              required
+            >
+              <option value="">Select Department...</option>
+              {depts.map(d => (
+                <option key={d._id} value={d.name}>{d.name}</option>
+              ))}
+              {depts.length === 0 && (
+                <>
+                  <option value="Computer Science">Computer Science</option>
+                  <option value="Electrical Engineering">Electrical Engineering</option>
+                  <option value="Mechanical Engineering">Mechanical Engineering</option>
+                  <option value="Criminology">Criminology</option>
+                  <option value="Physics">Physics</option>
+                </>
+              )}
+            </select>
           </div>
           <div className="form-group">
             <label className="form-label">Role</label>
@@ -77,9 +127,11 @@ const Signup = () => {
               className="form-input" 
               value={role} 
               onChange={(e) => setRole(e.target.value)}
+              required
             >
-              <option value="STUDENT">Student</option>
-              <option value="FACULTY">Faculty</option>
+              <option value="STUDENT">Student / Scholar</option>
+              <option value="FACULTY">Faculty / Supervisor</option>
+              <option value="HOD">Head of Department (HOD)</option>
             </select>
           </div>
           <button type="submit" className="btn-primary" style={{ display: 'block', width: '100%', textAlign: 'center', marginTop: '24px', cursor: 'pointer' }}>

@@ -1,0 +1,32 @@
+const mongoose = require('mongoose');
+
+const thesisSchema = new mongoose.Schema(
+  {
+    scholarId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
+    supervisorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    department: { type: String, required: true },
+    title: { type: String, required: true },
+    enrollmentNumber: { type: String, required: true },
+    abstract: { type: String, required: true },
+    status: {
+      type: String,
+      enum: ['REGISTRATION_PENDING', 'COURSEWORK', 'SYNOPSIS_PENDING', 'ACTIVE_RESEARCH', 'PRE_SUBMISSION', 'SUBMITTED', 'AWARDED'],
+      default: 'REGISTRATION_PENDING',
+    },
+    courseworkCompleted: { type: Boolean, default: false },
+    enrollmentVerified: { type: Boolean, default: false },
+    startDate: { type: Date, default: null },
+    submittedAt: { type: Date, default: null },
+    awardedAt: { type: Date, default: null },
+    auditLog: [
+      {
+        action: String,
+        note: String,
+        date: { type: Date, default: Date.now },
+      },
+    ],
+  },
+  { timestamps: true }
+);
+
+module.exports = mongoose.model('Thesis', thesisSchema);

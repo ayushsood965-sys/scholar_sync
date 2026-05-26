@@ -2,45 +2,30 @@ require('dotenv').config();
 const mongoose = require('mongoose');
 const User = require('./models/User');
 
-const seedUsers = async () => {
+const seed = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI);
-
     console.log('MongoDB connected for seeding...');
 
-    // Clear existing users
-    await User.deleteMany();
+    await User.deleteMany({});
 
     const users = [
-      {
-        name: 'System Admin',
-        username: 'admin',
-        password: 'admin',
-        role: 'ADMIN',
-      },
-      {
-        name: 'John Student',
-        username: 'student',
-        password: 'student',
-        role: 'STUDENT',
-      },
-      {
-        name: 'Dr. Faculty',
-        username: 'faculty',
-        password: 'faculty',
-        role: 'FACULTY',
-      },
+      { name: 'Admin User', username: 'admin', password: 'admin', role: 'ADMIN' },
+      { name: 'Student User', username: 'student', password: 'student', role: 'STUDENT', department: 'Computer Science' },
+      { name: 'Dr. Faculty Supervisor', username: 'faculty', password: 'faculty', role: 'FACULTY', subRole: 'SUPERVISOR', department: 'Computer Science' },
+      { name: 'Prof. HOD Faculty', username: 'hod', password: 'hod', role: 'FACULTY', subRole: 'HOD', department: 'Computer Science' },
     ];
 
     for (const user of users) {
       await User.create(user);
     }
-    console.log('Database seeded with admin, student, and faculty accounts!');
+
+    console.log('✅ Database seeded with admin, student, faculty (SUPERVISOR), hod (HOD) accounts!');
     process.exit();
   } catch (error) {
-    console.error('Error seeding data:', error);
+    console.error('Seeding error:', error);
     process.exit(1);
   }
 };
 
-seedUsers();
+seed();

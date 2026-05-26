@@ -21,7 +21,8 @@ const Login = () => {
 
     const result = await login(username, password);
     if (result.success) {
-      if (result.role === 'ADMIN') navigate('/admin-dashboard');
+      if (result.role === 'SUPER_ADMIN') navigate('/super-dashboard');
+      else if (result.role === 'ADMIN' || result.role === 'HOD') navigate('/admin-dashboard');
       else if (result.role === 'FACULTY') navigate('/faculty-dashboard');
       else navigate('/student-dashboard');
     } else {
