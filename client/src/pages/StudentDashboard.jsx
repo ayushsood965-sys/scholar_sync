@@ -5,6 +5,7 @@ import { AuthContext } from '../context/AuthContext';
 import { NotificationContext } from '../context/NotificationContext';
 import { ThesisContext } from '../context/ThesisContext';
 import ProfileOnboardingModal from '../components/ProfileOnboardingModal';
+import NotificationPanel from '../components/NotificationPanel';
 import axios from 'axios';
 
 const API = 'http://localhost:5000/api';
@@ -154,8 +155,38 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
 
 const Header = ({ title }) => {
   const { user } = useContext(AuthContext);
-  const { notifications } = useContext(NotificationContext);
-  const unread = notifications.filter(n => !n.read).length;
+  const { notifications, markAsRead, markAllAsRead, unreadCount } = useContext(NotificationContext);
+  const [showDropdown, setShowDropdown] = useState(false);
+
+  useEffect(() => {
+    const handleOutsideClick = () => setShowDropdown(false);
+    window.addEventListener('click', handleOutsideClick);
+    return () => window.removeEventListener('click', handleOutsideClick);
+  }, []);
+
+  const toggleDropdown = (e) => {
+    e.stopPropagation();
+    setShowDropdown(!showDropdown);
+  };
+
+  const handleItemClick = (e, notifId) => {
+    e.stopPropagation();
+    markAsRead(notifId);
+  };
+
+  const handleMarkAll = (e) => {
+    e.stopPropagation();
+    markAllAsRead();
+  };
+
+  const getAccentColor = (type) => {
+    if (type === 'WELCOME') return '#7C3AED';
+    if (type === 'PROFILE_INCOMPLETE') return '#EF4444';
+    if (type === 'PENDING_ACTION') return '#D97706';
+    if (type === 'SUCCESSFUL_ACTION') return '#10B981';
+    return '#3B82F6';
+  };
+
   return (
     <div className="header">
       <button 
@@ -167,7 +198,141 @@ const Header = ({ title }) => {
       </button>
       <div className="header-title">{title}</div>
       <div className="header-actions">
-        <div className="notification-bell"><Bell size={20} />{unread > 0 && <span className="notification-badge">{unread}</span>}</div>
+        {/* Bell Popover Container */}
+        <div style={{ position: 'relative' }}>
+          <button 
+            onClick={toggleDropdown}
+            className="notification-bell"
+            style={{ 
+              background: 'none', 
+              border: 'none', 
+              cursor: 'pointer', 
+              position: 'relative', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              padding: '8px',
+              borderRadius: '50%',
+              transition: 'background-color 0.2s',
+              color: '#475569'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#F1F5F9'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
+            <Bell size={20} />
+            {unreadCount > 0 && (
+              <span 
+                className="notification-badge" 
+                style={{ 
+                  position: 'absolute', 
+                  top: '2px', 
+                  right: '2px', 
+                  background: '#EF4444', 
+                  color: 'white', 
+                  fontSize: '9px', 
+                  fontWeight: 'bold', 
+                  borderRadius: '50%', 
+                  width: '18px', 
+                  height: '18px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  border: '2px solid white'
+                }}
+              >
+                {unreadCount}
+              </span>
+            )}
+          </button>
+
+          {/* Floating Dropdown */}
+          {showDropdown && (
+            <div 
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                position: 'absolute',
+                top: '45px',
+                right: '0',
+                width: '340px',
+                background: 'white',
+                border: '1px solid #E2E8F0',
+                borderRadius: '16px',
+                boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
+                zIndex: 99999,
+                overflow: 'hidden',
+                textAlign: 'left'
+              }}
+            >
+              {/* Dropdown Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', borderBottom: '1px solid #F1F5F9', background: '#FAFAFA' }}>
+                <span style={{ fontWeight: 800, fontSize: '0.82rem', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>🔔</span> Recent Notifications
+                </span>
+                {unreadCount > 0 && (
+                  <button 
+                    onClick={handleMarkAll}
+                    style={{ background: 'none', border: 'none', color: '#10B981', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                  >
+                    Mark all read
+                  </button>
+                )}
+              </div>
+
+              {/* Scrollable List */}
+              <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                {notifications.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '32px 16px', color: '#94A3B8', fontSize: '0.8rem' }}>
+                    <div style={{ fontSize: '1.5rem', marginBottom: '4px' }}>🍃</div>
+                    <p style={{ margin: 0, fontWeight: 600 }}>All Caught Up!</p>
+                    <p style={{ margin: '2px 0 0', fontSize: '0.72rem' }}>No notifications to show.</p>
+                  </div>
+                ) : (
+                  notifications.map((n) => {
+                    const dotColor = getAccentColor(n.type);
+                    return (
+                      <div 
+                        key={n._id}
+                        onClick={(e) => handleItemClick(e, n._id)}
+                        style={{
+                          padding: '12px 16px',
+                          borderBottom: '1px solid #F1F5F9',
+                          background: n.read ? 'white' : '#F8FAFC',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          gap: '10px',
+                          alignItems: 'flex-start',
+                          transition: 'background-color 0.2s',
+                          position: 'relative'
+                        }}
+                      >
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: dotColor, marginTop: '5px', flexShrink: 0 }} />
+                        
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '8px' }}>
+                            <span style={{ fontSize: '0.78rem', fontWeight: n.read ? 600 : 800, color: '#1E293B', lineHeight: 1.2 }}>
+                              {n.title}
+                            </span>
+                            <span style={{ fontSize: '0.62rem', color: '#94A3B8', flexShrink: 0 }}>
+                              {new Date(n.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <p style={{ margin: '4px 0 0', fontSize: '0.72rem', color: '#64748B', lineHeight: 1.3 }}>
+                            {n.message}
+                          </p>
+                        </div>
+
+                        {!n.read && (
+                          <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#EF4444', alignSelf: 'center', marginLeft: 'auto' }} />
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="user-profile">
           {user?.avatarUrl ? (
             <img src={`http://localhost:5000${user.avatarUrl}`} alt="Student" className="user-avatar" style={{ objectFit: 'cover' }} />
@@ -564,7 +729,7 @@ const AwardedView = ({ thesis }) => (
 );
 
 // ── Overview (status summary) ──
-const OverviewPage = ({ thesis, milestones, setActiveTab }) => {
+const OverviewPage = ({ thesis, milestones, setActiveTab, user }) => {
   const [drcMeetings, setDrcMeetings] = useState([]);
   const [publications, setPublications] = useState([]);
 
@@ -630,6 +795,7 @@ const OverviewPage = ({ thesis, milestones, setActiveTab }) => {
       <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 20 }}>
         {/* Left Hand: Ph.D. Profile Summary */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <NotificationPanel user={user} onTabChange={setActiveTab} />
           <div className="card" style={{ padding: '24px', background: 'white', borderRadius: '16px', border: '1px solid #E2E8F0' }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', marginBottom: '16px', borderBottom: '1px solid #F1F5F9', paddingBottom: '12px' }}>
               📝 Ph.D. Research Overview
@@ -1413,7 +1579,7 @@ const StudentDashboard = () => {
     }
 
     switch (activeTab) {
-      case 'overview': return <OverviewPage thesis={thesis} milestones={milestones} setActiveTab={setActiveTab} />;
+      case 'overview': return <OverviewPage thesis={thesis} milestones={milestones} setActiveTab={setActiveTab} user={user} />;
       case 'registration':
         return (
           <div className="card" style={{ textAlign: 'center', padding: 32, color: '#059669' }}>

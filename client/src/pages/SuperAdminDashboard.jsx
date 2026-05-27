@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Home, Users, FileText, User, LogOut, CheckCircle2, XCircle, Plus, Trash2, Edit2, Shield, FolderPlus, Search } from 'lucide-react';
+import { Home, Users, FileText, User, LogOut, CheckCircle2, XCircle, Plus, Trash2, Edit2, Shield, FolderPlus, Search, Bell } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
+import { NotificationContext } from '../context/NotificationContext';
 import axios from 'axios';
+import NotificationPanel from '../components/NotificationPanel';
 
 const API = 'http://localhost:5000/api';
 const getAuthHeader = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
@@ -10,6 +12,38 @@ const getAuthHeader = () => ({ headers: { Authorization: `Bearer ${localStorage.
 // ── HEADER COMPONENT ──
 const Header = ({ title }) => {
   const { user } = useContext(AuthContext);
+  const { notifications, markAsRead, markAllAsRead, unreadCount } = useContext(NotificationContext);
+  const [showDropdown, setShowDropdown] = useState(false);
+
+  useEffect(() => {
+    const handleOutsideClick = () => setShowDropdown(false);
+    window.addEventListener('click', handleOutsideClick);
+    return () => window.removeEventListener('click', handleOutsideClick);
+  }, []);
+
+  const toggleDropdown = (e) => {
+    e.stopPropagation();
+    setShowDropdown(!showDropdown);
+  };
+
+  const handleItemClick = (e, notifId) => {
+    e.stopPropagation();
+    markAsRead(notifId);
+  };
+
+  const handleMarkAll = (e) => {
+    e.stopPropagation();
+    markAllAsRead();
+  };
+
+  const getAccentColor = (type) => {
+    if (type === 'WELCOME') return '#7C3AED';
+    if (type === 'PROFILE_INCOMPLETE') return '#EF4444';
+    if (type === 'PENDING_ACTION') return '#D97706';
+    if (type === 'SUCCESSFUL_ACTION') return '#10B981';
+    return '#3B82F6';
+  };
+
   return (
     <div className="header" style={{ background: '#1e293b', borderBottom: '1px solid #334155', color: '#f8fafc' }}>
       <button 
@@ -21,6 +55,141 @@ const Header = ({ title }) => {
       </button>
       <div className="header-title" style={{ color: '#34d399', fontWeight: 800 }}>{title}</div>
       <div className="header-actions">
+        {/* Bell Popover Container */}
+        <div style={{ position: 'relative', marginRight: '10px' }}>
+          <button 
+            onClick={toggleDropdown}
+            className="notification-bell"
+            style={{ 
+              background: 'none', 
+              border: 'none', 
+              cursor: 'pointer', 
+              position: 'relative', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              padding: '8px',
+              borderRadius: '50%',
+              transition: 'background-color 0.2s',
+              color: '#34d399'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(52, 211, 153, 0.1)'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
+            <Bell size={20} />
+            {unreadCount > 0 && (
+              <span 
+                className="notification-badge" 
+                style={{ 
+                  position: 'absolute', 
+                  top: '2px', 
+                  right: '2px', 
+                  background: '#EF4444', 
+                  color: 'white', 
+                  fontSize: '9px', 
+                  fontWeight: 'bold', 
+                  borderRadius: '50%', 
+                  width: '18px', 
+                  height: '18px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  border: '2px solid #1e293b'
+                }}
+              >
+                {unreadCount}
+              </span>
+            )}
+          </button>
+
+          {/* Floating Dropdown */}
+          {showDropdown && (
+            <div 
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                position: 'absolute',
+                top: '45px',
+                right: '0',
+                width: '340px',
+                background: 'white',
+                border: '1px solid #E2E8F0',
+                borderRadius: '16px',
+                boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
+                zIndex: 99999,
+                overflow: 'hidden',
+                textAlign: 'left'
+              }}
+            >
+              {/* Dropdown Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', borderBottom: '1px solid #F1F5F9', background: '#FAFAFA' }}>
+                <span style={{ fontWeight: 800, fontSize: '0.82rem', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>🔔</span> Recent Notifications
+                </span>
+                {unreadCount > 0 && (
+                  <button 
+                    onClick={handleMarkAll}
+                    style={{ background: 'none', border: 'none', color: '#10B981', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                  >
+                    Mark all read
+                  </button>
+                )}
+              </div>
+
+              {/* Scrollable List */}
+              <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                {notifications.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '32px 16px', color: '#94A3B8', fontSize: '0.8rem' }}>
+                    <div style={{ fontSize: '1.5rem', marginBottom: '4px' }}>🍃</div>
+                    <p style={{ margin: 0, fontWeight: 600 }}>All Caught Up!</p>
+                    <p style={{ margin: '2px 0 0', fontSize: '0.72rem' }}>No notifications to show.</p>
+                  </div>
+                ) : (
+                  notifications.map((n) => {
+                    const dotColor = getAccentColor(n.type);
+                    return (
+                      <div 
+                        key={n._id}
+                        onClick={(e) => handleItemClick(e, n._id)}
+                        style={{
+                          padding: '12px 16px',
+                          borderBottom: '1px solid #F1F5F9',
+                          background: n.read ? 'white' : '#F8FAFC',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          gap: '10px',
+                          alignItems: 'flex-start',
+                          transition: 'background-color 0.2s',
+                          position: 'relative'
+                        }}
+                      >
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: dotColor, marginTop: '5px', flexShrink: 0 }} />
+                        
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '8px' }}>
+                            <span style={{ fontSize: '0.78rem', fontWeight: n.read ? 600 : 800, color: '#1E293B', lineHeight: 1.2 }}>
+                              {n.title}
+                            </span>
+                            <span style={{ fontSize: '0.62rem', color: '#94A3B8', flexShrink: 0 }}>
+                              {new Date(n.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <p style={{ margin: '4px 0 0', fontSize: '0.72rem', color: '#64748B', lineHeight: 1.3 }}>
+                            {n.message}
+                          </p>
+                        </div>
+
+                        {!n.read && (
+                          <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#EF4444', alignSelf: 'center', marginLeft: 'auto' }} />
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="user-profile">
           {user?.avatarUrl ? (
             <img src={`http://localhost:5000${user.avatarUrl}`} alt="SA" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid #34d399' }} />
@@ -160,7 +329,7 @@ const SAProfileTab = ({ uploadAvatar }) => {
 // ── MAIN SUPER ADMIN DASHBOARD ──
 const SuperAdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
-  const { uploadAvatar } = useContext(AuthContext);
+  const { user, uploadAvatar } = useContext(AuthContext);
   const [users, setUsers] = useState([]);
   const [depts, setDepts] = useState([]);
   const [stats, setStats] = useState({ depts: 0, faculty: 0, hods: 0, scholars: 0 });
@@ -370,10 +539,13 @@ const SuperAdminDashboard = () => {
                   </div>
                 </div>
 
-                <div className="card" style={{ background: 'white', padding: 24, borderRadius: 12, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
-                  <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#ecfdf5', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.8rem', marginBottom: 16 }}>🛡️</div>
-                  <h4 style={{ fontWeight: 700, color: '#1e293b', marginBottom: 8 }}>Secure Master Root Access</h4>
-                  <p style={{ color: '#64748b', fontSize: '0.85rem', lineHeight: '1.5' }}>Credentials for super administrator are auto-seeded on every deployment startup to allow reliable disaster recovery operations.</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                  <NotificationPanel user={user} onTabChange={setActiveTab} />
+                  <div className="card" style={{ background: 'white', padding: 24, borderRadius: 12, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
+                    <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#ecfdf5', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.8rem', marginBottom: 16 }}>🛡️</div>
+                    <h4 style={{ fontWeight: 700, color: '#1e293b', marginBottom: 8 }}>Secure Master Root Access</h4>
+                    <p style={{ color: '#64748b', fontSize: '0.85rem', lineHeight: '1.5' }}>Credentials for super administrator are auto-seeded on every deployment startup to allow reliable disaster recovery operations.</p>
+                  </div>
                 </div>
               </div>
             </div>

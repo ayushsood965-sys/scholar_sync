@@ -5,6 +5,7 @@ const ChangeRequest = require('../models/ChangeRequest');
 const RACReview = require('../models/RACReview');
 const DRCMeeting = require('../models/DRCMeeting');
 const Milestone = require('../models/Milestone');
+const { createNotification } = require('./notificationController');
 
 // ── RAC MEETINGS ──
 const scheduleRAC = async (req, res) => {
@@ -523,6 +524,14 @@ const scheduleDRC = async (req, res) => {
     });
     await thesis.save();
 
+    await createNotification({
+      recipient: thesis.scholarId,
+      title: '📆 DRC Meeting Scheduled!',
+      message: `HOD has scheduled your Departmental Research Committee (DRC) synopsis evaluation meeting on ${new Date(scheduledDate).toLocaleDateString()} at ${scheduledTime} in ${venue}.`,
+      type: 'INFO',
+      link: 'overview'
+    });
+
     res.status(201).json(newDRC);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -585,6 +594,24 @@ const submitDRCResult = async (req, res) => {
           await synopsis.save();
         }
       }
+    }
+
+    if (status === 'APPROVED') {
+      await createNotification({
+        recipient: drc.scholarId,
+        title: '🎉 DRC Synopsis Approved!',
+        message: `Congratulations! The DRC panel has officially APPROVED your research synopsis. You are now in the ACTIVE_RESEARCH phase.`,
+        type: 'SUCCESSFUL_ACTION',
+        link: 'overview'
+      });
+    } else {
+      await createNotification({
+        recipient: drc.scholarId,
+        title: '⚠️ DRC Revision Required',
+        message: `The DRC panel has requested revisions for your synopsis. Remarks: "${remarks}". Please revise and re-upload your document.`,
+        type: 'PENDING_ACTION',
+        link: 'thesis'
+      });
     }
 
     res.json(drc);

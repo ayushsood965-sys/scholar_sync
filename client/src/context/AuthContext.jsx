@@ -8,7 +8,7 @@ export const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const { addNotification } = useContext(NotificationContext);
+  const { addNotification, clearNotifications, fetchNotifications } = useContext(NotificationContext);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -35,6 +35,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data));
       setUser(data);
+      if (fetchNotifications) fetchNotifications();
       return { success: true, role: data.role };
     } catch (error) {
       return { success: false, message: error.response?.data?.message || 'Login failed' };
@@ -48,6 +49,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('user', JSON.stringify(data));
       setUser(data);
       addNotification(`Welcome to ScholarSync, ${data.name}! Your account was created successfully.`);
+      if (fetchNotifications) fetchNotifications();
       return { success: true, role: data.role };
     } catch (error) {
       return { success: false, message: error.response?.data?.message || 'Registration failed' };
@@ -111,6 +113,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
+    if (clearNotifications) clearNotifications();
   };
 
   return (

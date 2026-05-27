@@ -1,6 +1,7 @@
 const Thesis = require('../models/Thesis');
 const Milestone = require('../models/Milestone');
 const User = require('../models/User');
+const { createNotification } = require('./notificationController');
 
 const augmentThesesWithMilestones = async (theses) => {
   const augmented = [];
@@ -30,6 +31,16 @@ const createThesis = async (req, res) => {
       department, title, enrollmentNumber, abstract,
       status: 'REGISTRATION_PENDING',
     });
+
+    await createNotification({
+      roleScope: 'HOD',
+      department: thesis.department,
+      title: '⏳ New Scholar Thesis Registration',
+      message: `A new scholar (${req.user.name}) has submitted their thesis registration: "${thesis.title}". Please verify their enrollment and assign a supervisor.`,
+      type: 'PENDING_ACTION',
+      link: 'registration'
+    });
+
     res.status(201).json(thesis);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -116,6 +127,15 @@ const verifyEnrollment = async (req, res) => {
     thesis.status = 'COURSEWORK';
     thesis.auditLog.push({ action: 'ENROLLMENT_VERIFIED', note: `Verified by HOD on ${new Date().toDateString()}` });
     await thesis.save();
+
+    await createNotification({
+      recipient: thesis.scholarId,
+      title: '🎉 Enrollment Verified!',
+      message: `Your Ph.D. enrollment has been successfully verified by HOD! You are now in the COURSEWORK phase.`,
+      type: 'SUCCESSFUL_ACTION',
+      link: 'overview'
+    });
+
     res.json(thesis);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -142,6 +162,23 @@ const assignSupervisor = async (req, res) => {
     thesis.supervisorId = supervisorId;
     thesis.auditLog.push({ action: 'SUPERVISOR_ASSIGNED', note: `Assigned ${supervisor.name}` });
     await thesis.save();
+
+    await createNotification({
+      recipient: thesis.scholarId,
+      title: '👨‍🏫 Supervisor Allocated',
+      message: `Faculty member "${supervisor.name}" has been officially assigned as your Ph.D. Research Supervisor.`,
+      type: 'SUCCESSFUL_ACTION',
+      link: 'overview'
+    });
+
+    await createNotification({
+      recipient: supervisor._id,
+      title: '📚 Assigned as Ph.D. Supervisor',
+      message: `You have been officially assigned as the Ph.D. supervisor for scholar "${thesis.scholarId?.name || 'Scholar'}" (Topic: "${thesis.title}").`,
+      type: 'SUCCESSFUL_ACTION',
+      link: 'overview'
+    });
+
     res.json(thesis);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -185,6 +222,14 @@ const clearCoursework = async (req, res) => {
       });
     }
 
+    await createNotification({
+      recipient: thesis.scholarId,
+      title: '📚 Coursework Requirements Cleared!',
+      message: `Your doctoral coursework exams and requirements have been officially marked as cleared. You are now in the SYNOPSIS phase.`,
+      type: 'SUCCESSFUL_ACTION',
+      link: 'overview'
+    });
+
     res.json(thesis);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -206,6 +251,15 @@ const awardDegree = async (req, res) => {
     thesis.awardedAt = new Date();
     thesis.auditLog.push({ action: 'DEGREE_AWARDED', note: req.body.note || 'Degree awarded after successful viva' });
     await thesis.save();
+
+    await createNotification({
+      recipient: thesis.scholarId,
+      title: '🎓 Ph.D. Degree Awarded!',
+      message: `Congratulations, Doctor! Your Ph.D. degree has been officially awarded by the Academic Council after your successful viva-voce defense.`,
+      type: 'SUCCESSFUL_ACTION',
+      link: 'overview'
+    });
+
     res.json(thesis);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -285,6 +339,14 @@ const drcApprove = async (req, res) => {
       dueDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
     });
 
+    await createNotification({
+      recipient: thesis.scholarId,
+      title: '✅ DRC Synopsis Approved!',
+      message: `Congratulations! The Departmental Research Committee (DRC) has approved your research synopsis. You are now in the ACTIVE_RESEARCH phase.`,
+      type: 'SUCCESSFUL_ACTION',
+      link: 'overview'
+    });
+
     res.json(thesis);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -315,6 +377,14 @@ const seminarClear = async (req, res) => {
       sequence: 99,
     });
 
+    await createNotification({
+      recipient: thesis.scholarId,
+      title: '🎯 Pre-Submission Seminar Cleared!',
+      message: `Your pre-submission seminar and defense colloquium have been officially marked as cleared. Please prepare and upload your pre-submission package.`,
+      type: 'SUCCESSFUL_ACTION',
+      link: 'overview'
+    });
+
     res.json(thesis);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -331,6 +401,15 @@ const finalApprove = async (req, res) => {
     thesis.submittedAt = new Date();
     thesis.auditLog.push({ action: 'FINAL_APPROVED', note: `Final digital approval by supervisor ${req.user.name}` });
     await thesis.save();
+
+    await createNotification({
+      recipient: thesis.scholarId,
+      title: '🚀 Thesis Final Digital Sign-off!',
+      message: `Your supervisor has provided final digital sign-off and approval for your Ph.D. thesis. It has been officially SUBMITTED for external evaluation!`,
+      type: 'SUCCESSFUL_ACTION',
+      link: 'overview'
+    });
+
     res.json(thesis);
   } catch (err) {
     res.status(500).json({ message: err.message });

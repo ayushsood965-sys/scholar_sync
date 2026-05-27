@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { createNotification } = require('./notificationController');
 
 const generateToken = (id, role) => jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: '30d' });
 
@@ -18,6 +19,15 @@ const login = async (req, res) => {
     }
 
     if (await user.matchPassword(password)) {
+      // Proactively ensure seeded users have a welcome notification
+      await createNotification({
+        recipient: user._id,
+        title: '🎉 Welcome to ScholarSync!',
+        message: `Welcome, ${user.name}! We are excited to have you on board. Please start by completing your doctoral profile details and thesis registration.`,
+        type: 'WELCOME',
+        link: 'profile'
+      });
+
       res.json({
         _id: user._id, name: user.name, username: user.username,
         role: user.role, subRole: user.subRole, department: user.department,
@@ -67,6 +77,14 @@ const register = async (req, res) => {
     const user = await User.create({ 
       name, username, password, role: role || 'STUDENT', department,
       profile: { phoneNumber: formattedPhone }
+    });
+
+    await createNotification({
+      recipient: user._id,
+      title: '🎉 Welcome to ScholarSync!',
+      message: `Welcome, ${user.name}! We are excited to have you on board. Please start by completing your doctoral profile details and thesis registration.`,
+      type: 'WELCOME',
+      link: 'profile'
     });
 
     res.status(201).json({

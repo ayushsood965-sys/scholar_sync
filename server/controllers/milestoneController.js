@@ -1,5 +1,6 @@
 const Milestone = require('../models/Milestone');
 const Thesis = require('../models/Thesis');
+const { createNotification } = require('./notificationController');
 
 // GET /api/milestones/:thesisId
 const getMilestones = async (req, res) => {
@@ -39,6 +40,16 @@ const submitDocument = async (req, res) => {
     milestone.submittedAt = new Date();
     await milestone.save();
 
+    if (thesis.supervisorId) {
+      await createNotification({
+        recipient: thesis.supervisorId,
+        title: '⏳ Milestone Review Pending',
+        message: `Scholar "${req.user.name}" has uploaded a document for milestone "${milestone.title}". Action needed: Please review and record your grade.`,
+        type: 'PENDING_ACTION',
+        link: 'overview'
+      });
+    }
+
     res.json(milestone);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -66,6 +77,27 @@ const reviewMilestone = async (req, res) => {
     await milestone.save();
 
     // If FINAL_SUBMISSION approved → supervisor triggers final approve on thesis (handled via thesis route)
+    const thesis = await Thesis.findById(milestone.thesisId);
+    if (thesis) {
+      if (milestone.status === 'APPROVED') {
+        await createNotification({
+          recipient: thesis.scholarId,
+          title: '🎉 Milestone Approved!',
+          message: `Your supervisor "${req.user.name}" has APPROVED your submission for milestone "${milestone.title}".`,
+          type: 'SUCCESSFUL_ACTION',
+          link: 'overview'
+        });
+      } else {
+        await createNotification({
+          recipient: thesis.scholarId,
+          title: '⚠️ Milestone Revision Required',
+          message: `Your supervisor "${req.user.name}" has requested corrections for milestone "${milestone.title}". Feedback: "${comment || 'Please check supervisor comments.'}"`,
+          type: 'PENDING_ACTION',
+          link: 'overview'
+        });
+      }
+    }
+
     res.json(milestone);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -77,6 +109,18 @@ const createMilestone = async (req, res) => {
   try {
     const { thesisId, type, title, sequence, dueDate } = req.body;
     const milestone = await Milestone.create({ thesisId, type, title, sequence, dueDate });
+
+    const thesis = await Thesis.findById(thesisId);
+    if (thesis) {
+      await createNotification({
+        recipient: thesis.scholarId,
+        title: '🚀 New Deliverable Assigned',
+        message: `A new milestone has been created for your Ph.D. track: "${title}". Due Date: ${dueDate ? new Date(dueDate).toLocaleDateString() : 'N/A'}.`,
+        type: 'INFO',
+        link: 'overview'
+      });
+    }
+
     res.status(201).json(milestone);
   } catch (err) {
     res.status(500).json({ message: err.message });
