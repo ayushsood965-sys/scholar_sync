@@ -25,6 +25,7 @@ connectDB().then(async () => {
         password: 'admin',
         role: 'SUPER_ADMIN',
         isActive: true,
+        isVerified: true,
         profileCompleted: true
       });
       console.log('✅ Auto-seeded Super Admin account (admin/admin) successfully!');
@@ -34,6 +35,7 @@ connectDB().then(async () => {
       superAdmin.role = 'SUPER_ADMIN';
       superAdmin.password = 'admin'; // Will trigger pre-save hashing
       superAdmin.isActive = true;
+      superAdmin.isVerified = true;
       superAdmin.profileCompleted = true;
       await superAdmin.save();
       console.log('✅ Synchronized and restored Super Admin credentials (admin/admin)!');
@@ -44,9 +46,9 @@ connectDB().then(async () => {
     if (count <= 1) {
       console.log('Auto-seeding default developer accounts...');
       const defaultUsers = [
-        { name: 'Student User', username: 'student', password: 'student', role: 'STUDENT', department: 'Computer Science' },
-        { name: 'Dr. Faculty Supervisor', username: 'faculty', password: 'faculty', role: 'FACULTY', subRole: 'SUPERVISOR', department: 'Computer Science' },
-        { name: 'Prof. HOD Faculty', username: 'hod', password: 'hod', role: 'FACULTY', subRole: 'HOD', department: 'Computer Science' },
+        { name: 'Student User', username: 'student', password: 'student', role: 'STUDENT', department: 'Computer Science', isVerified: true },
+        { name: 'Dr. Faculty Supervisor', username: 'faculty', password: 'faculty', role: 'FACULTY', subRole: 'SUPERVISOR', department: 'Computer Science', isVerified: true },
+        { name: 'Prof. HOD Faculty', username: 'hod', password: 'hod', role: 'FACULTY', subRole: 'HOD', department: 'Computer Science', isVerified: true },
       ];
       for (const u of defaultUsers) {
         await User.create(u);

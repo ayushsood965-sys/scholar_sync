@@ -23,6 +23,14 @@ const ProfileOnboardingModal = ({ isOpen, onClose }) => {
     setLoading(true);
     setError('');
 
+    const cleanedPhone = phoneNumber.trim().replace(/[\s\-()]/g, '');
+    const indianPhoneRegex = /^(\+91|91|0)?[6-9]\d{9}$/;
+    if (!indianPhoneRegex.test(cleanedPhone)) {
+      setError('Please enter a valid 10-digit Indian phone number (starts with 6-9).');
+      setLoading(false);
+      return;
+    }
+
     const payload = {
       phoneNumber,
       address,
@@ -114,7 +122,7 @@ const ProfileOnboardingModal = ({ isOpen, onClose }) => {
             <input 
               type="text" 
               className="form-input" 
-              placeholder="+1 (555) 019-2834"
+              placeholder="Enter 10-digit mobile number e.g. 9876543210"
               value={phoneNumber}
               onChange={(e) => setPhoneNumber(e.target.value)}
               required

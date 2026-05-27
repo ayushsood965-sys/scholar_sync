@@ -6,7 +6,7 @@ import { NotificationContext } from '../context/NotificationContext';
 import { ThesisContext } from '../context/ThesisContext';
 import ProfileOnboardingModal from '../components/ProfileOnboardingModal';
 
-const Sidebar = ({ activeTab, setActiveTab, subRole }) => {
+const Sidebar = ({ activeTab, setActiveTab, subRole, isVerified }) => {
   const { logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const supervisorItems = [
@@ -36,12 +36,27 @@ const Sidebar = ({ activeTab, setActiveTab, subRole }) => {
         {subRole && <div style={{ textAlign: 'center', fontSize: '0.7rem', background: subRole === 'HOD' ? '#FEF3C7' : '#DBEAFE', color: subRole === 'HOD' ? '#D97706' : '#1D4ED8', borderRadius: 6, padding: '2px 8px', margin: '4px auto', width: 'fit-content' }}>{subRole}</div>}
       </div>
       <div className="sidebar-nav">
-        {items.map(({ key, label, Icon }) => (
-          <button key={key} className={`nav-item ${activeTab === key ? 'active' : ''}`} onClick={() => setActiveTab(key)}
-            style={{ background: 'none', border: 'none', width: '100%', cursor: 'pointer', textAlign: 'left' }}>
-            <Icon className="nav-icon" /> {label}
-          </button>
-        ))}
+        {items.map(({ key, label, Icon }) => {
+          const disabled = !isVerified && key !== 'profile';
+          return (
+            <button 
+              key={key} 
+              className={`nav-item ${activeTab === key ? 'active' : ''}`} 
+              onClick={() => { if (!disabled) setActiveTab(key); }}
+              disabled={disabled}
+              style={{ 
+                background: 'none', 
+                border: 'none', 
+                width: '100%', 
+                cursor: disabled ? 'not-allowed' : 'pointer', 
+                textAlign: 'left',
+                opacity: disabled ? 0.45 : 1
+              }}
+            >
+              <Icon className="nav-icon" /> {label} {disabled && '🔒'}
+            </button>
+          );
+        })}
       </div>
       <div className="sidebar-bottom">
         <button className="nav-item" onClick={() => { logout(); navigate('/'); }}
@@ -62,7 +77,14 @@ const Header = ({ title, user }) => {
       <div className="header-actions">
         <div className="notification-bell"><Bell size={20} />{unread > 0 && <span className="notification-badge">{unread}</span>}</div>
         <div className="user-profile">
-          <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?ixlib=rb-1.2.1&auto=format&fit=crop&w=128&q=80" alt="Faculty" className="user-avatar" />
+          {user?.avatarUrl ? (
+            <img src={`http://localhost:5000${user.avatarUrl}`} alt="Faculty" className="user-avatar" style={{ objectFit: 'cover' }} />
+          ) : (
+            <svg viewBox="0 0 100 100" className="user-avatar" style={{ width: 36, height: 36, borderRadius: '50%', background: '#e2e8f0', display: 'block' }}>
+              <circle cx="50" cy="35" r="20" fill="#94a3b8" />
+              <path d="M15 85c0-13.8 11.2-25 25-25h20c13.8 0 25 11.2 25 25z" fill="#94a3b8" />
+            </svg>
+          )}
           <div className="user-info"><span className="user-name">{user?.name || 'Faculty'}</span><span className="user-dept">{user?.subRole || 'FACULTY'}</span></div>
         </div>
       </div>
@@ -270,7 +292,7 @@ const OverviewPage = ({ theses, user, onSelect }) => {
 
 // ── Profile Tab ──
 const ProfileTab = () => {
-  const { user, updateProfile } = useContext(AuthContext);
+  const { user, updateProfile, uploadAvatar } = useContext(AuthContext);
   const [phoneNumber, setPhoneNumber] = useState(user?.profile?.phoneNumber || '');
   const [address, setAddress] = useState(user?.profile?.address || '');
   const [academicBackground, setAcademicBackground] = useState(user?.profile?.academicBackground || '');
@@ -282,12 +304,36 @@ const ProfileTab = () => {
   const [additionalResponsibilities, setAdditionalResponsibilities] = useState(user?.profile?.additionalResponsibilities || '');
 
   const [loading, setLoading] = useState(false);
+  const [avatarLoading, setAvatarLoading] = useState(false);
   const [msg, setMsg] = useState('');
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setAvatarLoading(true);
+    setMsg('');
+    const res = await uploadAvatar(file);
+    setAvatarLoading(false);
+    if (res.success) {
+      setMsg('Profile picture uploaded successfully!');
+    } else {
+      setMsg('Failed to upload profile picture: ' + res.message);
+    }
+  };
 
   const handleUpdate = async (e) => {
     e.preventDefault();
     setLoading(true);
     setMsg('');
+
+    const cleanedPhone = phoneNumber.trim().replace(/[\s\-()]/g, '');
+    const indianPhoneRegex = /^(\+91|91|0)?[6-9]\d{9}$/;
+    if (!indianPhoneRegex.test(cleanedPhone)) {
+      setMsg('Failed to update profile: Please enter a valid 10-digit Indian phone number (starts with 6-9).');
+      setLoading(false);
+      return;
+    }
+
     const payload = {
       phoneNumber,
       address,
@@ -311,6 +357,30 @@ const ProfileTab = () => {
   return (
     <div className="card" style={{ maxWidth: 600, margin: '0 auto' }}>
       <h3 className="card-title" style={{ fontSize: '1.2rem', marginBottom: 16 }}>My Profile & Credentials</h3>
+
+      {/* Profile Picture Upload */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '24px', paddingBottom: '20px', borderBottom: '1px solid #E5E7EB' }}>
+        {user?.avatarUrl ? (
+          <img 
+            src={`http://localhost:5000${user.avatarUrl}`} 
+            alt="Avatar Preview" 
+            style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #E2E8F0', background: '#F8FAFC' }} 
+          />
+        ) : (
+          <svg viewBox="0 0 100 100" style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#e2e8f0', display: 'block', border: '3px solid #E2E8F0' }}>
+            <circle cx="50" cy="35" r="20" fill="#94a3b8" />
+            <path d="M15 85c0-13.8 11.2-25 25-25h20c13.8 0 25 11.2 25 25z" fill="#94a3b8" />
+          </svg>
+        )}
+        <div>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#133A26', color: 'white', padding: '8px 14px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}>
+            {avatarLoading ? 'Uploading...' : '📷 Change Profile Picture'}
+            <input type="file" accept="image/*" onChange={handleAvatarChange} style={{ display: 'none' }} disabled={avatarLoading} />
+          </label>
+          <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748B', marginTop: '6px' }}>JPG, PNG or GIF. Max 5MB.</span>
+        </div>
+      </div>
+
       {msg && (
         <div style={{
           padding: 12,
@@ -347,8 +417,8 @@ const ProfileTab = () => {
         </div>
 
         <div>
-          <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Phone Number</label>
-          <input type="text" className="form-input" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} required />
+          <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Phone Number (Indian Format)</label>
+          <input type="text" className="form-input" placeholder="Enter 10-digit mobile number e.g. 9876543210" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} required />
         </div>
         <div>
           <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Address</label>
@@ -406,7 +476,7 @@ const ProfileTab = () => {
 // ── Main Dashboard ──
 const FacultyDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
-  const { user } = useContext(AuthContext);
+  const { user, fetchMe } = useContext(AuthContext);
   const { allTheses, loading, fetchAssignedTheses, fetchDeptTheses, fetchThesisById, reviewMilestone, drcApprove, seminarClear, finalApprove, clearCoursework } = useContext(ThesisContext);
   const [selectedThesisId, setSelectedThesisId] = useState(null);
   const [selectedThesisData, setSelectedThesisData] = useState(null);
@@ -419,6 +489,11 @@ const FacultyDashboard = () => {
     if (subRole === 'HOD') fetchDeptTheses();
     else fetchAssignedTheses();
   }, [subRole]);
+
+  useEffect(() => {
+    // Dynamic background update on mount
+    fetchMe();
+  }, []);
 
   const handleSelectThesis = async (id) => {
     setSelectedThesisId(id);
@@ -442,6 +517,37 @@ const FacultyDashboard = () => {
   const titles = { overview: 'Faculty Dashboard', scholars: 'My Scholars', reviews: 'Pending Reviews', dept: 'Department Theses', drc: 'DRC & Seminar Approvals', profile: 'My Profile' };
 
   const renderContent = () => {
+    if (!user?.isVerified) {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', padding: 24 }}>
+          <div className="card" style={{ maxWidth: 520, width: '100%', textAlign: 'center', padding: '40px 32px', borderLeft: '8px solid #DC2626', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+            <div style={{ width: 64, height: 64, background: '#FEE2E2', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+              <XCircle size={32} color="#DC2626" />
+            </div>
+            <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#111827', marginBottom: 12 }}>Account Unverified</h2>
+            <p style={{ color: '#4B5563', fontSize: '0.95rem', lineHeight: 1.6, marginBottom: 24 }}>
+              account is not verified. Please contact HOD of your deaprtment in case of faculty and contact the super admin in case of HOD.
+            </p>
+            <button 
+              onClick={async () => {
+                const fresh = await fetchMe();
+                if (fresh?.isVerified) {
+                  alert("Your account has been approved! Reloading dashboard...");
+                  window.location.reload();
+                } else {
+                  alert("Your account is still unverified. Please contact HOD of your department in case of faculty and contact the super admin in case of HOD.");
+                }
+              }}
+              className="btn-primary"
+              style={{ background: '#059669', border: 'none', padding: '10px 20px', fontSize: '0.85rem' }}
+            >
+              🔄 Check Status
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     switch (activeTab) {
       case 'overview': return <OverviewPage theses={allTheses} user={user} onSelect={handleSelectThesis} />;
       case 'scholars': return <ScholarList theses={allTheses} onSelect={handleSelectThesis} title="My Assigned Scholars" />;
@@ -455,7 +561,7 @@ const FacultyDashboard = () => {
 
   return (
     <div className="app-container">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} subRole={subRole} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} subRole={subRole} isVerified={user?.isVerified} />
       <div className="main-content" style={{ display: 'flex', flexDirection: 'column' }}>
         {/* Floating warning banner */}
         {user && !user.profileCompleted && (

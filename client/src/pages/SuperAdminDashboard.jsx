@@ -15,12 +15,14 @@ const Header = ({ title }) => {
       <div className="header-title" style={{ color: '#34d399', fontWeight: 800 }}>{title}</div>
       <div className="header-actions">
         <div className="user-profile">
-          <div style={{ 
-            width: 36, height: 36, borderRadius: '50%', background: '#059669', 
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: 'white' 
-          }}>
-            SA
-          </div>
+          {user?.avatarUrl ? (
+            <img src={`http://localhost:5000${user.avatarUrl}`} alt="SA" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid #34d399' }} />
+          ) : (
+            <svg viewBox="0 0 100 100" style={{ width: 36, height: 36, borderRadius: '50%', background: '#e2e8f0', display: 'block', border: '2px solid #34d399' }}>
+              <circle cx="50" cy="35" r="20" fill="#94a3b8" />
+              <path d="M15 85c0-13.8 11.2-25 25-25h20c13.8 0 25 11.2 25 25z" fill="#94a3b8" />
+            </svg>
+          )}
           <div className="user-info">
             <span className="user-name" style={{ color: '#f8fafc' }}>{user?.name || 'Super Admin'}</span>
             <span className="user-dept" style={{ color: '#34d399', fontWeight: 600 }}>SYSTEM ROOT</span>
@@ -83,6 +85,7 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
 // ── MAIN SUPER ADMIN DASHBOARD ──
 const SuperAdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
+  const { uploadAvatar } = useContext(AuthContext);
   const [users, setUsers] = useState([]);
   const [depts, setDepts] = useState([]);
   const [stats, setStats] = useState({ depts: 0, faculty: 0, hods: 0, scholars: 0 });
@@ -381,8 +384,9 @@ const SuperAdminDashboard = () => {
                   <div style={{ flex: 2.5 }}>Name / Email</div>
                   <div style={{ flex: 2 }}>Department</div>
                   <div style={{ flex: 1.5 }}>Sub-Role</div>
+                  <div style={{ flex: 1.5 }}>Verification</div>
                   <div style={{ flex: 1.5 }}>Account Status</div>
-                  <div style={{ flex: 2, textAlign: 'center' }}>Actions</div>
+                  <div style={{ flex: 2.8, textAlign: 'center' }}>Actions</div>
                 </div>
                 {filteredFaculty.map(f => (
                   <div key={f._id} className="file-item" style={{ opacity: f.isActive ? 1 : 0.65 }}>
@@ -398,6 +402,15 @@ const SuperAdminDashboard = () => {
                     </div>
                     <div style={{ flex: 1.5 }}>
                       <span style={{ 
+                        background: f.isVerified ? '#d1fae5' : '#fef3c7', 
+                        color: f.isVerified ? '#065f46' : '#d97706', 
+                        padding: '4px 10px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 600 
+                      }}>
+                        {f.isVerified ? 'Verified' : 'Unverified'}
+                      </span>
+                    </div>
+                    <div style={{ flex: 1.5 }}>
+                      <span style={{ 
                         background: f.isActive ? '#d1fae5' : '#fee2e2', 
                         color: f.isActive ? '#065f46' : '#991b1b', 
                         padding: '4px 10px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 600 
@@ -405,14 +418,31 @@ const SuperAdminDashboard = () => {
                         {f.isActive ? 'Active' : 'Disabled'}
                       </span>
                     </div>
-                    <div style={{ flex: 2, display: 'flex', gap: 8, justifyContent: 'center' }}>
+                    <div style={{ flex: 2.8, display: 'flex', gap: 6, justifyContent: 'center', alignItems: 'center' }}>
                       <button 
                         onClick={() => handleToggleActive(f._id)}
                         className="btn-outline" 
-                        style={{ fontSize: '0.75rem', padding: '6px 12px', borderColor: f.isActive ? '#ef4444' : '#10b981', color: f.isActive ? '#ef4444' : '#10b981' }}
+                        style={{ fontSize: '0.75rem', padding: '6px 10px', borderColor: f.isActive ? '#ef4444' : '#10b981', color: f.isActive ? '#ef4444' : '#10b981' }}
                       >
                         {f.isActive ? 'Disable' : 'Enable'}
                       </button>
+                      {!f.isVerified && (
+                        <button 
+                          onClick={async () => {
+                            try {
+                              await axios.put(`${API}/auth/users/${f._id}/verify`, {}, getAuthHeader());
+                              setSuccessMsg('Faculty account verified successfully.');
+                              fetchData();
+                            } catch (err) {
+                              setErrorMsg(err.response?.data?.message || 'Error verifying account.');
+                            }
+                          }}
+                          className="btn-outline" 
+                          style={{ fontSize: '0.75rem', padding: '6px 10px', borderColor: '#2563eb', color: '#2563eb' }}
+                        >
+                          Verify
+                        </button>
+                      )}
                       <button 
                         onClick={() => handleDeleteUser(f._id)}
                         style={{ border: 'none', background: '#fef2f2', color: '#dc2626', padding: '6px 10px', borderRadius: 8, cursor: 'pointer' }}
@@ -458,8 +488,9 @@ const SuperAdminDashboard = () => {
                   <div style={{ flex: 2.5 }}>Name / Email</div>
                   <div style={{ flex: 2 }}>Department</div>
                   <div style={{ flex: 1.5 }}>Role</div>
+                  <div style={{ flex: 1.5 }}>Verification</div>
                   <div style={{ flex: 1.5 }}>Account Status</div>
-                  <div style={{ flex: 2, textAlign: 'center' }}>Actions</div>
+                  <div style={{ flex: 2.8, textAlign: 'center' }}>Actions</div>
                 </div>
                 {filteredHods.map(h => (
                   <div key={h._id} className="file-item" style={{ opacity: h.isActive ? 1 : 0.65 }}>
@@ -475,6 +506,15 @@ const SuperAdminDashboard = () => {
                     </div>
                     <div style={{ flex: 1.5 }}>
                       <span style={{ 
+                        background: h.isVerified ? '#d1fae5' : '#fef3c7', 
+                        color: h.isVerified ? '#065f46' : '#d97706', 
+                        padding: '4px 10px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 600 
+                      }}>
+                        {h.isVerified ? 'Verified' : 'Unverified'}
+                      </span>
+                    </div>
+                    <div style={{ flex: 1.5 }}>
+                      <span style={{ 
                         background: h.isActive ? '#d1fae5' : '#fee2e2', 
                         color: h.isActive ? '#065f46' : '#991b1b', 
                         padding: '4px 10px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 600 
@@ -482,14 +522,31 @@ const SuperAdminDashboard = () => {
                         {h.isActive ? 'Active' : 'Disabled'}
                       </span>
                     </div>
-                    <div style={{ flex: 2, display: 'flex', gap: 8, justifyContent: 'center' }}>
+                    <div style={{ flex: 2.8, display: 'flex', gap: 6, justifyContent: 'center', alignItems: 'center' }}>
                       <button 
                         onClick={() => handleToggleActive(h._id)}
                         className="btn-outline" 
-                        style={{ fontSize: '0.75rem', padding: '6px 12px', borderColor: h.isActive ? '#ef4444' : '#10b981', color: h.isActive ? '#ef4444' : '#10b981' }}
+                        style={{ fontSize: '0.75rem', padding: '6px 10px', borderColor: h.isActive ? '#ef4444' : '#10b981', color: h.isActive ? '#ef4444' : '#10b981' }}
                       >
                         {h.isActive ? 'Disable' : 'Enable'}
                       </button>
+                      {!h.isVerified && (
+                        <button 
+                          onClick={async () => {
+                            try {
+                              await axios.put(`${API}/auth/users/${h._id}/verify`, {}, getAuthHeader());
+                              setSuccessMsg('HOD account verified successfully.');
+                              fetchData();
+                            } catch (err) {
+                              setErrorMsg(err.response?.data?.message || 'Error verifying account.');
+                            }
+                          }}
+                          className="btn-outline" 
+                          style={{ fontSize: '0.75rem', padding: '6px 10px', borderColor: '#2563eb', color: '#2563eb' }}
+                        >
+                          Verify
+                        </button>
+                      )}
                       <button 
                         onClick={() => handleDeleteUser(h._id)}
                         style={{ border: 'none', background: '#fef2f2', color: '#dc2626', padding: '6px 10px', borderRadius: 8, cursor: 'pointer' }}
@@ -508,31 +565,69 @@ const SuperAdminDashboard = () => {
           )}
 
           {/* ── TAB 5: PROFILE Tab ── */}
-          {activeTab === 'profile' && (
-            <div className="card" style={{ background: 'white', padding: 32, borderRadius: 12, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', maxWidth: 600, margin: '0 auto' }}>
-              <div style={{ textAlign: 'center', marginBottom: 24 }}>
-                <div style={{ width: 80, height: 80, borderRadius: '50%', background: '#059669', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', fontWeight: 800, margin: '0 auto 16px' }}>
-                  SA
+          {activeTab === 'profile' && (() => {
+            const [avatarLoading, setAvatarLoading] = useState(false);
+            const [avatarMsg, setAvatarMsg] = useState('');
+            const handleAvatarChange = async (e) => {
+              const file = e.target.files[0];
+              if (!file) return;
+              setAvatarLoading(true);
+              setAvatarMsg('');
+              const res = await uploadAvatar(file);
+              setAvatarLoading(false);
+              if (res.success) {
+                setAvatarMsg('Profile picture uploaded successfully!');
+              } else {
+                setAvatarMsg('Failed to upload profile picture: ' + res.message);
+              }
+            };
+            return (
+              <div className="card" style={{ background: 'white', padding: 32, borderRadius: 12, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', maxWidth: 600, margin: '0 auto' }}>
+                <div style={{ textAlign: 'center', marginBottom: 24 }}>
+                  {user?.avatarUrl ? (
+                    <img 
+                      src={`http://localhost:5000${user.avatarUrl}`} 
+                      alt="Avatar" 
+                      style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover', border: '3px solid #34d399', background: '#1e293b', margin: '0 auto 16px', display: 'block' }} 
+                    />
+                  ) : (
+                    <svg viewBox="0 0 100 100" style={{ width: 80, height: 80, borderRadius: '50%', background: '#e2e8f0', display: 'block', border: '3px solid #34d399', margin: '0 auto 16px' }}>
+                      <circle cx="50" cy="35" r="20" fill="#94a3b8" />
+                      <path d="M15 85c0-13.8 11.2-25 25-25h20c13.8 0 25 11.2 25 25z" fill="#94a3b8" />
+                    </svg>
+                  )}
+                  <h3 style={{ margin: 0, fontWeight: 800 }}>Master Credentials</h3>
+                  <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: 16 }}> ScholarSync root authority configuration sheet</p>
+                  
+                  <div>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#0f172a', color: 'white', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}>
+                      {avatarLoading ? 'Uploading...' : '📷 Change Profile Picture'}
+                      <input type="file" accept="image/*" onChange={handleAvatarChange} style={{ display: 'none' }} disabled={avatarLoading} />
+                    </label>
+                  </div>
+                  {avatarMsg && (
+                    <div style={{ marginTop: 12, color: avatarMsg.includes('successfully') ? '#10b981' : '#ef4444', fontSize: '0.8rem', fontWeight: 600 }}>
+                      {avatarMsg}
+                    </div>
+                  )}
                 </div>
-                <h3 style={{ margin: 0, fontWeight: 800 }}>Master Credentials</h3>
-                <p style={{ color: '#64748b', fontSize: '0.9rem' }}> ScholarSync root authority configuration sheet</p>
-              </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div style={{ background: '#f8fafc', padding: 16, borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <span style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>MASTER USERNAME</span>
-                  <strong style={{ fontSize: '1rem', color: '#0f172a' }}>admin</strong>
-                </div>
-                <div style={{ background: '#f8fafc', padding: 16, borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <span style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>MASTER ROLE</span>
-                  <strong style={{ fontSize: '1rem', color: '#059669' }}>SUPER_ADMIN (ROOT)</strong>
-                </div>
-                <div style={{ background: '#fef2f2', padding: 16, borderRadius: 8, border: '1px solid #fecaca', color: '#991b1b' }}>
-                  <strong>🔒 High Security Area:</strong> Super Admin password is auto-seeded to "admin" on every server connection bootstrap. You do not need to perform manual registration checks for this node.
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <div style={{ background: '#f8fafc', padding: 16, borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                    <span style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>MASTER USERNAME</span>
+                    <strong style={{ fontSize: '1rem', color: '#0f172a' }}>admin</strong>
+                  </div>
+                  <div style={{ background: '#f8fafc', padding: 16, borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                    <span style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>MASTER ROLE</span>
+                    <strong style={{ fontSize: '1rem', color: '#059669' }}>SUPER_ADMIN (ROOT)</strong>
+                  </div>
+                  <div style={{ background: '#fef2f2', padding: 16, borderRadius: 8, border: '1px solid #fecaca', color: '#991b1b' }}>
+                    <strong>🔒 High Security Area:</strong> Super Admin password is auto-seeded to "admin" on every server connection bootstrap. You do not need to perform manual registration checks for this node.
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
         </div>
       </div>

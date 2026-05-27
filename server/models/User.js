@@ -35,9 +35,17 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
     profileCompleted: {
       type: Boolean,
       default: false,
+    },
+    avatarUrl: {
+      type: String,
+      default: '',
     },
     profile: {
       phoneNumber: { type: String, default: '' },

@@ -41,11 +41,11 @@ const Login = () => {
         
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label className="form-label">Username</label>
+            <label className="form-label">Username (Email ID)</label>
             <input 
               type="text" 
               className="form-input" 
-              placeholder="student" 
+              placeholder="Enter your email id" 
               value={username}
               onChange={(e) => setUsername(e.target.value)}
             />

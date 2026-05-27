@@ -70,6 +70,43 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const uploadAvatar = async (file) => {
+    try {
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('avatar', file);
+      const { data } = await axios.put('http://localhost:5000/api/auth/profile/avatar', formData, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      const updatedUser = { ...user, ...data };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+      addNotification('Profile picture updated successfully!');
+      return { success: true };
+    } catch (error) {
+      return { success: false, message: error.response?.data?.message || 'Avatar upload failed' };
+    }
+  };
+
+  const fetchMe = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      const { data } = await axios.get('http://localhost:5000/api/auth/me', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const updatedUser = { ...user, ...data };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+      return updatedUser;
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -77,7 +114,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading, updateProfile }}>
+    <AuthContext.Provider value={{ user, login, register, logout, loading, updateProfile, uploadAvatar, fetchMe }}>
       {children}
     </AuthContext.Provider>
   );

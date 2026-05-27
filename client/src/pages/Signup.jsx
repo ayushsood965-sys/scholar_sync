@@ -8,6 +8,7 @@ const Signup = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('STUDENT');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [department, setDepartment] = useState('');
   const [depts, setDepts] = useState([]);
   const [error, setError] = useState('');
@@ -27,12 +28,19 @@ const Signup = () => {
     e.preventDefault();
     setError('');
     
-    if (!name || !username || !password || !department) {
+    if (!name || !username || !password || !department || !phoneNumber) {
       setError('Please fill in all fields');
       return;
     }
 
-    const result = await register({ name, username, password, role, department });
+    const cleanedPhone = phoneNumber.trim().replace(/[\s\-()]/g, '');
+    const indianPhoneRegex = /^(\+91|91|0)?[6-9]\d{9}$/;
+    if (!indianPhoneRegex.test(cleanedPhone)) {
+      setError('Please enter a valid 10-digit Indian phone number (starts with 6-9).');
+      return;
+    }
+
+    const result = await register({ name, username, password, role, department, phoneNumber });
     if (result.success) {
       if (result.role === 'ADMIN' || result.role === 'HOD') navigate('/admin-dashboard');
       else if (result.role === 'FACULTY') navigate('/faculty-dashboard');
@@ -70,7 +78,7 @@ const Signup = () => {
             <input 
               type="text" 
               className="form-input" 
-              placeholder="Dr. Jane Doe or Student Name" 
+              placeholder="Enter your full name" 
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
@@ -81,9 +89,20 @@ const Signup = () => {
             <input 
               type="email" 
               className="form-input" 
-              placeholder="jane.doe@university.edu" 
+              placeholder="Enter your email id" 
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              required
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Phone Number (Indian Format)</label>
+            <input 
+              type="text" 
+              className="form-input" 
+              placeholder="Enter 10-digit mobile number e.g. 9876543210" 
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
               required
             />
           </div>

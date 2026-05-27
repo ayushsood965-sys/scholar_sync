@@ -55,7 +55,14 @@ export const ThesisProvider = ({ children }) => {
       ...getAuthHeader(),
       headers: { ...getAuthHeader().headers, 'Content-Type': 'multipart/form-data' },
     });
-    setMilestones(prev => prev.map(m => m._id === milestoneId ? data : m));
+    // Refresh student thesis and milestones state to reflect changes instantly
+    try {
+      const { data: updatedData } = await axios.get(`${API}/thesis/me`, getAuthHeader());
+      setThesis(updatedData.thesis);
+      setMilestones(updatedData.milestones);
+    } catch (e) {
+      setMilestones(prev => prev.map(m => m._id === milestoneId ? data : m));
+    }
     return data;
   };
 

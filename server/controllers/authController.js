@@ -21,7 +21,8 @@ const login = async (req, res) => {
       res.json({
         _id: user._id, name: user.name, username: user.username,
         role: user.role, subRole: user.subRole, department: user.department,
-        isActive: user.isActive, profileCompleted: user.profileCompleted, profile: user.profile,
+        isActive: user.isActive, isVerified: user.isVerified, profileCompleted: user.profileCompleted,
+        avatarUrl: user.avatarUrl, profile: user.profile,
         token: generateToken(user._id, user.role),
       });
     } else {
@@ -34,11 +35,24 @@ const login = async (req, res) => {
 
 // POST /api/auth/register
 const register = async (req, res) => {
-  const { name, username, password, role, department } = req.body;
+  const { name, username, password, role, department, phoneNumber } = req.body;
   try {
     if (await User.findOne({ username })) {
       return res.status(400).json({ message: 'User already exists' });
     }
+
+    if (!phoneNumber) {
+      return res.status(400).json({ message: 'Phone number is required' });
+    }
+
+    // Clean and validate Indian phone number format
+    const cleanedPhone = phoneNumber.trim().replace(/[\s\-()]/g, '');
+    const indianPhoneRegex = /^(\+91|91|0)?[6-9]\d{9}$/;
+    if (!indianPhoneRegex.test(cleanedPhone)) {
+      return res.status(400).json({ message: 'Please enter a valid 10-digit Indian phone number (starts with 6-9).' });
+    }
+    const tenDigits = cleanedPhone.slice(-10);
+    const formattedPhone = `+91 ${tenDigits.slice(0, 5)}-${tenDigits.slice(5)}`;
 
     // Constraint: Only one HOD can exist per department
     if (role === 'HOD') {
@@ -51,13 +65,15 @@ const register = async (req, res) => {
     }
 
     const user = await User.create({ 
-      name, username, password, role: role || 'STUDENT', department 
+      name, username, password, role: role || 'STUDENT', department,
+      profile: { phoneNumber: formattedPhone }
     });
 
     res.status(201).json({
       _id: user._id, name: user.name, username: user.username,
       role: user.role, subRole: user.subRole, department: user.department,
-      isActive: user.isActive, profileCompleted: user.profileCompleted, profile: user.profile,
+      isActive: user.isActive, isVerified: user.isVerified, profileCompleted: user.profileCompleted,
+      avatarUrl: user.avatarUrl, profile: user.profile,
       token: generateToken(user._id, user.role),
     });
   } catch (error) {
@@ -81,14 +97,26 @@ const updateProfile = async (req, res) => {
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    user.profile = { ...user.profile, ...req.body };
+    const profileData = { ...req.body };
+    if (profileData.phoneNumber) {
+      const cleanedPhone = profileData.phoneNumber.trim().replace(/[\s\-()]/g, '');
+      const indianPhoneRegex = /^(\+91|91|0)?[6-9]\d{9}$/;
+      if (!indianPhoneRegex.test(cleanedPhone)) {
+        return res.status(400).json({ message: 'Please enter a valid 10-digit Indian phone number (starts with 6-9).' });
+      }
+      const tenDigits = cleanedPhone.slice(-10);
+      profileData.phoneNumber = `+91 ${tenDigits.slice(0, 5)}-${tenDigits.slice(5)}`;
+    }
+
+    user.profile = { ...user.profile, ...profileData };
     user.profileCompleted = true;
     await user.save();
 
     res.json({
       _id: user._id, name: user.name, username: user.username,
       role: user.role, subRole: user.subRole, department: user.department,
-      isActive: user.isActive, profileCompleted: user.profileCompleted, profile: user.profile,
+      isActive: user.isActive, isVerified: user.isVerified, profileCompleted: user.profileCompleted,
+      avatarUrl: user.avatarUrl, profile: user.profile,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -125,7 +153,7 @@ const getDeptUsers = async (req, res) => {
       return res.status(403).json({ message: 'Action restricted to HOD.' });
     }
     const query = req.user.role === 'ADMIN' ? {} : { department: req.user.department };
-    const users = await User.find(query).select('name username role department isActive profileCompleted');
+    const users = await User.find(query).select('name username role department isActive isVerified profileCompleted');
     res.json(users);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -138,7 +166,7 @@ const getAllUsers = async (req, res) => {
     if (req.user.role !== 'SUPER_ADMIN') {
       return res.status(403).json({ message: 'Action restricted to Super Admin.' });
     }
-    const users = await User.find().select('name username role subRole department isActive profileCompleted profile');
+    const users = await User.find().select('name username role subRole department isActive isVerified profileCompleted profile');
     res.json(users);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -209,4 +237,64 @@ const deleteUser = async (req, res) => {
   }
 };
 
-module.exports = { login, register, getFacultyList, updateProfile, toggleUserActive, getDeptUsers, getAllUsers, adminCreateUser, deleteUser };
+// PUT /api/auth/profile/avatar — Upload and update profile avatar image
+const uploadAvatar = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (!req.file) return res.status(400).json({ message: 'Please select a profile picture' });
+
+    user.avatarUrl = `/uploads/${req.file.filename}`;
+    await user.save();
+
+    res.json({
+      _id: user._id, name: user.name, username: user.username,
+      role: user.role, subRole: user.subRole, department: user.department,
+      isActive: user.isActive, isVerified: user.isVerified, profileCompleted: user.profileCompleted,
+      avatarUrl: user.avatarUrl, profile: user.profile,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// GET /api/auth/me — Fetch current authenticated user details
+const getMe = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    res.json({
+      _id: user._id, name: user.name, username: user.username,
+      role: user.role, subRole: user.subRole, department: user.department,
+      isActive: user.isActive, isVerified: user.isVerified, profileCompleted: user.profileCompleted,
+      avatarUrl: user.avatarUrl, profile: user.profile,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// PUT /api/auth/users/:id/verify — Verify a user account (HOD or Super Admin action)
+const verifyUser = async (req, res) => {
+  try {
+    const targetUser = await User.findById(req.params.id);
+    if (!targetUser) return res.status(404).json({ message: 'User not found' });
+
+    // HODs, ADMINs, or SUPER_ADMINs can verify
+    if (!['HOD', 'ADMIN', 'SUPER_ADMIN'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Not authorized.' });
+    }
+    if (req.user.role === 'HOD' && req.user.department !== targetUser.department) {
+      return res.status(403).json({ message: 'Not authorized. Can only verify users in your own department.' });
+    }
+
+    targetUser.isVerified = true;
+    await targetUser.save();
+
+    res.json({ message: `User account has been verified.`, user: targetUser });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = { login, register, getFacultyList, updateProfile, toggleUserActive, getDeptUsers, getAllUsers, adminCreateUser, deleteUser, uploadAvatar, verifyUser, getMe };

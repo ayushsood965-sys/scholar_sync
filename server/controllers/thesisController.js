@@ -105,6 +105,13 @@ const verifyEnrollment = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized. This scholar belongs to another department.' });
     }
 
+    // Auto verify student's user account
+    const studentUser = await User.findById(thesis.scholarId);
+    if (studentUser) {
+      studentUser.isVerified = true;
+      await studentUser.save();
+    }
+
     thesis.enrollmentVerified = true;
     thesis.status = 'COURSEWORK';
     thesis.auditLog.push({ action: 'ENROLLMENT_VERIFIED', note: `Verified by HOD on ${new Date().toDateString()}` });
