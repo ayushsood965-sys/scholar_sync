@@ -1,0 +1,41 @@
+const express = require('express');
+const router = express.Router();
+const { protect } = require('../middleware/authMiddleware');
+const {
+  scheduleRAC,
+  uploadRACReport,
+  submitRACResult,
+  getRACs,
+  submitChangeRequest,
+  reviewChangeRequest,
+  getChangeRequests,
+  getDeptChangeRequests,
+  submitPublication,
+  verifyPublication,
+  getPublications,
+  getDeptPublications,
+  generateCertificate
+} = require('../controllers/lifecycleController');
+
+// ── RAC reviews ──
+router.post('/rac/schedule', protect, scheduleRAC);
+router.put('/rac/:id/report', protect, uploadRACReport);
+router.put('/rac/:id/result', protect, submitRACResult);
+router.get('/rac/thesis/:thesisId', protect, getRACs);
+
+// ── Change Requests ──
+router.post('/change-requests', protect, submitChangeRequest);
+router.put('/change-requests/:id/review', protect, reviewChangeRequest);
+router.get('/change-requests/thesis/:thesisId', protect, getChangeRequests);
+router.get('/change-requests/department/:department', protect, getDeptChangeRequests);
+
+// ── Publications ──
+router.post('/publications', protect, submitPublication);
+router.put('/publications/:id/verify', protect, verifyPublication);
+router.get('/publications/thesis/:thesisId', protect, getPublications);
+router.get('/publications/department/:department', protect, getDeptPublications);
+
+// ── Printable dynamic certificates ──
+router.get('/certificates/:thesisId/:type', generateCertificate);
+
+module.exports = router;

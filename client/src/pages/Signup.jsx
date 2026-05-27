@@ -1,5 +1,6 @@
 import React, { useState, useContext, useEffect } from 'react';
 import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 
@@ -53,115 +54,109 @@ const Signup = () => {
   return (
     <div className="subpage-container">
       <Navbar />
-      <div className="glass-panel auth-panel">
-        <h1 className="page-title">Join ScholarSync</h1>
-        <p className="page-desc">Create your credentials to join your department.</p>
-        
-        {error && (
-          <div style={{ 
-            color: '#DC2626', 
-            background: '#FEF2F2', 
-            border: '1px solid #FEE2E2', 
-            padding: '10px', 
-            borderRadius: '8px', 
-            marginBottom: '15px', 
-            textAlign: 'center',
-            fontSize: '0.85rem'
-          }}>
-            {error}
-          </div>
-        )}
-        
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="form-label">Full Name</label>
-            <input 
-              type="text" 
-              className="form-input" 
-              placeholder="Enter your full name" 
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Email Address (Username)</label>
-            <input 
-              type="email" 
-              className="form-input" 
-              placeholder="Enter your email id" 
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Phone Number (Indian Format)</label>
-            <input 
-              type="text" 
-              className="form-input" 
-              placeholder="Enter 10-digit mobile number e.g. 9876543210" 
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Password</label>
-            <input 
-              type="password" 
-              className="form-input" 
-              placeholder="••••••••" 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Academic Department</label>
-            <select 
-              className="form-input" 
-              value={department} 
-              onChange={(e) => setDepartment(e.target.value)}
-              required
-            >
-              <option value="">Select Department...</option>
-              {depts.map(d => (
-                <option key={d._id} value={d.name}>{d.name}</option>
-              ))}
-              {depts.length === 0 && (
-                <>
-                  <option value="Computer Science">Computer Science</option>
-                  <option value="Electrical Engineering">Electrical Engineering</option>
-                  <option value="Mechanical Engineering">Mechanical Engineering</option>
-                  <option value="Criminology">Criminology</option>
-                  <option value="Physics">Physics</option>
-                </>
-              )}
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Role</label>
-            <select 
-              className="form-input" 
-              value={role} 
-              onChange={(e) => setRole(e.target.value)}
-              required
-            >
-              <option value="STUDENT">Student / Scholar</option>
-              <option value="FACULTY">Faculty / Supervisor</option>
-              <option value="HOD">Head of Department (HOD)</option>
-            </select>
-          </div>
-          <button type="submit" className="btn-primary" style={{ display: 'block', width: '100%', textAlign: 'center', marginTop: '24px', cursor: 'pointer' }}>
-            Create Account
-          </button>
-        </form>
-        
-        <p style={{ textAlign: 'center', marginTop: '24px', fontSize: '0.9rem', color: '#4B5563' }}>
-          Already have an account? <Link to="/login" style={{ color: '#133A26', fontWeight: 600 }}>Log in</Link>
-        </p>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 0' }}>
+        <div className="glass-panel auth-panel" style={{ margin: 0 }}>
+          <h1 className="page-title">Join ScholarSync</h1>
+          <p className="page-desc">Create your credentials to join your department.</p>
+          
+          {error && (
+            <div style={{ 
+              color: '#DC2626', 
+              background: '#FEF2F2', 
+              border: '1px solid #FEE2E2', 
+              padding: '10px', 
+              borderRadius: '8px', 
+              marginBottom: '15px', 
+              textAlign: 'center',
+              fontSize: '0.85rem'
+            }}>
+              {error}
+            </div>
+          )}
+          
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label className="form-label">Full Name</label>
+              <input 
+                type="text" 
+                className="form-input" 
+                placeholder="Enter your full name" 
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Email Address (Username)</label>
+              <input 
+                type="email" 
+                className="form-input" 
+                placeholder="Enter your email id" 
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Phone Number (Indian Format)</label>
+              <input 
+                type="text" 
+                className="form-input" 
+                placeholder="Enter 10-digit mobile number e.g. 9876543210" 
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Password</label>
+              <input 
+                type="password" 
+                className="form-input" 
+                placeholder="••••••••" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Department</label>
+              <select 
+                className="form-input" 
+                value={department} 
+                onChange={(e) => setDepartment(e.target.value)}
+                required
+              >
+                <option value="">Select your department</option>
+                {depts.map(d => (
+                  <option key={d._id} value={d.name}>{d.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Role</label>
+              <select 
+                className="form-input" 
+                value={role} 
+                onChange={(e) => setRole(e.target.value)}
+                required
+              >
+                <option value="STUDENT">Student / Scholar</option>
+                <option value="FACULTY">Faculty / Supervisor</option>
+                <option value="HOD">Head of Department (HOD)</option>
+              </select>
+            </div>
+            <button type="submit" className="btn-primary" style={{ display: 'block', width: '100%', textAlign: 'center', marginTop: '24px', cursor: 'pointer' }}>
+              Create Account
+            </button>
+          </form>
+          
+          <p style={{ textAlign: 'center', marginTop: '24px', fontSize: '0.9rem', color: '#4B5563' }}>
+            Already have an account? <Link to="/login" style={{ color: '#133A26', fontWeight: 600 }}>Log in</Link>
+          </p>
+        </div>
       </div>
+      <Footer />
     </div>
   );
 };

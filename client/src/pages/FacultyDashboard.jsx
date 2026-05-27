@@ -1,6 +1,10 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Home, FileText, Users, Calendar, User, LogOut, Bell, CheckCircle2, XCircle } from 'lucide-react';
+import { Home, FileText, Users, Calendar, User, LogOut, Bell, CheckCircle2, XCircle, Layers, Award, Upload } from 'lucide-react';
+import axios from 'axios';
+
+const API = 'http://localhost:5000/api';
+const getAuthHeader = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 import { AuthContext } from '../context/AuthContext';
 import { NotificationContext } from '../context/NotificationContext';
 import { ThesisContext } from '../context/ThesisContext';
@@ -12,6 +16,7 @@ const Sidebar = ({ activeTab, setActiveTab, subRole, isVerified }) => {
   const supervisorItems = [
     { key: 'overview', label: 'Dashboard', Icon: Home },
     { key: 'scholars', label: 'My Scholars', Icon: Users },
+    { key: 'rac', label: 'RAC Progress', Icon: Layers },
     { key: 'reviews', label: 'Pending Reviews', Icon: FileText },
     { key: 'profile', label: 'Profile', Icon: User },
   ];
@@ -19,6 +24,7 @@ const Sidebar = ({ activeTab, setActiveTab, subRole, isVerified }) => {
     { key: 'overview', label: 'Dashboard', Icon: Home },
     { key: 'dept', label: 'Department Theses', Icon: Users },
     { key: 'drc', label: 'DRC Approvals', Icon: CheckCircle2 },
+    { key: 'rac', label: 'RAC Progress', Icon: Layers },
     { key: 'profile', label: 'Profile', Icon: User },
   ];
   const items = subRole === 'HOD' ? hodItems : supervisorItems;
@@ -42,7 +48,7 @@ const Sidebar = ({ activeTab, setActiveTab, subRole, isVerified }) => {
             <button 
               key={key} 
               className={`nav-item ${activeTab === key ? 'active' : ''}`} 
-              onClick={() => { if (!disabled) setActiveTab(key); }}
+              onClick={() => { if (!disabled) { setActiveTab(key); document.body.classList.remove('sidebar-mobile-open'); } }}
               disabled={disabled}
               style={{ 
                 background: 'none', 
@@ -73,6 +79,13 @@ const Header = ({ title, user }) => {
   const unread = notifications.filter(n => !n.read).length;
   return (
     <div className="header">
+      <button 
+        className="mobile-menu-toggle" 
+        onClick={() => document.body.classList.toggle('sidebar-mobile-open')}
+        style={{ display: 'none', background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: '8px' }}
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+      </button>
       <div className="header-title">{title}</div>
       <div className="header-actions">
         <div className="notification-bell"><Bell size={20} />{unread > 0 && <span className="notification-badge">{unread}</span>}</div>
@@ -286,6 +299,106 @@ const OverviewPage = ({ theses, user, onSelect }) => {
           ))}
         </div>
       </div>
+    </div>
+  );
+};
+
+// ── Supervisor RAC clearance view ──
+const SupervisorRACConsole = ({ theses }) => {
+  const [racs, setRacs] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchRacs = async () => {
+    try {
+      const allRacs = [];
+      for (const t of theses) {
+        const rRes = await axios.get(`${API}/lifecycle/rac/thesis/${t._id}`, getAuthHeader());
+        rRes.data.forEach(r => { r.scholar = t.scholarId; r.title = t.title; });
+        allRacs.push(...rRes.data);
+      }
+      setRacs(allRacs);
+    } catch (err) {}
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchRacs();
+  }, [theses]);
+
+  const handleAddRemarks = async (racId) => {
+    const rem = prompt('Enter your Supervisor clearance/recommendation remarks for this RAC session:');
+    if (rem === null) return;
+    try {
+      await axios.put(`${API}/lifecycle/rac/${racId}/remarks`, { remarks: rem }, getAuthHeader());
+      alert('Remarks saved successfully!');
+      fetchRacs();
+    } catch (err) {
+      alert('Failed to save remarks.');
+    }
+  };
+
+  return (
+    <div className="card">
+      <h3 className="card-title">Research Advisory Committee (RAC) Schedule & Clearance</h3>
+      <p style={{ color: '#64748B', fontSize: '0.85rem', marginBottom: 20 }}>
+        Review periodic doctoral committee milestones and add your supervisor evaluation remarks for your assigned PhD scholars.
+      </p>
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 20 }}>Loading RAC records...</div>
+      ) : racs.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '36px', color: '#64748B', background: '#F8FAFC', borderRadius: 8 }}>
+          No scheduled RAC review meetings found for your scholars.
+        </div>
+      ) : (
+        <div className="file-list">
+          <div className="file-header">
+            <div style={{ flex: 2 }}>Scholar</div>
+            <div style={{ flex: 1 }}>Session</div>
+            <div style={{ flex: 1.5 }}>Scheduled Date</div>
+            <div style={{ flex: 1.8 }}>Progress Report</div>
+            <div style={{ flex: 1.2 }}>Status</div>
+            <div style={{ flex: 2.2, textAlign: 'center' }}>Supervisor Action</div>
+          </div>
+          {racs.map(r => (
+            <div key={r._id} className="file-item">
+              <div style={{ flex: 2 }}>
+                <div style={{ fontWeight: 700 }}>{r.scholar?.name || 'Scholar'}</div>
+                <div style={{ fontSize: '0.75rem', color: '#64748B', maxWidth: 180, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.title}</div>
+              </div>
+              <div style={{ flex: 1, fontWeight: 600, color: '#1E3A8A' }}>RAC-{r.racNumber}</div>
+              <div style={{ flex: 1.5, fontSize: '0.85rem' }}>{new Date(r.scheduledDate).toLocaleDateString()}</div>
+              <div style={{ flex: 1.8 }}>
+                {r.progressReportUrl ? (
+                  <a href={r.progressReportUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.85rem', color: '#2563EB', fontWeight: 600, textDecoration: 'underline' }}>
+                    📄 View Progress Report
+                  </a>
+                ) : (
+                  <span style={{ fontSize: '0.8rem', color: '#94A3B8', fontStyle: 'italic' }}>Pending submission</span>
+                )}
+              </div>
+              <div style={{ flex: 1.2 }}>
+                <span style={{ 
+                  padding: '4px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 600,
+                  background: r.status === 'SATISFACTORY' ? '#D1FAE5' : r.status === 'UNSATISFACTORY' ? '#FEE2E2' : '#FEF3C7',
+                  color: r.status === 'SATISFACTORY' ? '#065F46' : r.status === 'UNSATISFACTORY' ? '#991B1B' : '#D97706'
+                }}>
+                  {r.status}
+                </span>
+              </div>
+              <div style={{ flex: 2.2, display: 'flex', justifyContent: 'center' }}>
+                <button 
+                  onClick={() => handleAddRemarks(r._id)} 
+                  className="btn-primary" 
+                  style={{ padding: '6px 12px', fontSize: '0.75rem', background: '#2563EB' }}
+                >
+                  {r.remarks ? 'Edit Remarks' : 'Add Remarks'}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
@@ -514,7 +627,7 @@ const FacultyDashboard = () => {
     if (subRole === 'HOD') fetchDeptTheses(); else fetchAssignedTheses();
   };
 
-  const titles = { overview: 'Faculty Dashboard', scholars: 'My Scholars', reviews: 'Pending Reviews', dept: 'Department Theses', drc: 'DRC & Seminar Approvals', profile: 'My Profile' };
+  const titles = { overview: 'Faculty Dashboard', scholars: 'My Scholars', rac: 'RAC Progress Schedule', reviews: 'Pending Reviews', dept: 'Department Theses', drc: 'DRC & Seminar Approvals', profile: 'My Profile' };
 
   const renderContent = () => {
     if (!user?.isVerified) {
@@ -551,6 +664,7 @@ const FacultyDashboard = () => {
     switch (activeTab) {
       case 'overview': return <OverviewPage theses={allTheses} user={user} onSelect={handleSelectThesis} />;
       case 'scholars': return <ScholarList theses={allTheses} onSelect={handleSelectThesis} title="My Assigned Scholars" />;
+      case 'rac': return <SupervisorRACConsole theses={allTheses} />;
       case 'dept': return <ScholarList theses={allTheses} onSelect={handleSelectThesis} title="All Department Theses" />;
       case 'drc': return <DRCPage theses={allTheses} onSelect={handleSelectThesis} />;
       case 'reviews': return <ScholarList theses={allTheses.filter(t => ['SYNOPSIS_PENDING','ACTIVE_RESEARCH','PRE_SUBMISSION'].includes(t.status))} onSelect={handleSelectThesis} title="Scholars with Pending Documents" />;
@@ -561,6 +675,7 @@ const FacultyDashboard = () => {
 
   return (
     <div className="app-container">
+      <div className="mobile-overlay" onClick={() => document.body.classList.remove('sidebar-mobile-open')} />
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} subRole={subRole} isVerified={user?.isVerified} />
       <div className="main-content" style={{ display: 'flex', flexDirection: 'column' }}>
         {/* Floating warning banner */}

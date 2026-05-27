@@ -1,10 +1,14 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Home, Book, Flag, FileText, Calendar, User, LogOut, Bell, ClipboardList, CheckCircle2, Clock, Upload, Lock } from 'lucide-react';
+import { Home, Book, Flag, FileText, Calendar, User, LogOut, Bell, ClipboardList, CheckCircle2, Clock, Upload, Lock, Award, Edit, File, Layers, Plus } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import { NotificationContext } from '../context/NotificationContext';
 import { ThesisContext } from '../context/ThesisContext';
 import ProfileOnboardingModal from '../components/ProfileOnboardingModal';
+import axios from 'axios';
+
+const API = 'http://localhost:5000/api';
+const getAuthHeader = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
 const Sidebar = ({ activeTab, setActiveTab }) => {
   const { logout } = useContext(AuthContext);
@@ -13,6 +17,10 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
     { key: 'overview', label: 'Dashboard', Icon: Home },
     { key: 'registration', label: 'Registration', Icon: ClipboardList },
     { key: 'thesis', label: 'My Thesis', Icon: Book },
+    { key: 'rac', label: 'RAC Progress', Icon: Layers },
+    { key: 'publications', label: 'Publications', Icon: File },
+    { key: 'changes', label: 'Request Changes', Icon: Edit },
+    { key: 'certificates', label: 'Certificates', Icon: Award },
     { key: 'milestones', label: 'Milestones', Icon: Flag },
     { key: 'documents', label: 'Documents', Icon: FileText },
     { key: 'meetings', label: 'Meetings', Icon: Calendar },
@@ -30,9 +38,9 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
         </div>
         <h2>ScholarHub</h2>
       </div>
-      <div className="sidebar-nav">
+      <div className="sidebar-nav" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 160px)' }}>
         {items.map(({ key, label, Icon }) => (
-          <button key={key} className={`nav-item ${activeTab === key ? 'active' : ''}`} onClick={() => setActiveTab(key)}
+          <button key={key} className={`nav-item ${activeTab === key ? 'active' : ''}`} onClick={() => { setActiveTab(key); document.body.classList.remove('sidebar-mobile-open'); }}
             style={{ background: 'none', border: 'none', width: '100%', cursor: 'pointer', textAlign: 'left' }}>
             <Icon className="nav-icon" /> {label}
           </button>
@@ -54,6 +62,13 @@ const Header = ({ title }) => {
   const unread = notifications.filter(n => !n.read).length;
   return (
     <div className="header">
+      <button 
+        className="mobile-menu-toggle" 
+        onClick={() => document.body.classList.toggle('sidebar-mobile-open')}
+        style={{ display: 'none', background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: '8px' }}
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+      </button>
       <div className="header-title">{title}</div>
       <div className="header-actions">
         <div className="notification-bell"><Bell size={20} />{unread > 0 && <span className="notification-badge">{unread}</span>}</div>
@@ -459,6 +474,452 @@ const OverviewPage = ({ thesis, milestones, setActiveTab }) => {
 };
 
 // ── Profile Tab ──
+// ── GNUMS Ph.D. Lifecycle components ──
+const RACProgressTab = ({ thesis }) => {
+  const [racs, setRacs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [reportUrl, setReportUrl] = useState('');
+  const [uploadingId, setUploadingId] = useState(null);
+
+  const fetchRACs = async () => {
+    try {
+      const res = await axios.get(`${API}/lifecycle/rac/thesis/${thesis._id}`, getAuthHeader());
+      setRacs(res.data);
+    } catch (err) {}
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchRACs(); }, []);
+
+  const handleReportUpload = async (racId) => {
+    if (!reportUrl) return alert('Please enter report URL or document link.');
+    try {
+      await axios.put(`${API}/lifecycle/rac/${racId}/report`, { progressReportUrl: reportUrl }, getAuthHeader());
+      alert('Progress report submitted successfully!');
+      setUploadingId(null);
+      setReportUrl('');
+      fetchRACs();
+    } catch (err) {
+      alert('Upload failed.');
+    }
+  };
+
+  return (
+    <div className="card">
+      <h3 className="card-title">Research Advisory Committee (RAC) Progress</h3>
+      <p style={{ color: '#64748B', fontSize: '0.85rem', marginBottom: 20 }}>
+        Track scheduled RAC reviews, upload mandatory periodic progress reports, and view evaluation remarks from the doctoral committee.
+      </p>
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 20 }}>Loading reviews...</div>
+      ) : racs.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '36px', color: '#64748B', background: '#F8FAFC', borderRadius: 8 }}>
+          No RAC sessions have been scheduled by your HOD yet.
+        </div>
+      ) : (
+        <div className="file-list">
+          <div className="file-header">
+            <div style={{ flex: 1 }}>Session</div>
+            <div style={{ flex: 2 }}>Scheduled Date</div>
+            <div style={{ flex: 2 }}>Committee</div>
+            <div style={{ flex: 1.5 }}>Status</div>
+            <div style={{ flex: 2 }}>Remarks</div>
+            <div style={{ flex: 2, textAlign: 'center' }}>Action</div>
+          </div>
+          {racs.map(r => (
+            <div key={r._id} className="file-item" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                <div style={{ flex: 1, fontWeight: 700, color: '#1E3A8A' }}>RAC-{r.racNumber}</div>
+                <div style={{ flex: 2, fontSize: '0.9rem' }}>{new Date(r.scheduledDate).toLocaleDateString()}</div>
+                <div style={{ flex: 2, fontSize: '0.85rem', color: '#475569' }}>{r.committeeMembers || 'Pending Formation'}</div>
+                <div style={{ flex: 1.5 }}>
+                  <span style={{ 
+                    padding: '4px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 600,
+                    background: r.status === 'SATISFACTORY' ? '#D1FAE5' : r.status === 'UNSATISFACTORY' ? '#FEE2E2' : '#FEF3C7',
+                    color: r.status === 'SATISFACTORY' ? '#065F46' : r.status === 'UNSATISFACTORY' ? '#991B1B' : '#D97706'
+                  }}>
+                    {r.status}
+                  </span>
+                </div>
+                <div style={{ flex: 2, fontSize: '0.85rem', color: '#475569' }}>{r.remarks || '—'}</div>
+                <div style={{ flex: 2, display: 'flex', justifyContent: 'center' }}>
+                  {r.status === 'SCHEDULED' ? (
+                    <button 
+                      onClick={() => setUploadingId(uploadingId === r._id ? null : r._id)}
+                      className="btn-primary" 
+                      style={{ padding: '6px 12px', fontSize: '0.75rem', background: '#2563EB' }}
+                    >
+                      {r.progressReportUrl ? 'Update Report' : 'Submit Report'}
+                    </button>
+                  ) : r.progressReportUrl ? (
+                    <a href={r.progressReportUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: '#2563EB', fontWeight: 600, textDecoration: 'underline' }}>
+                      📄 View Report
+                    </a>
+                  ) : '—'}
+                </div>
+              </div>
+              {uploadingId === r._id && (
+                <div style={{ display: 'flex', gap: 10, background: '#F8FAFC', padding: 12, borderRadius: 8, border: '1px dashed #CBD5E1' }}>
+                  <input 
+                    type="text" 
+                    placeholder="Paste report document URL or drive link here..." 
+                    className="form-input" 
+                    value={reportUrl} 
+                    onChange={e => setReportUrl(e.target.value)} 
+                    style={{ flex: 1, fontSize: '0.85rem' }} 
+                  />
+                  <button onClick={() => handleReportUpload(r._id)} className="btn-primary" style={{ background: '#059669', fontSize: '0.85rem' }}>Submit</button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const PublicationsTab = ({ thesis }) => {
+  const [pubs, setPubs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ title: '', journalName: '', issn: '', publicationDate: '', paperLink: '', attachmentUrl: '' });
+
+  const fetchPubs = async () => {
+    try {
+      const res = await axios.get(`${API}/lifecycle/publications/thesis/${thesis._id}`, getAuthHeader());
+      setPubs(res.data);
+    } catch (err) {}
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchPubs(); }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post(`${API}/lifecycle/publications`, { ...form, thesisId: thesis._id }, getAuthHeader());
+      alert('Publication logged successfully and pending review!');
+      setShowForm(false);
+      setForm({ title: '', journalName: '', issn: '', publicationDate: '', paperLink: '', attachmentUrl: '' });
+      fetchPubs();
+    } catch (err) {
+      alert('Error logging publication.');
+    }
+  };
+
+  return (
+    <div className="card">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <div>
+          <h3 className="card-title" style={{ margin: 0 }}>Research Publications Log</h3>
+          <p style={{ color: '#64748B', fontSize: '0.85rem', marginTop: 4 }}>
+            Maintain records of peer-reviewed journal papers and scientific publications generated during your doctoral studies.
+          </p>
+        </div>
+        <button onClick={() => setShowForm(!showForm)} className="btn-primary" style={{ background: '#059669', display: 'flex', gap: 6, alignItems: 'center' }}>
+          <Plus size={16} /> Log Paper
+        </button>
+      </div>
+
+      {showForm && (
+        <form onSubmit={handleSubmit} style={{ background: '#F8FAFC', padding: 20, borderRadius: 12, border: '1px solid #E2E8F0', marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <h4 style={{ margin: 0, color: '#0F172A' }}>Log New Scientific Publication</h4>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Paper Title</label>
+              <input type="text" className="form-input" required value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Journal/Conference Name</label>
+              <input type="text" className="form-input" required value={form.journalName} onChange={e => setForm({ ...form, journalName: e.target.value })} />
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>ISSN / ISBN</label>
+              <input type="text" className="form-input" value={form.issn} onChange={e => setForm({ ...form, issn: e.target.value })} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Publication Date</label>
+              <input type="date" className="form-input" required value={form.publicationDate} onChange={e => setForm({ ...form, publicationDate: e.target.value })} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Paper/Publisher Link</label>
+              <input type="text" className="form-input" value={form.paperLink} onChange={e => setForm({ ...form, paperLink: e.target.value })} />
+            </div>
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Attachment Proof URL (e.g. PDF copy upload link)</label>
+            <input type="text" className="form-input" value={form.attachmentUrl} onChange={e => setForm({ ...form, attachmentUrl: e.target.value })} />
+          </div>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+            <button type="button" onClick={() => setShowForm(false)} className="btn-outline" style={{ padding: '8px 16px' }}>Cancel</button>
+            <button type="submit" className="btn-primary" style={{ background: '#133A26', padding: '8px 16px' }}>Submit Log</button>
+          </div>
+        </form>
+      )}
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 20 }}>Loading publications...</div>
+      ) : pubs.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '36px', color: '#64748B', background: '#F8FAFC', borderRadius: 8 }}>
+          No research papers logged yet.
+        </div>
+      ) : (
+        <div className="file-list">
+          <div className="file-header">
+            <div style={{ flex: 3 }}>Paper Title</div>
+            <div style={{ flex: 2 }}>Journal</div>
+            <div style={{ flex: 1.2 }}>ISSN</div>
+            <div style={{ flex: 1.5 }}>Date</div>
+            <div style={{ flex: 1.2 }}>Status</div>
+            <div style={{ flex: 1.2, textAlign: 'center' }}>Links</div>
+          </div>
+          {pubs.map(p => (
+            <div key={p._id} className="file-item">
+              <div style={{ flex: 3, fontWeight: 700 }}>{p.title}</div>
+              <div style={{ flex: 2, fontSize: '0.9rem' }}>{p.journalName}</div>
+              <div style={{ flex: 1.2, fontSize: '0.85rem', color: '#64748B' }}>{p.issn || '—'}</div>
+              <div style={{ flex: 1.5, fontSize: '0.85rem' }}>{new Date(p.publicationDate).toLocaleDateString()}</div>
+              <div style={{ flex: 1.2 }}>
+                <span style={{ 
+                  padding: '4px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 600,
+                  background: p.status === 'VERIFIED' ? '#D1FAE5' : p.status === 'REJECTED' ? '#FEE2E2' : '#FEF3C7',
+                  color: p.status === 'VERIFIED' ? '#065F46' : p.status === 'REJECTED' ? '#991B1B' : '#D97706'
+                }}>
+                  {p.status}
+                </span>
+              </div>
+              <div style={{ flex: 1.2, display: 'flex', gap: 8, justifyContent: 'center' }}>
+                {p.paperLink && <a href={p.paperLink} target="_blank" rel="noreferrer" title="View Article" style={{ color: '#2563EB' }}><File size={16} /></a>}
+                {p.attachmentUrl && <a href={p.attachmentUrl} target="_blank" rel="noreferrer" title="Attachment" style={{ color: '#059669' }}><Upload size={16} /></a>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const RequestChangesTab = ({ thesis }) => {
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [faculty, setFaculty] = useState([]);
+  const [form, setForm] = useState({ type: 'TITLE_CHANGE', proposedValue: '', reason: '' });
+
+  const fetchRequests = async () => {
+    try {
+      const [rRes, fRes] = await Promise.all([
+        axios.get(`${API}/lifecycle/change-requests/thesis/${thesis._id}`, getAuthHeader()),
+        axios.get(`${API}/auth/faculty`, getAuthHeader())
+      ]);
+      setRequests(rRes.data);
+      setFaculty(fRes.data);
+    } catch (err) {}
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchRequests(); }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.proposedValue) return alert('Please enter proposed value.');
+    try {
+      await axios.post(`${API}/lifecycle/change-requests`, { ...form, thesisId: thesis._id }, getAuthHeader());
+      alert('Change request submitted successfully!');
+      setShowForm(false);
+      setForm({ type: 'TITLE_CHANGE', proposedValue: '', reason: '' });
+      fetchRequests();
+    } catch (err) {
+      alert('Error submitting request.');
+    }
+  };
+
+  return (
+    <div className="card">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <div>
+          <h3 className="card-title" style={{ margin: 0 }}>Guide & Title Change Desk</h3>
+          <p style={{ color: '#64748B', fontSize: '0.85rem', marginTop: 4 }}>
+            Propose updates to your registered Thesis Title or assigned Supervisor (Guide) along with supporting academic reasons.
+          </p>
+        </div>
+        <button onClick={() => setShowForm(!showForm)} className="btn-primary" style={{ background: '#059669', display: 'flex', gap: 6, alignItems: 'center' }}>
+          <Plus size={16} /> New Request
+        </button>
+      </div>
+
+      {showForm && (
+        <form onSubmit={handleSubmit} style={{ background: '#F8FAFC', padding: 20, borderRadius: 12, border: '1px solid #E2E8F0', marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <h4 style={{ margin: 0, color: '#0F172A' }}>Create Academic Modification Request</h4>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 12 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Request Type</label>
+              <select className="form-input" value={form.type} onChange={e => setForm({ ...form, type: e.target.value, proposedValue: '' })}>
+                <option value="TITLE_CHANGE">Thesis Title Modification</option>
+                <option value="GUIDE_CHANGE">Supervisor Reallocation</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>
+                {form.type === 'TITLE_CHANGE' ? 'Proposed New Title' : 'Select Proposed Research Guide'}
+              </label>
+              {form.type === 'TITLE_CHANGE' ? (
+                <input type="text" className="form-input" required placeholder="Enter the exact new thesis topic title..." value={form.proposedValue} onChange={e => setForm({ ...form, proposedValue: e.target.value })} />
+              ) : (
+                <select className="form-input" required value={form.proposedValue} onChange={e => setForm({ ...form, proposedValue: e.target.value })}>
+                  <option value="">Select guide...</option>
+                  {faculty.map(f => <option key={f._id} value={f._id}>{f.name} ({f.department})</option>)}
+                </select>
+              )}
+            </div>
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Supporting Rationale & Academic Reason</label>
+            <textarea className="form-input" required rows={3} placeholder="Please detail the academic ground or scientific reason for this reallocation/change request..." value={form.reason} onChange={e => setForm({ ...form, reason: e.target.value })} />
+          </div>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+            <button type="button" onClick={() => setShowForm(false)} className="btn-outline" style={{ padding: '8px 16px' }}>Cancel</button>
+            <button type="submit" className="btn-primary" style={{ background: '#133A26', padding: '8px 16px' }}>Submit Request</button>
+          </div>
+        </form>
+      )}
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 20 }}>Loading requests...</div>
+      ) : requests.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '36px', color: '#64748B', background: '#F8FAFC', borderRadius: 8 }}>
+          No guide or title modification requests logged yet.
+        </div>
+      ) : (
+        <div className="file-list">
+          <div className="file-header">
+            <div style={{ flex: 1.5 }}>Type</div>
+            <div style={{ flex: 2 }}>Current Value</div>
+            <div style={{ flex: 2.5 }}>Proposed Value</div>
+            <div style={{ flex: 2.5 }}>Reason</div>
+            <div style={{ flex: 1.2 }}>Status</div>
+            <div style={{ flex: 2 }}>Remarks</div>
+          </div>
+          {requests.map(r => (
+            <div key={r._id} className="file-item">
+              <div style={{ flex: 1.5, fontWeight: 600, fontSize: '0.85rem', color: '#1E3A8A' }}>
+                {r.type === 'TITLE_CHANGE' ? '📝 Title Change' : '🤝 Guide Change'}
+              </div>
+              <div style={{ flex: 2, fontSize: '0.85rem', color: '#64748B' }}>{r.currentValue}</div>
+              <div style={{ flex: 2.5, fontSize: '0.85rem', fontWeight: 600 }}>
+                {r.type === 'GUIDE_CHANGE' ? (faculty.find(f => f._id === r.proposedValue)?.name || 'New Faculty') : r.proposedValue}
+              </div>
+              <div style={{ flex: 2.5, fontSize: '0.85rem' }}>{r.reason}</div>
+              <div style={{ flex: 1.2 }}>
+                <span style={{ 
+                  padding: '4px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 600,
+                  background: r.status === 'APPROVED' ? '#D1FAE5' : r.status === 'REJECTED' ? '#FEE2E2' : '#FEF3C7',
+                  color: r.status === 'APPROVED' ? '#065F46' : r.status === 'REJECTED' ? '#991B1B' : '#D97706'
+                }}>
+                  {r.status}
+                </span>
+              </div>
+              <div style={{ flex: 2, fontSize: '0.85rem', color: '#475569' }}>{r.remarks || '—'}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const CertificatesTab = ({ thesis }) => {
+  const [hasVerifiedPubs, setHasVerifiedPubs] = useState(false);
+  const [hasVerifiedRacs, setHasVerifiedRacs] = useState(false);
+
+  useEffect(() => {
+    axios.get(`${API}/lifecycle/publications/thesis/${thesis._id}`, getAuthHeader())
+      .then(res => setHasVerifiedPubs(res.data.some(p => p.status === 'VERIFIED')))
+      .catch(() => {});
+    axios.get(`${API}/lifecycle/rac/thesis/${thesis._id}`, getAuthHeader())
+      .then(res => setHasVerifiedRacs(res.data.some(r => r.status === 'SATISFACTORY')))
+      .catch(() => {});
+  }, []);
+
+  const certs = [
+    {
+      type: 'REGISTRATION',
+      title: 'Ph.D. Registration Certificate',
+      desc: 'Official certificate verifying scholar registration, topic approval, and department affiliation.',
+      enabled: thesis.enrollmentVerified
+    },
+    {
+      type: 'COURSEWORK',
+      title: 'Course Work Certificate',
+      desc: 'Certifies successful completion of all core coursework, assignments, and curriculum exams.',
+      enabled: thesis.status !== 'COURSEWORK'
+    },
+    {
+      type: 'PUBLICATIONS',
+      title: 'Research Publications Log',
+      desc: 'Log certificate validating peer-reviewed articles and research papers published.',
+      enabled: hasVerifiedPubs
+    },
+    {
+      type: 'RAC',
+      title: 'Research Progress Certificate',
+      desc: 'Official certificate verifying satisfactory periodic Research Advisory Committee reviews.',
+      enabled: hasVerifiedRacs
+    }
+  ];
+
+  return (
+    <div>
+      <div className="card" style={{ marginBottom: 20 }}>
+        <h3 className="card-title">Dynamic Academic Credentials</h3>
+        <p style={{ color: '#64748B', fontSize: '0.85rem' }}>
+          Upon formal HOD reviews and supervisor clearances, download official printable registration, coursework, progress, and publication credentials.
+        </p>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+        {certs.map(c => (
+          <div key={c.type} className="card" style={{ 
+            display: 'flex', flexDirection: 'column', justifyContent: 'space-between', opacity: c.enabled ? 1 : 0.65, 
+            borderLeft: `6px solid ${c.enabled ? '#059669' : '#CBD5E1'}`, transition: 'all 0.2s' 
+          }}>
+            <div>
+              <h4 style={{ margin: '0 0 8px 0', fontSize: '1.1rem', color: '#0F172A' }}>{c.title}</h4>
+              <p style={{ color: '#64748B', fontSize: '0.85rem', margin: '0 0 16px 0', lineHeight: 1.5 }}>{c.desc}</p>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ 
+                padding: '4px 10px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 600,
+                background: c.enabled ? '#D1FAE5' : '#F3F4F6', color: c.enabled ? '#065F46' : '#64748B'
+              }}>
+                {c.enabled ? '✓ Unlocked' : '🔒 Locked'}
+              </span>
+              {c.enabled ? (
+                <a 
+                  href={`http://localhost:5000/api/lifecycle/certificates/${thesis._id}/${c.type}`} 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  className="btn-primary" 
+                  style={{ background: '#059669', fontSize: '0.8rem', padding: '8px 16px', display: 'flex', gap: 6, alignItems: 'center', textDecoration: 'none' }}
+                >
+                  View / Print
+                </a>
+              ) : (
+                <button disabled className="btn-primary" style={{ background: '#CBD5E1', color: '#64748B', cursor: 'not-allowed', fontSize: '0.8rem', padding: '8px 16px' }}>
+                  View / Print
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const ProfileTab = () => {
   const { user, updateProfile, uploadAvatar } = useContext(AuthContext);
   const [phoneNumber, setPhoneNumber] = useState(user?.profile?.phoneNumber || '');
@@ -620,7 +1081,7 @@ const StudentDashboard = () => {
     await fetchMyThesis();
   };
 
-  const titles = { overview: 'Student Dashboard', registration: 'Thesis Registration', thesis: 'My Thesis', milestones: 'Milestones', documents: 'Documents', meetings: 'Meetings', profile: 'Profile' };
+  const titles = { overview: 'Student Dashboard', registration: 'Thesis Registration', thesis: 'My Thesis', rac: 'RAC Progress', publications: 'Publications', changes: 'Request Changes', certificates: 'Certificates', milestones: 'Milestones', documents: 'Documents', meetings: 'Meetings', profile: 'Profile' };
 
   const renderStatusContent = () => {
     if (loading) return <div style={{ textAlign: 'center', padding: 48, color: '#6b7280' }}>Loading...</div>;
@@ -662,6 +1123,10 @@ const StudentDashboard = () => {
             <p style={{ color: '#6b7280', marginTop: 8 }}>Your Ph.D. registration is officially approved and locked.</p>
           </div>
         );
+      case 'rac': return <RACProgressTab thesis={thesis} />;
+      case 'publications': return <PublicationsTab thesis={thesis} />;
+      case 'changes': return <RequestChangesTab thesis={thesis} />;
+      case 'certificates': return <CertificatesTab thesis={thesis} />;
       case 'milestones':
         if (thesis.status === 'COURSEWORK') return <CourseworkPhase thesis={thesis} />;
         if (thesis.status === 'SYNOPSIS_PENDING') return <SynopsisPhase thesis={thesis} milestones={milestones} onSubmit={submitMilestone} />;
@@ -689,6 +1154,7 @@ const StudentDashboard = () => {
 
   return (
     <div className="app-container">
+      <div className="mobile-overlay" onClick={() => document.body.classList.remove('sidebar-mobile-open')} />
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
       <div className="main-content" style={{ display: 'flex', flexDirection: 'column' }}>
         {/* Floating warning banner */}

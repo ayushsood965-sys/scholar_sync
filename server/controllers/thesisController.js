@@ -8,10 +8,10 @@ const augmentThesesWithMilestones = async (theses) => {
     const thesisObj = thesis.toObject();
     const synopsis = await Milestone.findOne({ thesisId: thesis._id, type: 'SYNOPSIS' });
     thesisObj.synopsisStatus = synopsis ? synopsis.status : null;
-    
+
     const finalSub = await Milestone.findOne({ thesisId: thesis._id, type: 'FINAL_SUBMISSION' });
     thesisObj.finalSubStatus = finalSub ? finalSub.status : null;
-    
+
     augmented.push(thesisObj);
   }
   return augmented;
@@ -167,9 +167,9 @@ const clearCoursework = async (req, res) => {
 
     thesis.courseworkCompleted = true;
     thesis.status = 'SYNOPSIS_PENDING';
-    thesis.auditLog.push({ 
-      action: 'COURSEWORK_CLEARED', 
-      note: `Coursework marked complete by ${req.user.role === 'HOD' ? 'HOD' : req.user.role === 'ADMIN' ? 'admin' : `${req.user.subRole || 'SUPERVISOR'} ${req.user.name}`}` 
+    thesis.auditLog.push({
+      action: 'COURSEWORK_CLEARED',
+      note: `Coursework marked complete by ${req.user.role === 'HOD' ? 'HOD' : req.user.role === 'ADMIN' ? 'admin' : `${req.user.subRole || 'SUPERVISOR'} ${req.user.name}`}`
     });
     await thesis.save();
 

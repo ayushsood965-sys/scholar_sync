@@ -1,6 +1,6 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Home, Users, FileText, BarChart2, Settings, LogOut, Bell, CheckCircle2, User, GraduationCap, ShieldCheck, Clock, XCircle } from 'lucide-react';
+import { Home, Users, FileText, BarChart2, Settings, LogOut, Bell, CheckCircle2, User, GraduationCap, ShieldCheck, Clock, XCircle, Layers, Award, Edit, File, Plus, Calendar } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import { NotificationContext } from '../context/NotificationContext';
 import { ThesisContext } from '../context/ThesisContext';
@@ -18,6 +18,13 @@ const Header = ({ title }) => {
   const unread = notifications.filter(n => !n.read).length;
   return (
     <div className="header">
+      <button 
+        className="mobile-menu-toggle" 
+        onClick={() => document.body.classList.toggle('sidebar-mobile-open')}
+        style={{ display: 'none', background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: '8px' }}
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+      </button>
       <div className="header-title">{title}</div>
       <div className="header-actions">
         <div className="notification-bell"><Bell size={20} />{unread > 0 && <span className="notification-badge">{unread}</span>}</div>
@@ -58,6 +65,15 @@ const resolveDetailedStatus = (status, synopsisStatus, finalSubStatus) => {
 };
 
 const STATUS_COLOR = { REGISTRATION_PENDING: '#D97706', COURSEWORK: '#3B82F6', SYNOPSIS_PENDING: '#8B5CF6', ACTIVE_RESEARCH: '#059669', PRE_SUBMISSION: '#EA580C', SUBMITTED: '#6B7280', AWARDED: '#10B981' };
+const STATUS_BG = {
+  REGISTRATION_PENDING: '#FFF3CD',
+  COURSEWORK: '#E0F2FE',
+  SYNOPSIS_PENDING: '#EDE9FE',
+  ACTIVE_RESEARCH: '#D1FAE5',
+  PRE_SUBMISSION: '#FFE8D6',
+  SUBMITTED: '#F3F4F6',
+  AWARDED: '#ECFDF5',
+};
 
 // ── Scholar Detail Modal ──
 const ScholarDetail = ({ thesisId, onClose, onAction }) => {
@@ -68,13 +84,26 @@ const ScholarDetail = ({ thesisId, onClose, onAction }) => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    axios.get(`${API}/thesis/${thesisId}`, getAuthHeader()).then(r => setData(r.data));
+    axios.get(`${API}/thesis/${thesisId}`, getAuthHeader()).then(r => {
+      setData(r.data);
+      if (r.data?.thesis?.supervisorId) {
+        setSelSupervisor(r.data.thesis.supervisorId._id || r.data.thesis.supervisorId);
+      }
+    });
     axios.get(`${API}/auth/faculty`, getAuthHeader()).then(r => setFaculty(r.data)).catch(() => {});
   }, [thesisId]);
 
   const act = async (action, payload = {}) => {
     setLoading(true);
-    try { await onAction(thesisId, action, payload); await axios.get(`${API}/thesis/${thesisId}`, getAuthHeader()).then(r => setData(r.data)); }
+    try {
+      await onAction(thesisId, action, payload);
+      await axios.get(`${API}/thesis/${thesisId}`, getAuthHeader()).then(r => {
+        setData(r.data);
+        if (r.data?.thesis?.supervisorId) {
+          setSelSupervisor(r.data.thesis.supervisorId._id || r.data.thesis.supervisorId);
+        }
+      });
+    }
     catch (e) { alert(e.response?.data?.message || 'Error'); }
     finally { setLoading(false); }
   };
@@ -100,8 +129,8 @@ const ScholarDetail = ({ thesisId, onClose, onAction }) => {
         </div>
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-          {thesis.status === 'REGISTRATION_PENDING' && (
-            <button className="btn-primary" onClick={() => act('verify')} disabled={loading} style={{ padding: '6px 16px', fontSize: '0.85rem' }}>✓ Verify Enrollment → COURSEWORK</button>
+          {(!thesis.enrollmentVerified || thesis.status === 'REGISTRATION_PENDING') && (
+            <button className="btn-primary" onClick={() => act('verify')} disabled={loading} style={{ padding: '6px 16px', fontSize: '0.85rem', background: '#059669', color: 'white' }}>✓ Verify Enrollment → COURSEWORK</button>
           )}
           {(thesis.status === 'COURSEWORK' || thesis.status === 'REGISTRATION_PENDING') && (
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -648,6 +677,356 @@ const ManageFaculty = () => {
   );
 };
 
+// ── PhD Lifecycle Administration console ──
+const PhDLifecycleConsole = ({ theses, fetchAllTheses }) => {
+  const [activeSubTab, setActiveSubTab] = useState('rac');
+  const [scholars, setScholars] = useState([]);
+  const [racs, setRacs] = useState([]);
+  const [requests, setRequests] = useState([]);
+  const [pubs, setPubs] = useState([]);
+  const { user } = useContext(AuthContext);
+
+  // Form states for scheduling
+  const [showScheduleForm, setShowScheduleForm] = useState(false);
+  const [schedForm, setSchedForm] = useState({ thesisId: '', racNumber: 1, scheduledDate: '', committeeMembers: '' });
+
+  const fetchData = async () => {
+    try {
+      const dept = user?.department;
+      if (!dept) return;
+
+      // Filter verified theses in HOD's department
+      const filtered = theses.filter(t => t.department === dept && t.status !== 'REGISTRATION_PENDING');
+      setScholars(filtered);
+
+      // Fetch RACs for all scholars in dept
+      const allRacs = [];
+      for (const t of filtered) {
+        const rRes = await axios.get(`${API}/lifecycle/rac/thesis/${t._id}`, getAuthHeader());
+        // Attach student details
+        rRes.data.forEach(r => { r.scholar = t.scholarId; r.title = t.title; });
+        allRacs.push(...rRes.data);
+      }
+      setRacs(allRacs);
+
+      // Fetch Change requests and publications
+      const [reqRes, pubRes] = await Promise.all([
+        axios.get(`${API}/lifecycle/change-requests/department/${dept}`, getAuthHeader()),
+        axios.get(`${API}/lifecycle/publications/department/${dept}`, getAuthHeader())
+      ]);
+      setRequests(reqRes.data);
+      setPubs(pubRes.data);
+    } catch (err) {}
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [theses, user]);
+
+  const handleScheduleSubmit = async (e) => {
+    e.preventDefault();
+    if (!schedForm.thesisId || !schedForm.scheduledDate) return alert('Please complete the scheduling form.');
+    try {
+      await axios.post(`${API}/lifecycle/rac/schedule`, schedForm, getAuthHeader());
+      alert('RAC review meeting scheduled successfully!');
+      setShowScheduleForm(false);
+      setSchedForm({ thesisId: '', racNumber: 1, scheduledDate: '', committeeMembers: '' });
+      fetchData();
+    } catch (err) {
+      alert('Failed to schedule RAC.');
+    }
+  };
+
+  const handleRACGrade = async (racId, status, remarks) => {
+    try {
+      await axios.put(`${API}/lifecycle/rac/${racId}/result`, { status, remarks }, getAuthHeader());
+      alert(`RAC progress successfully graded as ${status}!`);
+      fetchData();
+    } catch (err) {
+      alert('Failed to submit grade.');
+    }
+  };
+
+  const handleRequestReview = async (reqId, status, remarks) => {
+    try {
+      await axios.put(`${API}/lifecycle/change-requests/${reqId}/review`, { status, remarks }, getAuthHeader());
+      alert(`Modification request successfully ${status}!`);
+      fetchData();
+      fetchAllTheses();
+    } catch (err) {
+      alert('Failed to resolve request.');
+    }
+  };
+
+  const handlePubVerify = async (pubId, status) => {
+    try {
+      await axios.put(`${API}/lifecycle/publications/${pubId}/verify`, { status }, getAuthHeader());
+      alert(`Publication record successfully ${status === 'VERIFIED' ? 'Verified' : 'Rejected'}!`);
+      fetchData();
+    } catch (err) {
+      alert('Failed to verify publication.');
+    }
+  };
+
+  return (
+    <div className="card">
+      <div style={{ display: 'flex', gap: 12, borderBottom: '2px solid #E5E7EB', paddingBottom: 12, marginBottom: 20 }}>
+        {[['rac', 'RAC Reviews'], ['requests', 'Guide / Title Changes'], ['publications', 'Publications']].map(([k, label]) => (
+          <button 
+            key={k} 
+            onClick={() => setActiveSubTab(k)} 
+            style={{
+              background: 'none', border: 'none', padding: '8px 16px', fontWeight: 600, cursor: 'pointer',
+              color: activeSubTab === k ? '#059669' : '#64748B',
+              borderBottom: activeSubTab === k ? '3px solid #059669' : 'none'
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── SUB TAB: RAC REVIEWS ── */}
+      {activeSubTab === 'rac' && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <h4 style={{ margin: 0, color: '#0F172A' }}>Doctoral Committee & Periodic RAC Reviews</h4>
+            <button onClick={() => setShowScheduleForm(!showScheduleForm)} className="btn-primary" style={{ background: '#059669', display: 'flex', gap: 6, alignItems: 'center' }}>
+              <Plus size={16} /> Schedule RAC Review
+            </button>
+          </div>
+
+          {showScheduleForm && (
+            <form onSubmit={handleScheduleSubmit} style={{ background: '#F8FAFC', padding: 20, borderRadius: 12, border: '1px solid #E2E8F0', marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <h4 style={{ margin: 0 }}>Schedule Research Advisory Committee (RAC) Session</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Select Scholar</label>
+                  <select className="form-input" required value={schedForm.thesisId} onChange={e => setSchedForm({ ...schedForm, thesisId: e.target.value })}>
+                    <option value="">Choose scholar...</option>
+                    {scholars.map(s => <option key={s._id} value={s._id}>{s.scholarId?.name} — {s.title}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>RAC Session Number</label>
+                  <select className="form-input" value={schedForm.racNumber} onChange={e => setSchedForm({ ...schedForm, racNumber: parseInt(e.target.value) })}>
+                    {[1,2,3,4,5,6].map(n => <option key={n} value={n}>RAC - {n}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Scheduled Date</label>
+                  <input type="date" className="form-input" required value={schedForm.scheduledDate} onChange={e => setSchedForm({ ...schedForm, scheduledDate: e.target.value })} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Committee Members (Separated by commas)</label>
+                  <input type="text" className="form-input" placeholder="e.g. Dr. Verma, Prof. Sen, Dr. Kapoor" value={schedForm.committeeMembers} onChange={e => setSchedForm({ ...schedForm, committeeMembers: e.target.value })} />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                <button type="button" onClick={() => setShowScheduleForm(false)} className="btn-outline" style={{ padding: '8px 16px' }}>Cancel</button>
+                <button type="submit" className="btn-primary" style={{ background: '#133A26', padding: '8px 16px' }}>Save Schedule</button>
+              </div>
+            </form>
+          )}
+
+          <div className="file-list">
+            <div className="file-header">
+              <div style={{ flex: 1.8 }}>Scholar</div>
+              <div style={{ flex: 0.8 }}>Session</div>
+              <div style={{ flex: 1.2 }}>Date</div>
+              <div style={{ flex: 1.5 }}>Report</div>
+              <div style={{ flex: 1.2 }}>Status</div>
+              <div style={{ flex: 2.2, textAlign: 'center' }}>Grading Actions</div>
+            </div>
+            {racs.map(r => (
+              <div key={r._id} className="file-item">
+                <div style={{ flex: 1.8 }}>
+                  <div style={{ fontWeight: 700 }}>{r.scholar?.name || 'Academic Scholar'}</div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748B', maxWidth: 180, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.title}</div>
+                </div>
+                <div style={{ flex: 0.8, fontWeight: 600, color: '#1E3A8A' }}>RAC-{r.racNumber}</div>
+                <div style={{ flex: 1.2, fontSize: '0.85rem' }}>{new Date(r.scheduledDate).toLocaleDateString()}</div>
+                <div style={{ flex: 1.5 }}>
+                  {r.progressReportUrl ? (
+                    <a href={r.progressReportUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.85rem', color: '#2563EB', fontWeight: 600, textDecoration: 'underline' }}>
+                      📄 View Report
+                    </a>
+                  ) : (
+                    <span style={{ fontSize: '0.8rem', color: '#94A3B8', fontStyle: 'italic' }}>Pending submission</span>
+                  )}
+                </div>
+                <div style={{ flex: 1.2 }}>
+                  <span style={{ 
+                    padding: '4px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 600,
+                    background: r.status === 'SATISFACTORY' ? '#D1FAE5' : r.status === 'UNSATISFACTORY' ? '#FEE2E2' : '#FEF3C7',
+                    color: r.status === 'SATISFACTORY' ? '#065F46' : r.status === 'UNSATISFACTORY' ? '#991B1B' : '#D97706'
+                  }}>
+                    {r.status}
+                  </span>
+                </div>
+                <div style={{ flex: 2.2, display: 'flex', gap: 6, justifyContent: 'center' }}>
+                  {r.status === 'SCHEDULED' ? (
+                    <>
+                      <button 
+                        onClick={() => {
+                          const rem = prompt('Enter review remarks:');
+                          if (rem !== null) handleRACGrade(r._id, 'SATISFACTORY', rem);
+                        }}
+                        className="btn-primary" 
+                        style={{ padding: '4px 10px', fontSize: '0.75rem', background: '#059669' }}
+                      >
+                        Approve
+                      </button>
+                      <button 
+                        onClick={() => {
+                          const rem = prompt('Enter review remarks:');
+                          if (rem !== null) handleRACGrade(r._id, 'UNSATISFACTORY', rem);
+                        }}
+                        className="btn-outline" 
+                        style={{ padding: '4px 10px', fontSize: '0.75rem', color: '#DC2626', borderColor: '#DC2626' }}
+                      >
+                        Fail
+                      </button>
+                    </>
+                  ) : (
+                    <span style={{ fontSize: '0.8rem', color: '#64748B' }}>Remarks: {r.remarks || 'None'}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+            {racs.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '36px', color: '#64748B' }}>No scheduled RAC review meetings found.</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── SUB TAB: CHANGE REQUESTS ── */}
+      {activeSubTab === 'requests' && (
+        <div className="file-list">
+          <div className="file-header">
+            <div style={{ flex: 1.8 }}>Scholar</div>
+            <div style={{ flex: 1.2 }}>Type</div>
+            <div style={{ flex: 1.8 }}>Current</div>
+            <div style={{ flex: 2 }}>Proposed</div>
+            <div style={{ flex: 1.8 }}>Reason</div>
+            <div style={{ flex: 2.2, textAlign: 'center' }}>Actions</div>
+          </div>
+          {requests.map(r => (
+            <div key={r._id} className="file-item" style={{ opacity: r.status === 'PENDING' ? 1 : 0.65 }}>
+              <div style={{ flex: 1.8, fontWeight: 700 }}>{r.scholarId?.name || 'Scholar'}</div>
+              <div style={{ flex: 1.2, fontSize: '0.85rem', fontWeight: 600, color: '#1E3A8A' }}>
+                {r.type === 'TITLE_CHANGE' ? '📝 Title Change' : '🤝 Guide Change'}
+              </div>
+              <div style={{ flex: 1.8, fontSize: '0.8rem', color: '#64748B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.currentValue}</div>
+              <div style={{ flex: 2, fontSize: '0.85rem', fontWeight: 600 }}>
+                {r.type === 'GUIDE_CHANGE' ? (r.proposedValue) : r.proposedValue}
+              </div>
+              <div style={{ flex: 1.8, fontSize: '0.8rem' }}>{r.reason}</div>
+              <div style={{ flex: 2.2, display: 'flex', gap: 6, justifyContent: 'center' }}>
+                {r.status === 'PENDING' ? (
+                  <>
+                    <button 
+                      onClick={() => {
+                        const rem = prompt('Enter approval comments:');
+                        if (rem !== null) handleRequestReview(r._id, 'APPROVED', rem);
+                      }}
+                      className="btn-primary" 
+                      style={{ padding: '4px 10px', fontSize: '0.75rem', background: '#059669' }}
+                    >
+                      Approve
+                    </button>
+                    <button 
+                      onClick={() => {
+                        const rem = prompt('Enter rejection comments:');
+                        if (rem !== null) handleRequestReview(r._id, 'REJECTED', rem);
+                      }}
+                      className="btn-outline" 
+                      style={{ padding: '4px 10px', fontSize: '0.75rem', color: '#DC2626', borderColor: '#DC2626' }}
+                    >
+                      Reject
+                    </button>
+                  </>
+                ) : (
+                  <span style={{ 
+                    padding: '4px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 600,
+                    background: r.status === 'APPROVED' ? '#D1FAE5' : '#FEE2E2',
+                    color: r.status === 'APPROVED' ? '#065F46' : '#991B1B'
+                  }}>
+                    {r.status}
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+          {requests.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '36px', color: '#64748B' }}>No guide or title modification requests logged.</div>
+          )}
+        </div>
+      )}
+
+      {/* ── SUB TAB: PUBLICATIONS ── */}
+      {activeSubTab === 'publications' && (
+        <div className="file-list">
+          <div className="file-header">
+            <div style={{ flex: 1.8 }}>Scholar</div>
+            <div style={{ flex: 2.5 }}>Paper Title</div>
+            <div style={{ flex: 1.8 }}>Journal</div>
+            <div style={{ flex: 1 }}>ISSN</div>
+            <div style={{ flex: 1.2 }}>Links</div>
+            <div style={{ flex: 2.2, textAlign: 'center' }}>Verification Action</div>
+          </div>
+          {pubs.map(p => (
+            <div key={p._id} className="file-item" style={{ opacity: p.status === 'PENDING' ? 1 : 0.65 }}>
+              <div style={{ flex: 1.8, fontWeight: 700 }}>{p.scholarId?.name || 'Scholar'}</div>
+              <div style={{ flex: 2.5, fontSize: '0.85rem', fontWeight: 600 }}>{p.title}</div>
+              <div style={{ flex: 1.8, fontSize: '0.85rem' }}>{p.journalName}</div>
+              <div style={{ flex: 1, fontSize: '0.8rem', color: '#64748B' }}>{p.issn || '—'}</div>
+              <div style={{ flex: 1.2, display: 'flex', gap: 10 }}>
+                {p.paperLink && <a href={p.paperLink} target="_blank" rel="noreferrer" title="Article"><File size={16} /></a>}
+                {p.attachmentUrl && <a href={p.attachmentUrl} target="_blank" rel="noreferrer" title="Proof" style={{ color: '#059669' }}><Upload size={16} /></a>}
+              </div>
+              <div style={{ flex: 2.2, display: 'flex', gap: 6, justifyContent: 'center' }}>
+                {p.status === 'PENDING' ? (
+                  <>
+                    <button 
+                      onClick={() => handlePubVerify(p._id, 'VERIFIED')}
+                      className="btn-primary" 
+                      style={{ padding: '4px 10px', fontSize: '0.75rem', background: '#059669' }}
+                    >
+                      Verify Paper
+                    </button>
+                    <button 
+                      onClick={() => handlePubVerify(p._id, 'REJECTED')}
+                      className="btn-outline" 
+                      style={{ padding: '4px 10px', fontSize: '0.75rem', color: '#DC2626', borderColor: '#DC2626' }}
+                    >
+                      Reject
+                    </button>
+                  </>
+                ) : (
+                  <span style={{ 
+                    padding: '4px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 600,
+                    background: p.status === 'VERIFIED' ? '#D1FAE5' : '#FEE2E2',
+                    color: p.status === 'VERIFIED' ? '#065F46' : '#991B1B'
+                  }}>
+                    {p.status}
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+          {pubs.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '36px', color: '#64748B' }}>No scientific papers pending verification.</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ── Sidebar Overhaul for HOD ──
 const Sidebar = ({ activeTab, setActiveTab }) => {
   const { logout } = useContext(AuthContext);
@@ -655,6 +1034,7 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
   const items = [
     { key: 'overview', label: 'Department Overview', Icon: Home },
     { key: 'scholars', label: 'Manage Scholars', Icon: GraduationCap },
+    { key: 'lifecycle', label: 'PhD Lifecycle', Icon: Layers },
     { key: 'users', label: 'Manage Users', Icon: Users },
     { key: 'profile', label: 'My Profile', Icon: User },
     { key: 'evaluation', label: 'External Evaluation', Icon: FileText },
@@ -673,7 +1053,7 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
       </div>
       <div className="sidebar-nav">
         {items.map(({ key, label, Icon }) => (
-          <button key={key} className={`nav-item ${activeTab === key ? 'active' : ''}`} onClick={() => setActiveTab(key)}
+          <button key={key} className={`nav-item ${activeTab === key ? 'active' : ''}`} onClick={() => { setActiveTab(key); document.body.classList.remove('sidebar-mobile-open'); }}
             style={{ background: 'none', border: 'none', width: '100%', cursor: 'pointer', textAlign: 'left' }}>
             <Icon className="nav-icon" /> {label}
           </button>
@@ -715,7 +1095,7 @@ const AdminDashboard = () => {
     await fetchAllTheses();
   };
 
-  const titles = { overview: 'Department Overview', scholars: 'Manage Scholars', users: 'Manage Users', profile: 'My Profile', evaluation: 'External Evaluation' };
+  const titles = { overview: 'Department Overview', scholars: 'Manage Scholars', lifecycle: 'PhD Lifecycle Admin', users: 'Manage Users', profile: 'My Profile', evaluation: 'External Evaluation' };
 
   const renderContent = () => {
     if (!user?.isVerified) {
@@ -752,6 +1132,7 @@ const AdminDashboard = () => {
     switch (activeTab) {
       case 'overview': return <OverviewPage theses={allTheses} onSelectThesis={setSelectedThesisId} />;
       case 'scholars': return <ManageScholars theses={allTheses} onSelectThesis={setSelectedThesisId} onAction={handleAction} />;
+      case 'lifecycle': return <PhDLifecycleConsole theses={allTheses} fetchAllTheses={fetchAllTheses} />;
       case 'users': return <ManageUsers />;
       case 'profile': return <ProfileTab />;
       case 'evaluation': return <ExternalEvaluation theses={allTheses} onAuditLog={(id, action, note) => handleAction(id, 'audit', { action, note })} />;
@@ -761,6 +1142,7 @@ const AdminDashboard = () => {
 
   return (
     <div className="app-container">
+      <div className="mobile-overlay" onClick={() => document.body.classList.remove('sidebar-mobile-open')} />
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} isVerified={user?.isVerified} />
       <div className="main-content" style={{ display: 'flex', flexDirection: 'column' }}>
         {/* Floating warning banner */}

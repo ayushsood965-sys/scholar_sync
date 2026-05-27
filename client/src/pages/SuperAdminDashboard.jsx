@@ -12,6 +12,13 @@ const Header = ({ title }) => {
   const { user } = useContext(AuthContext);
   return (
     <div className="header" style={{ background: '#1e293b', borderBottom: '1px solid #334155', color: '#f8fafc' }}>
+      <button 
+        className="mobile-menu-toggle" 
+        onClick={() => document.body.classList.toggle('sidebar-mobile-open')}
+        style={{ display: 'none', background: 'none', border: 'none', cursor: 'pointer', color: '#34d399', padding: '8px', marginRight: '8px' }}
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+      </button>
       <div className="header-title" style={{ color: '#34d399', fontWeight: 800 }}>{title}</div>
       <div className="header-actions">
         <div className="user-profile">
@@ -61,7 +68,7 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
           <button 
             key={key} 
             className={`nav-item ${activeTab === key ? 'active' : ''}`} 
-            onClick={() => setActiveTab(key)}
+            onClick={() => { setActiveTab(key); document.body.classList.remove('sidebar-mobile-open'); }}
             style={{ 
               background: activeTab === key ? 'rgba(52, 211, 153, 0.15)' : 'none', 
               color: activeTab === key ? '#34d399' : '#94a3b8',
@@ -77,6 +84,74 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
           style={{ background: 'none', border: 'none', width: '100%', cursor: 'pointer', textAlign: 'left', color: '#f87171' }}>
           <LogOut className="nav-icon" /> Logout
         </button>
+      </div>
+    </div>
+  );
+};
+
+// ── SUPER ADMIN PROFILE COMPONENT ──
+const SAProfileTab = ({ uploadAvatar }) => {
+  const { user } = useContext(AuthContext);
+  const [avatarLoading, setAvatarLoading] = useState(false);
+  const [avatarMsg, setAvatarMsg] = useState('');
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setAvatarLoading(true);
+    setAvatarMsg('');
+    const res = await uploadAvatar(file);
+    setAvatarLoading(false);
+    if (res.success) {
+      setAvatarMsg('Profile picture uploaded successfully!');
+    } else {
+      setAvatarMsg('Failed to upload profile picture: ' + res.message);
+    }
+  };
+
+  return (
+    <div className="card" style={{ background: 'white', padding: 32, borderRadius: 12, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', maxWidth: 600, margin: '0 auto' }}>
+      <div style={{ textAlign: 'center', marginBottom: 24 }}>
+        {user?.avatarUrl ? (
+          <img 
+            src={`http://localhost:5000${user.avatarUrl}`} 
+            alt="Avatar" 
+            style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover', border: '3px solid #34d399', background: '#1e293b', margin: '0 auto 16px', display: 'block' }} 
+          />
+        ) : (
+          <svg viewBox="0 0 100 100" style={{ width: 80, height: 80, borderRadius: '50%', background: '#e2e8f0', display: 'block', border: '3px solid #34d399', margin: '0 auto 16px' }}>
+            <circle cx="50" cy="35" r="20" fill="#94a3b8" />
+            <path d="M15 85c0-13.8 11.2-25 25-25h20c13.8 0 25 11.2 25 25z" fill="#94a3b8" />
+          </svg>
+        )}
+        <h3 style={{ margin: 0, fontWeight: 800 }}>Master Credentials</h3>
+        <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: 16 }}> ScholarSync root authority configuration sheet</p>
+        
+        <div>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#0f172a', color: 'white', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}>
+            {avatarLoading ? 'Uploading...' : '📷 Change Profile Picture'}
+            <input type="file" accept="image/*" onChange={handleAvatarChange} style={{ display: 'none' }} disabled={avatarLoading} />
+          </label>
+        </div>
+        {avatarMsg && (
+          <div style={{ marginTop: 12, color: avatarMsg.includes('successfully') ? '#10b981' : '#ef4444', fontSize: '0.8rem', fontWeight: 600 }}>
+            {avatarMsg}
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ background: '#f8fafc', padding: 16, borderRadius: 8, border: '1px solid #e2e8f0' }}>
+          <span style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>MASTER USERNAME</span>
+          <strong style={{ fontSize: '1rem', color: '#0f172a' }}>admin</strong>
+        </div>
+        <div style={{ background: '#f8fafc', padding: 16, borderRadius: 8, border: '1px solid #e2e8f0' }}>
+          <span style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>MASTER ROLE</span>
+          <strong style={{ fontSize: '1rem', color: '#059669' }}>SUPER_ADMIN (ROOT)</strong>
+        </div>
+        <div style={{ background: '#fef2f2', padding: 16, borderRadius: 8, border: '1px solid #fecaca', color: '#991b1b' }}>
+          <strong>🔒 High Security Area:</strong> Super Admin password is auto-seeded to "admin" on every server connection bootstrap. You do not need to perform manual registration checks for this node.
+        </div>
       </div>
     </div>
   );
@@ -223,6 +298,7 @@ const SuperAdminDashboard = () => {
 
   return (
     <div className="app-container">
+      <div className="mobile-overlay" onClick={() => document.body.classList.remove('sidebar-mobile-open')} />
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
       <div className="main-content" style={{ display: 'flex', flexDirection: 'column', background: '#f8fafc' }}>
         
@@ -565,69 +641,7 @@ const SuperAdminDashboard = () => {
           )}
 
           {/* ── TAB 5: PROFILE Tab ── */}
-          {activeTab === 'profile' && (() => {
-            const [avatarLoading, setAvatarLoading] = useState(false);
-            const [avatarMsg, setAvatarMsg] = useState('');
-            const handleAvatarChange = async (e) => {
-              const file = e.target.files[0];
-              if (!file) return;
-              setAvatarLoading(true);
-              setAvatarMsg('');
-              const res = await uploadAvatar(file);
-              setAvatarLoading(false);
-              if (res.success) {
-                setAvatarMsg('Profile picture uploaded successfully!');
-              } else {
-                setAvatarMsg('Failed to upload profile picture: ' + res.message);
-              }
-            };
-            return (
-              <div className="card" style={{ background: 'white', padding: 32, borderRadius: 12, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', maxWidth: 600, margin: '0 auto' }}>
-                <div style={{ textAlign: 'center', marginBottom: 24 }}>
-                  {user?.avatarUrl ? (
-                    <img 
-                      src={`http://localhost:5000${user.avatarUrl}`} 
-                      alt="Avatar" 
-                      style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover', border: '3px solid #34d399', background: '#1e293b', margin: '0 auto 16px', display: 'block' }} 
-                    />
-                  ) : (
-                    <svg viewBox="0 0 100 100" style={{ width: 80, height: 80, borderRadius: '50%', background: '#e2e8f0', display: 'block', border: '3px solid #34d399', margin: '0 auto 16px' }}>
-                      <circle cx="50" cy="35" r="20" fill="#94a3b8" />
-                      <path d="M15 85c0-13.8 11.2-25 25-25h20c13.8 0 25 11.2 25 25z" fill="#94a3b8" />
-                    </svg>
-                  )}
-                  <h3 style={{ margin: 0, fontWeight: 800 }}>Master Credentials</h3>
-                  <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: 16 }}> ScholarSync root authority configuration sheet</p>
-                  
-                  <div>
-                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#0f172a', color: 'white', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}>
-                      {avatarLoading ? 'Uploading...' : '📷 Change Profile Picture'}
-                      <input type="file" accept="image/*" onChange={handleAvatarChange} style={{ display: 'none' }} disabled={avatarLoading} />
-                    </label>
-                  </div>
-                  {avatarMsg && (
-                    <div style={{ marginTop: 12, color: avatarMsg.includes('successfully') ? '#10b981' : '#ef4444', fontSize: '0.8rem', fontWeight: 600 }}>
-                      {avatarMsg}
-                    </div>
-                  )}
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  <div style={{ background: '#f8fafc', padding: 16, borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                    <span style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>MASTER USERNAME</span>
-                    <strong style={{ fontSize: '1rem', color: '#0f172a' }}>admin</strong>
-                  </div>
-                  <div style={{ background: '#f8fafc', padding: 16, borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                    <span style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>MASTER ROLE</span>
-                    <strong style={{ fontSize: '1rem', color: '#059669' }}>SUPER_ADMIN (ROOT)</strong>
-                  </div>
-                  <div style={{ background: '#fef2f2', padding: 16, borderRadius: 8, border: '1px solid #fecaca', color: '#991b1b' }}>
-                    <strong>🔒 High Security Area:</strong> Super Admin password is auto-seeded to "admin" on every server connection bootstrap. You do not need to perform manual registration checks for this node.
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
+          {activeTab === 'profile' && <SAProfileTab uploadAvatar={uploadAvatar} />}
 
         </div>
       </div>

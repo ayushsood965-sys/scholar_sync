@@ -993,3 +993,233 @@ body {
   color: #133A26;
 }
 
+/* --------------------------- */
+/* MOBILE RESPONSIVE STYLES    */
+/* --------------------------- */
+@media (max-width: 768px) {
+  /* Public Pages & Landing */
+  .landing-nav {
+    padding: 12px 16px;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+  }
+  .nav-links {
+    gap: 12px;
+    width: 100%;
+    justify-content: center;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .nav-link {
+    font-size: 0.8rem;
+  }
+  .hero-title {
+    font-size: 2.2rem;
+    line-height: 1.2;
+  }
+  .hero-subtitle {
+    font-size: 0.95rem;
+    margin-bottom: 24px;
+  }
+  .features-grid {
+    grid-template-columns: 1fr !important;
+    padding: 0 10px;
+  }
+  .features-section {
+    transform: translateY(-20px);
+    margin-bottom: -20px;
+  }
+  .main-content-wrapper {
+    margin: 0 16px 20px;
+    border-radius: 20px;
+  }
+  .projects-section {
+    padding: 40px 16px;
+  }
+  .footer-content {
+    flex-direction: column;
+    gap: 30px;
+    align-items: center;
+    text-align: center;
+  }
+  .footer-links {
+    flex-direction: column;
+    gap: 20px;
+  }
+  .footer-bottom-bar {
+    flex-direction: column !important;
+    text-align: center !important;
+    align-items: center !important;
+  }
+
+  /* Glass panels for generic subpages */
+  .glass-panel {
+    margin: 20px 12px;
+    padding: 24px 16px;
+  }
+  .page-title {
+    font-size: 1.6rem;
+  }
+  .page-desc {
+    font-size: 0.85rem;
+  }
+
+  /* Dashboards and Layout wrappers */
+  .app-container {
+    flex-direction: column;
+  }
+
+  /* Dashboard mobile sidebar sliding drawer */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: -250px;
+    width: 250px;
+    height: 100vh;
+    z-index: 1000;
+    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 4px 0 20px rgba(0,0,0,0.15);
+  }
+  body.sidebar-mobile-open .sidebar {
+    left: 0;
+  }
+
+  /* Clickable overlay background */
+  .mobile-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    z-index: 999;
+  }
+  body.sidebar-mobile-open .mobile-overlay {
+    display: block;
+  }
+
+  /* Mobile menu button toggle on header */
+  .mobile-menu-toggle {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--color-sidebar);
+    padding: 8px;
+    border-radius: 8px;
+    transition: background-color 0.2s;
+  }
+  .mobile-menu-toggle:hover {
+    background-color: rgba(0,0,0,0.05);
+  }
+
+  .header {
+    padding: 0 16px;
+    gap: 12px;
+  }
+  .header-title {
+    font-size: 1.05rem;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .user-info {
+    display: none !important; /* Hide details on small headers */
+  }
+
+  /* Dashboard responsive grid systems */
+  .dashboard-area {
+    padding: 16px;
+  }
+  .dashboard-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px;
+  }
+  .timeline-card, .documents-card, .details-card {
+    grid-column: 1 !important;
+    grid-row: auto !important;
+  }
+  .details-card {
+    grid-template-columns: 1fr !important;
+    gap: 16px;
+  }
+
+  /* Horizontal step timeline layout adaptation for touch screens */
+  .timeline-container {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 20px;
+    padding-left: 20px;
+    margin-top: 20px;
+  }
+  .timeline-track {
+    top: 10px;
+    left: 28px;
+    width: 3px;
+    height: calc(100% - 20px);
+  }
+  .timeline-progress {
+    top: 10px;
+    left: 28px;
+    width: 3px !important;
+    height: var(--mobile-progress-height, 40%);
+  }
+  .timeline-step {
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    text-align: left;
+  }
+  .step-indicator {
+    margin-bottom: 0 !important;
+    flex-shrink: 0;
+  }
+  .step-indicator.active {
+    width: 32px;
+    height: 32px;
+    border-width: 2px;
+  }
+  .active-tooltip {
+    display: none; /* Hide floating tooltip on mobile to preserve vertical space */
+  }
+  
+  /* Buttons and lists */
+  .file-header {
+    display: none !important; /* Headers fail to align cleanly on mobile list views */
+  }
+  .file-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 14px;
+    background: #F9FAFB;
+    border-radius: 8px;
+    border: 1px solid #E5E7EB;
+    margin-bottom: 8px;
+  }
+  .file-name {
+    width: 100%;
+    white-space: normal;
+    padding-right: 0;
+  }
+  .file-size, .file-date {
+    font-size: 0.75rem;
+    color: #6B7280;
+  }
+  .file-actions {
+    width: 100%;
+    justify-content: flex-end;
+    margin-top: 4px;
+  }
+  
+  /* Cards */
+  .card {
+    padding: 16px;
+  }
+}
+
