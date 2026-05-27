@@ -3,6 +3,8 @@ const User = require('../models/User');
 const Publication = require('../models/Publication');
 const ChangeRequest = require('../models/ChangeRequest');
 const RACReview = require('../models/RACReview');
+const DRCMeeting = require('../models/DRCMeeting');
+const Milestone = require('../models/Milestone');
 
 // ── RAC MEETINGS ──
 const scheduleRAC = async (req, res) => {
@@ -494,6 +496,113 @@ const generateCertificate = async (req, res) => {
   }
 };
 
+// ── DRC MEETINGS ──
+const scheduleDRC = async (req, res) => {
+  try {
+    const { thesisId, scheduledDate, scheduledTime, venue, committeeMembers, agenda } = req.body;
+    const thesis = await Thesis.findById(thesisId);
+    if (!thesis) return res.status(404).json({ message: 'Thesis not found' });
+
+    const newDRC = new DRCMeeting({
+      scholarId: thesis.scholarId,
+      thesisId,
+      scheduledDate,
+      scheduledTime,
+      venue,
+      committeeMembers,
+      agenda,
+      status: 'SCHEDULED'
+    });
+
+    await newDRC.save();
+
+    // Log to thesis audit
+    thesis.auditLog.push({
+      action: 'DRC_SCHEDULED',
+      note: `DRC meeting scheduled for ${new Date(scheduledDate).toDateString()} at ${scheduledTime} in ${venue}`
+    });
+    await thesis.save();
+
+    res.status(201).json(newDRC);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const submitDRCResult = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, remarks } = req.body; // 'APPROVED' or 'REVISION_REQUIRED'
+    const drc = await DRCMeeting.findById(id);
+    if (!drc) return res.status(404).json({ message: 'DRC meeting not found' });
+
+    drc.status = status;
+    drc.remarks = remarks;
+    await drc.save();
+
+    // Log to thesis audit and perform status transitions
+    const thesis = await Thesis.findById(drc.thesisId);
+    if (thesis) {
+      if (status === 'APPROVED') {
+        thesis.status = 'ACTIVE_RESEARCH';
+        thesis.startDate = new Date();
+        thesis.auditLog.push({
+          action: 'DRC_APPROVED',
+          note: `DRC approved. Remarks: ${remarks}`
+        });
+        await thesis.save();
+
+        // Update synopsis milestone to APPROVED
+        const synopsis = await Milestone.findOne({ thesisId: thesis._id, type: 'SYNOPSIS' });
+        if (synopsis) {
+          synopsis.status = 'APPROVED';
+          await synopsis.save();
+        }
+
+        // Auto-create first 6-month progress report milestone
+        const existingReport = await Milestone.findOne({ thesisId: thesis._id, type: 'PROGRESS_REPORT' });
+        if (!existingReport) {
+          await Milestone.create({
+            thesisId: thesis._id,
+            type: 'PROGRESS_REPORT',
+            title: '6-Month Progress Report #1',
+            status: 'PENDING',
+            sequence: 1,
+            dueDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
+          });
+        }
+      } else {
+        thesis.auditLog.push({
+          action: 'DRC_REVISION_REQUIRED',
+          note: `DRC marked Revision Required. Remarks: ${remarks}`
+        });
+        await thesis.save();
+
+        // Update synopsis milestone back to REVISION_REQUIRED
+        const synopsis = await Milestone.findOne({ thesisId: thesis._id, type: 'SYNOPSIS' });
+        if (synopsis) {
+          synopsis.status = 'REVISION_REQUIRED';
+          await synopsis.save();
+        }
+      }
+    }
+
+    res.json(drc);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const getDRCMeetings = async (req, res) => {
+  try {
+    const { thesisId } = req.params;
+    const drcMeetings = await DRCMeeting.find({ thesisId }).sort('-createdAt');
+    res.json(drcMeetings);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 module.exports = {
   scheduleRAC,
   uploadRACReport,
@@ -507,5 +616,8 @@ module.exports = {
   verifyPublication,
   getPublications,
   getDeptPublications,
-  generateCertificate
+  generateCertificate,
+  scheduleDRC,
+  submitDRCResult,
+  getDRCMeetings
 };

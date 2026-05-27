@@ -10,6 +10,102 @@ import axios from 'axios';
 const API = 'http://localhost:5000/api';
 const getAuthHeader = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
+const MilestoneTimeline = ({ currentStatus }) => {
+  const PHASES = [
+    { key: 'REGISTRATION_PENDING', label: 'Registration', desc: 'Awaiting Verification' },
+    { key: 'COURSEWORK', label: 'Coursework', desc: 'Clearing Exams' },
+    { key: 'SYNOPSIS_PENDING', label: 'Synopsis Approval', desc: 'DRC Evaluation' },
+    { key: 'ACTIVE_RESEARCH', label: 'Active Research', desc: 'RAC & Progress' },
+    { key: 'PRE_SUBMISSION', label: 'Pre-Submission', desc: 'Colloquium & Seminars' },
+    { key: 'SUBMITTED', label: 'Thesis Submission', desc: 'Evaluation Board' },
+    { key: 'AWARDED', label: 'Degree Awarded', desc: 'Convocation' }
+  ];
+
+  const currentStep = PHASES.findIndex(p => p.key === currentStatus);
+  const activeStepIndex = currentStep === -1 ? 0 : currentStep;
+
+  return (
+    <div className="card" style={{ padding: '24px 20px', background: 'white', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', border: '1px solid #E2E8F0', marginBottom: '16px' }}>
+      <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <span>🎓 Ph.D. Research Progression Timeline</span>
+      </h3>
+      
+      {/* Horizontal timeline bar */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative', overflowX: 'auto', paddingBottom: '10px', gap: '12px' }}>
+        {/* Connecting background line */}
+        <div style={{
+          position: 'absolute',
+          top: '20px',
+          left: '6%',
+          right: '6%',
+          height: '4px',
+          background: '#E2E8F0',
+          zIndex: 1
+        }} />
+        
+        {/* Active colored line */}
+        <div style={{
+          position: 'absolute',
+          top: '20px',
+          left: '6%',
+          width: `${(activeStepIndex / (PHASES.length - 1)) * 88}%`,
+          height: '4px',
+          background: 'linear-gradient(90deg, #10B981 0%, #3B82F6 100%)',
+          zIndex: 2,
+          transition: 'width 0.4s ease'
+        }} />
+
+        {PHASES.map((phase, idx) => {
+          const isCompleted = idx < activeStepIndex;
+          const isActive = idx === activeStepIndex;
+          const isPending = idx > activeStepIndex;
+
+          return (
+            <div key={phase.key} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minWidth: '95px', textAlign: 'center', zIndex: 3 }}>
+              {/* Step indicator circle */}
+              <div style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: isCompleted ? '#10B981' : isActive ? '#3B82F6' : '#FFFFFF',
+                border: isCompleted ? 'none' : isActive ? '4px solid #DBEAFE' : '2px solid #CBD5E1',
+                color: isCompleted || isActive ? '#FFFFFF' : '#64748B',
+                fontWeight: 'bold',
+                fontSize: '0.85rem',
+                boxShadow: isActive ? '0 0 0 4px rgba(59, 130, 246, 0.15)' : 'none',
+                transition: 'all 0.3s ease',
+                marginBottom: '10px'
+              }}>
+                {isCompleted ? (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                ) : (
+                  idx + 1
+                )}
+              </div>
+
+              {/* Title & Desc */}
+              <div style={{ fontSize: '0.78rem', fontWeight: isActive ? 800 : 600, color: isActive ? '#1E3A8A' : isCompleted ? '#10B981' : '#475569', marginBottom: '3px' }}>
+                {phase.label}
+              </div>
+              <div style={{ fontSize: '0.68rem', color: isActive ? '#3B82F6' : '#94A3B8', fontWeight: isActive ? 600 : 400 }}>
+                {phase.desc}
+              </div>
+              {isActive && (
+                <span style={{ fontSize: '0.62rem', fontWeight: 700, padding: '2px 6px', background: '#DBEAFE', color: '#1E40AF', borderRadius: '4px', marginTop: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Current Phase
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 const Sidebar = ({ activeTab, setActiveTab }) => {
   const { logout } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -207,6 +303,15 @@ const SynopsisPhase = ({ thesis, milestones, onSubmit }) => {
   const [title, setTitle] = useState(thesis.title || '');
   const [abstract, setAbstract] = useState(thesis.abstract || '');
   const [loading, setLoading] = useState(false);
+  const [drcMeetings, setDrcMeetings] = useState([]);
+
+  useEffect(() => {
+    if (synopsisMilestone && synopsisMilestone.status === 'APPROVED') {
+      axios.get(`${API}/lifecycle/drc/thesis/${thesis._id}`, getAuthHeader())
+        .then(res => setDrcMeetings(res.data))
+        .catch(() => {});
+    }
+  }, [thesis._id, synopsisMilestone]);
 
   if (!synopsisMilestone) {
     return (
@@ -296,10 +401,46 @@ const SynopsisPhase = ({ thesis, milestones, onSubmit }) => {
             </button>
           </form>
         ) : (
-          <div style={{ background: '#F9FAFB', padding: 16, borderRadius: 8, color: '#374151' }}>
-            <div style={{ fontSize: '0.9rem', lineHeight: '1.6' }}>{thesis.abstract}</div>
-            {synopsisMilestone.documentUrl && (
-              <a href={`http://localhost:5000${synopsisMilestone.documentUrl}`} target="_blank" rel="noreferrer" style={{ display: 'block', marginTop: 12, color: '#0284C7', fontWeight: 600 }}>View Submitted Synopsis</a>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ background: '#F9FAFB', padding: 16, borderRadius: 8, color: '#374151' }}>
+              <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#4B5563', marginBottom: 4 }}>RESEARCH ABSTRACT</div>
+              <div style={{ fontSize: '0.9rem', lineHeight: '1.6' }}>{thesis.abstract}</div>
+              {synopsisMilestone.documentUrl && (
+                <a href={`http://localhost:5000${synopsisMilestone.documentUrl}`} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: 12, color: '#0284C7', fontWeight: 600 }}>View Submitted Synopsis</a>
+              )}
+            </div>
+
+            {synopsisMilestone.status === 'APPROVED' && (
+              <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 16, borderRadius: 10 }}>
+                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#1E293B', marginBottom: 8 }}>
+                  📆 Departmental Research Committee (DRC) Review
+                </div>
+                {drcMeetings.length === 0 ? (
+                  <div style={{ fontSize: '0.85rem', color: '#475569', display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <span style={{ fontSize: '1.1rem' }}>⏳</span>
+                    <span>Synopsis approved by your supervisor! HOD will schedule the official DRC meeting for final evaluation shortly.</span>
+                  </div>
+                ) : (
+                  drcMeetings.map(drc => (
+                    <div key={drc._id} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 8, padding: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                        <span style={{ fontWeight: 600, fontSize: '0.85rem', color: '#0F172A' }}>DRC Session Schedule</span>
+                        <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: '0.7rem', fontWeight: 700, background: drc.status === 'APPROVED' ? '#D1FAE5' : drc.status === 'REVISION_REQUIRED' ? '#FEE2E2' : '#FEF3C7', color: drc.status === 'APPROVED' ? '#065F46' : drc.status === 'REVISION_REQUIRED' ? '#991B1B' : '#92400E' }}>
+                          {drc.status}
+                        </span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px', fontSize: '0.8rem', color: '#475569' }}>
+                        <div><strong>Date:</strong> {new Date(drc.scheduledDate).toLocaleDateString()}</div>
+                        <div><strong>Time:</strong> {drc.scheduledTime}</div>
+                        <div style={{ gridColumn: 'span 2' }}><strong>Venue:</strong> {drc.venue}</div>
+                        {drc.committeeMembers && <div style={{ gridColumn: 'span 2' }}><strong>Committee:</strong> {drc.committeeMembers}</div>}
+                        {drc.agenda && <div style={{ gridColumn: 'span 2' }}><strong>Agenda:</strong> {drc.agenda}</div>}
+                        {drc.remarks && <div style={{ gridColumn: 'span 2', background: '#FFFBEB', padding: 6, borderRadius: 6, color: '#92400E', borderLeft: '3px solid #F59E0B', marginTop: 4 }}><strong>Committee Feedback:</strong> {drc.remarks}</div>}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             )}
           </div>
         )}
@@ -424,51 +565,209 @@ const AwardedView = ({ thesis }) => (
 
 // ── Overview (status summary) ──
 const OverviewPage = ({ thesis, milestones, setActiveTab }) => {
+  const [drcMeetings, setDrcMeetings] = useState([]);
+  const [publications, setPublications] = useState([]);
+
+  useEffect(() => {
+    if (thesis) {
+      axios.get(`${API}/lifecycle/drc/thesis/${thesis._id}`, getAuthHeader())
+        .then(res => setDrcMeetings(res.data))
+        .catch(() => {});
+      axios.get(`${API}/lifecycle/publications/thesis/${thesis._id}`, getAuthHeader())
+        .then(res => setPublications(res.data))
+        .catch(() => {});
+    }
+  }, [thesis]);
+
   const statusMap = {
-    REGISTRATION_PENDING: { label: 'Awaiting Admin Verification', color: '#D97706', bg: '#FEF3C7', progress: 10 },
-    COURSEWORK: { label: 'Coursework Phase', color: '#3B82F6', bg: '#DBEAFE', progress: 25 },
-    SYNOPSIS_PENDING: { label: 'Synopsis Submission', color: '#8B5CF6', bg: '#EDE9FE', progress: 40 },
-    ACTIVE_RESEARCH: { label: 'Active Research', color: '#059669', bg: '#D1FAE5', progress: 65 },
-    PRE_SUBMISSION: { label: 'Pre-Submission', color: '#EA580C', bg: '#FED7AA', progress: 85 },
-    SUBMITTED: { label: 'Under Evaluation', color: '#6B7280', bg: '#F3F4F6', progress: 95 },
-    AWARDED: { label: 'Degree Awarded 🎓', color: '#059669', bg: '#D1FAE5', progress: 100 },
+    REGISTRATION_PENDING: { label: 'Awaiting Admin Verification', color: '#D97706', bg: '#FEF3C7', progress: 10, nextAction: 'Wait for HOD to verify your enrollment and assign a department supervisor.' },
+    COURSEWORK: { label: 'Coursework Phase', color: '#3B82F6', bg: '#DBEAFE', progress: 25, nextAction: 'Focus on completing your doctoral coursework syllabus and clear your coursework exams.' },
+    SYNOPSIS_PENDING: { label: 'Synopsis Submission', color: '#8B5CF6', bg: '#EDE9FE', progress: 40, nextAction: 'Upload your research synopsis proposal PDF. Ensure similarity indexing is within permissible limits.' },
+    ACTIVE_RESEARCH: { label: 'Active Research', color: '#059669', bg: '#D1FAE5', progress: 65, nextAction: 'Submit periodic 6-month progress reports to your Research Advisory Committee (RAC) and publish research papers.' },
+    PRE_SUBMISSION: { label: 'Pre-Submission', color: '#EA580C', bg: '#FED7AA', progress: 85, nextAction: 'Prepare for your pre-submission seminar and defense colloquium in front of department experts.' },
+    SUBMITTED: { label: 'Under Evaluation', color: '#6B7280', bg: '#F3F4F6', progress: 95, nextAction: 'Your final thesis is under review by external examiners. Updates will be visible here shortly.' },
+    AWARDED: { label: 'Degree Awarded 🎓', color: '#059669', bg: '#D1FAE5', progress: 100, nextAction: 'Congratulations! Your Ph.D. degree has been officially awarded by the Academic Council.' },
   };
+
   const s = statusMap[thesis.status] || statusMap['REGISTRATION_PENDING'];
+  const activeDrc = drcMeetings.find(m => m.status === 'SCHEDULED');
 
   return (
-    <div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <h3 className="card-title">Your Ph.D. Journey</h3>
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-            <span style={{ fontWeight: 600, color: s.color }}>{s.label}</span>
-            <span style={{ color: '#6b7280', fontSize: '0.9rem' }}>{s.progress}%</span>
-          </div>
-          <div style={{ background: '#E5E7EB', borderRadius: 9999, height: 10 }}>
-            <div style={{ background: s.color, width: `${s.progress}%`, height: 10, borderRadius: 9999, transition: 'width 0.5s' }} />
-          </div>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
-          {[['Title', thesis.title],['Department', thesis.department],['Supervisor', thesis.supervisorId?.name || 'Pending']].map(([k, v]) => (
-            <div key={k} style={{ background: '#F9FAFB', padding: 12, borderRadius: 8 }}>
-              <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{k}</div>
-              <div style={{ fontWeight: 600, color: '#111827', fontSize: '0.9rem' }}>{v}</div>
-            </div>
-          ))}
-        </div>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* 1. Milestone Timeline */}
+      <MilestoneTimeline currentStatus={thesis.status} />
 
-      {milestones.length > 0 && (
-        <div className="card">
-          <h3 className="card-title">Recent Milestones</h3>
-          {milestones.slice(0, 3).map(m => (
-            <div key={m._id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #E5E7EB' }}>
-              <span style={{ fontSize: '0.9rem' }}>{m.title}</span>
-              <span style={{ fontSize: '0.8rem', fontWeight: 600, color: m.status === 'APPROVED' ? '#059669' : m.status === 'REVISION_REQUIRED' ? '#DC2626' : '#D97706' }}>{m.status}</span>
+      {/* 2. DRC Scheduled Reminder Callout (if active) */}
+      {activeDrc && (
+        <div style={{
+          background: 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)',
+          borderLeft: '5px solid #F59E0B',
+          borderRadius: '12px',
+          padding: '16px 20px',
+          boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
+          display: 'flex',
+          gap: '16px',
+          alignItems: 'center'
+        }}>
+          <div style={{ width: '40px', height: '40px', background: '#FEF3C7', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#D97706' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, color: '#92400E', fontSize: '0.9rem' }}>⚠️ Upcoming Departmental Research Committee (DRC) Meeting Scheduled!</div>
+            <div style={{ fontSize: '0.8rem', color: '#B45309', marginTop: '4px' }}>
+              <strong>Date:</strong> {new Date(activeDrc.scheduledDate).toLocaleDateString()} | <strong>Time:</strong> {activeDrc.scheduledTime} | <strong>Venue:</strong> {activeDrc.venue}
             </div>
-          ))}
+            {activeDrc.agenda && (
+              <div style={{ fontSize: '0.78rem', color: '#B45309', fontStyle: 'italic', marginTop: '2px' }}>
+                Agenda: {activeDrc.agenda}
+              </div>
+            )}
+          </div>
         </div>
       )}
+
+      {/* 3. Main Dashboard Body (Grid layout) */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 20 }}>
+        {/* Left Hand: Ph.D. Profile Summary */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div className="card" style={{ padding: '24px', background: 'white', borderRadius: '16px', border: '1px solid #E2E8F0' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', marginBottom: '16px', borderBottom: '1px solid #F1F5F9', paddingBottom: '12px' }}>
+              📝 Ph.D. Research Overview
+            </h3>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+              {[
+                ['Enrollment Number', thesis.enrollmentNumber],
+                ['Research Department', thesis.department],
+                ['Research Advisor', thesis.supervisorId?.name || 'Awaiting Allocation'],
+                ['Assigned Co-Supervisor', thesis.coSupervisorId?.name || 'None Assigned']
+              ].map(([k, v]) => (
+                <div key={k} style={{ background: '#F8FAFC', padding: '12px', borderRadius: '8px', border: '1px solid #F1F5F9' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>{k}</div>
+                  <div style={{ fontSize: '0.88rem', fontWeight: 600, color: '#0F172A' }}>{v}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ background: '#F0FDF4', borderRadius: '12px', padding: '16px', border: '1px solid #DCFCE7' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#166534', textTransform: 'uppercase', marginBottom: '4px' }}>Next Action Required</div>
+              <div style={{ fontSize: '0.82rem', color: '#15803D', lineHeight: 1.5 }}>{s.nextAction}</div>
+            </div>
+          </div>
+
+          {/* Audit Log Card */}
+          {thesis.auditLog && thesis.auditLog.length > 0 && (
+            <div className="card" style={{ padding: '24px', background: 'white', borderRadius: '16px', border: '1px solid #E2E8F0' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', marginBottom: '16px' }}>
+                📜 Progression History
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {thesis.auditLog.slice().reverse().map((log, idx) => (
+                  <div key={idx} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#3B82F6', marginTop: '6px' }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#1E293B' }}>{log.action.replace(/_/g, ' ')}</div>
+                      {log.note && <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '2px' }}>{log.note}</div>}
+                      <div style={{ fontSize: '0.68rem', color: '#94A3B8', marginTop: '2px' }}>
+                        {new Date(log.timestamp).toLocaleDateString()} at {new Date(log.timestamp).toLocaleTimeString()}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right Hand Column: Stats & Checklist */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {/* Key Metrics Card */}
+          <div className="card" style={{ padding: '24px', background: 'white', borderRadius: '16px', border: '1px solid #E2E8F0' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', marginBottom: '16px' }}>
+              📊 Academic Metrics
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div style={{ padding: '16px', background: '#EFF6FF', borderRadius: '12px', textAlign: 'center', border: '1px solid #DBEAFE' }}>
+                <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: '#1E40AF' }}>{publications.length}</div>
+                <div style={{ fontSize: '0.7rem', color: '#1E40AF', fontWeight: 600 }}>Publications</div>
+              </div>
+              <div style={{ padding: '16px', background: '#ECFDF5', borderRadius: '12px', textAlign: 'center', border: '1px solid #D1FAE5' }}>
+                <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: '#065F46' }}>
+                  {milestones.filter(m => m.status === 'APPROVED').length} / {milestones.length || 1}
+                </div>
+                <div style={{ fontSize: '0.7rem', color: '#065F46', fontWeight: 600 }}>Milestones Approved</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Actions Nav */}
+          <div className="card" style={{ padding: '24px', background: 'white', borderRadius: '16px', border: '1px solid #E2E8F0' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', marginBottom: '16px' }}>
+              ⚡ Quick Navigation
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {[
+                { key: 'milestones', label: '🚀 Upload Milestone Document' },
+                { key: 'rac', label: '📆 Submit RAC Progress Report' },
+                { key: 'publications', label: '📚 Log Research Publication' },
+                { key: 'profile', label: '👤 Complete/Edit Profile Details' }
+              ].map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setActiveTab(key)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    textAlign: 'left',
+                    background: '#F8FAFC',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    color: '#334155',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    outline: 'none'
+                  }}
+                  onMouseOver={e => { e.currentTarget.style.background = '#F1F5F9'; e.currentTarget.style.borderColor = '#CBD5E1'; }}
+                  onMouseOut={e => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.borderColor = '#E2E8F0'; }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Recent Deliverables list */}
+          {milestones.length > 0 && (
+            <div className="card" style={{ padding: '24px', background: 'white', borderRadius: '16px', border: '1px solid #E2E8F0' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', marginBottom: '16px' }}>
+                📂 Recent Deliverables
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {milestones.slice(0, 3).map(m => (
+                  <div key={m._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '8px', borderBottom: '1px solid #F1F5F9' }}>
+                    <div>
+                      <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#1E293B' }}>{m.title}</div>
+                      <div style={{ fontSize: '0.68rem', color: '#94A3B8', marginTop: '2px' }}>Type: {m.type}</div>
+                    </div>
+                    <span style={{
+                      padding: '3px 8px',
+                      borderRadius: 12,
+                      fontSize: '0.68rem',
+                      fontWeight: 700,
+                      background: m.status === 'APPROVED' ? '#D1FAE5' : m.status === 'REVISION_REQUIRED' ? '#FEE2E2' : '#FEF3C7',
+                      color: m.status === 'APPROVED' ? '#065F46' : m.status === 'REVISION_REQUIRED' ? '#991B1B' : '#92400E'
+                    }}>
+                      {m.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
@@ -1128,12 +1427,19 @@ const StudentDashboard = () => {
       case 'changes': return <RequestChangesTab thesis={thesis} />;
       case 'certificates': return <CertificatesTab thesis={thesis} />;
       case 'milestones':
-        if (thesis.status === 'COURSEWORK') return <CourseworkPhase thesis={thesis} />;
-        if (thesis.status === 'SYNOPSIS_PENDING') return <SynopsisPhase thesis={thesis} milestones={milestones} onSubmit={submitMilestone} />;
-        if (thesis.status === 'ACTIVE_RESEARCH') return <ActiveResearch thesis={thesis} milestones={milestones} onSubmit={submitMilestone} />;
-        if (thesis.status === 'PRE_SUBMISSION') return <PreSubmission thesis={thesis} milestones={milestones} onSubmit={submitMilestone} />;
-        if (thesis.status === 'SUBMITTED' || thesis.status === 'AWARDED') return <SubmittedView thesis={thesis} />;
-        return <div className="card" style={{ padding: 32, color: '#6b7280' }}>No milestones yet.</div>;
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <MilestoneTimeline currentStatus={thesis.status} />
+            {(() => {
+              if (thesis.status === 'COURSEWORK') return <CourseworkPhase thesis={thesis} />;
+              if (thesis.status === 'SYNOPSIS_PENDING') return <SynopsisPhase thesis={thesis} milestones={milestones} onSubmit={submitMilestone} />;
+              if (thesis.status === 'ACTIVE_RESEARCH') return <ActiveResearch thesis={thesis} milestones={milestones} onSubmit={submitMilestone} />;
+              if (thesis.status === 'PRE_SUBMISSION') return <PreSubmission thesis={thesis} milestones={milestones} onSubmit={submitMilestone} />;
+              if (thesis.status === 'SUBMITTED' || thesis.status === 'AWARDED') return <SubmittedView thesis={thesis} />;
+              return <div className="card" style={{ padding: 32, color: '#6b7280' }}>No milestones yet.</div>;
+            })()}
+          </div>
+        );
       case 'thesis':
         if (thesis.status === 'SUBMITTED') return <SubmittedView thesis={thesis} />;
         if (thesis.status === 'AWARDED') return <AwardedView thesis={thesis} />;

@@ -14,7 +14,10 @@ const {
   verifyPublication,
   getPublications,
   getDeptPublications,
-  generateCertificate
+  generateCertificate,
+  scheduleDRC,
+  submitDRCResult,
+  getDRCMeetings
 } = require('../controllers/lifecycleController');
 
 // ── RAC reviews ──
@@ -34,6 +37,11 @@ router.post('/publications', protect, submitPublication);
 router.put('/publications/:id/verify', protect, verifyPublication);
 router.get('/publications/thesis/:thesisId', protect, getPublications);
 router.get('/publications/department/:department', protect, getDeptPublications);
+
+// ── DRC Meetings ──
+router.post('/drc/schedule', protect, scheduleDRC);
+router.put('/drc/:id/result', protect, submitDRCResult);
+router.get('/drc/thesis/:thesisId', protect, getDRCMeetings);
 
 // ── Printable dynamic certificates ──
 router.get('/certificates/:thesisId/:type', generateCertificate);

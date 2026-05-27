@@ -83,6 +83,21 @@ const ScholarDetail = ({ thesisId, onClose, onAction }) => {
   const [auditNote, setAuditNote] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // DRC variables
+  const [drcMeetings, setDrcMeetings] = useState([]);
+  const [showDrcSchedule, setShowDrcSchedule] = useState(false);
+  const [drcForm, setDrcForm] = useState({ scheduledDate: '', scheduledTime: '', venue: '', committeeMembers: '', agenda: '' });
+  const [showDrcResult, setShowDrcResult] = useState(false);
+  const [selectedDrc, setSelectedDrc] = useState(null);
+  const [drcResultForm, setDrcResultForm] = useState({ status: 'APPROVED', remarks: '' });
+
+  const fetchDrcMeetings = async () => {
+    try {
+      const res = await axios.get(`${API}/lifecycle/drc/thesis/${thesisId}`, getAuthHeader());
+      setDrcMeetings(res.data);
+    } catch (err) {}
+  };
+
   useEffect(() => {
     axios.get(`${API}/thesis/${thesisId}`, getAuthHeader()).then(r => {
       setData(r.data);
@@ -91,6 +106,7 @@ const ScholarDetail = ({ thesisId, onClose, onAction }) => {
       }
     });
     axios.get(`${API}/auth/faculty`, getAuthHeader()).then(r => setFaculty(r.data)).catch(() => {});
+    fetchDrcMeetings();
   }, [thesisId]);
 
   const act = async (action, payload = {}) => {
@@ -103,9 +119,53 @@ const ScholarDetail = ({ thesisId, onClose, onAction }) => {
           setSelSupervisor(r.data.thesis.supervisorId._id || r.data.thesis.supervisorId);
         }
       });
+      fetchDrcMeetings();
     }
     catch (e) { alert(e.response?.data?.message || 'Error'); }
     finally { setLoading(false); }
+  };
+
+  const handleDrcScheduleSubmit = async (e) => {
+    e.preventDefault();
+    if (!drcForm.scheduledDate || !drcForm.scheduledTime || !drcForm.venue) {
+      return alert('Please fill in Date, Time, and Venue');
+    }
+    setLoading(true);
+    try {
+      await axios.post(`${API}/lifecycle/drc/schedule`, { thesisId, ...drcForm }, getAuthHeader());
+      alert('DRC meeting scheduled successfully!');
+      setShowDrcSchedule(false);
+      setDrcForm({ scheduledDate: '', scheduledTime: '', venue: '', committeeMembers: '', agenda: '' });
+      fetchDrcMeetings();
+      const r = await axios.get(`${API}/thesis/${thesisId}`, getAuthHeader());
+      setData(r.data);
+      if (onAction) onAction(thesisId, 'refresh_list');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to schedule DRC meeting');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDrcResultSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedDrc) return;
+    setLoading(true);
+    try {
+      await axios.put(`${API}/lifecycle/drc/${selectedDrc._id}/result`, drcResultForm, getAuthHeader());
+      alert(`DRC meeting successfully marked as ${drcResultForm.status}!`);
+      setShowDrcResult(false);
+      setSelectedDrc(null);
+      setDrcResultForm({ status: 'APPROVED', remarks: '' });
+      fetchDrcMeetings();
+      const r = await axios.get(`${API}/thesis/${thesisId}`, getAuthHeader());
+      setData(r.data);
+      if (onAction) onAction(thesisId, 'refresh_list');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to record DRC result');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (!data) return <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}><div style={{ background: 'white', padding: 32, borderRadius: 16 }}>Loading...</div></div>;
@@ -132,11 +192,11 @@ const ScholarDetail = ({ thesisId, onClose, onAction }) => {
           {(!thesis.enrollmentVerified || thesis.status === 'REGISTRATION_PENDING') && (
             <button className="btn-primary" onClick={() => act('verify')} disabled={loading} style={{ padding: '6px 16px', fontSize: '0.85rem', background: '#059669', color: 'white' }}>✓ Verify Enrollment → COURSEWORK</button>
           )}
-          {(thesis.status === 'COURSEWORK' || thesis.status === 'REGISTRATION_PENDING') && (
+          {thesis.status !== 'AWARDED' && (
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <select className="form-input" style={{ padding: '5px 10px', height: 'auto' }} value={selSupervisor} onChange={e => setSelSupervisor(e.target.value)}>
-                <option value="">Assign Supervisor...</option>
-                {faculty.map(f => <option key={f._id} value={f._id}>{f.name} ({f.subRole})</option>)}
+                <option value="">Assign/Change Supervisor...</option>
+                {faculty.filter(f => f.department === thesis.department).map(f => <option key={f._id} value={f._id}>{f.name} ({f.subRole})</option>)}
               </select>
               <button className="btn-primary" onClick={() => act('assign', { supervisorId: selSupervisor })} disabled={!selSupervisor || loading} style={{ padding: '6px 16px', fontSize: '0.85rem' }}>Assign</button>
             </div>
@@ -147,17 +207,110 @@ const ScholarDetail = ({ thesisId, onClose, onAction }) => {
           {thesis.status === 'SYNOPSIS_PENDING' && (() => {
             const synopsisMilestone = milestones.find(m => m.type === 'SYNOPSIS');
             return (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%', marginTop: 8 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', marginTop: 8 }}>
                 {synopsisMilestone?.status !== 'APPROVED' ? (
                   <div style={{ background: '#FFF5F5', border: '1px solid #FEB2B2', color: '#C53030', padding: '10px 14px', borderRadius: 8, fontSize: '0.85rem', fontWeight: 600 }}>
-                    ⚠️ Supervisor has not approved the Synopsis yet (Current Status: {synopsisMilestone?.status || 'PENDING'}). HOD DRC Approval is locked until supervisor approval is complete.
+                    ⚠️ Supervisor has not approved the Synopsis yet (Current Status: {synopsisMilestone?.status || 'PENDING'}). DRC Scheduling is locked until supervisor approval is complete.
                   </div>
                 ) : (
-                  <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', color: '#15803D', padding: '10px 14px', borderRadius: 8, fontSize: '0.85rem', fontWeight: 600 }}>
-                    ✅ Synopsis Approved by Supervisor! Ready for final DRC Clearance.
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
+                    <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', color: '#15803D', padding: '10px 14px', borderRadius: 8, fontSize: '0.85rem', fontWeight: 600 }}>
+                      ✅ Synopsis Approved by Supervisor! Ready for DRC Meeting Scheduling & Review.
+                    </div>
+
+                    {/* DRC Meetings List */}
+                    <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 14, borderRadius: 10, width: '100%' }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#334155', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>📆 Departmental Research Committee (DRC) Status</span>
+                        {drcMeetings.length === 0 && !showDrcSchedule && (
+                          <button type="button" className="btn-primary" onClick={() => setShowDrcSchedule(true)} style={{ padding: '4px 10px', fontSize: '0.75rem', background: '#3B82F6' }}>+ Schedule Meeting</button>
+                        )}
+                      </div>
+
+                      {drcMeetings.length === 0 ? (
+                        <div style={{ fontSize: '0.8rem', color: '#64748b', fontStyle: 'italic' }}>No DRC meeting scheduled yet.</div>
+                      ) : (
+                        drcMeetings.map((drc, idx) => (
+                          <div key={drc._id} style={{ borderBottom: idx < drcMeetings.length - 1 ? '1px solid #E2E8F0' : 'none', paddingBottom: idx < drcMeetings.length - 1 ? 10 : 0, paddingTop: idx > 0 ? 10 : 0 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0F172A' }}>DRC Session</span>
+                              <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: '0.7rem', fontWeight: 700, background: drc.status === 'APPROVED' ? '#D1FAE5' : drc.status === 'REVISION_REQUIRED' ? '#FEE2E2' : '#FEF3C7', color: drc.status === 'APPROVED' ? '#065F46' : drc.status === 'REVISION_REQUIRED' ? '#991B1B' : '#92400E' }}>
+                                {drc.status}
+                              </span>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px', fontSize: '0.78rem', color: '#475569' }}>
+                              <div><strong>Date:</strong> {new Date(drc.scheduledDate).toLocaleDateString()}</div>
+                              <div><strong>Time:</strong> {drc.scheduledTime}</div>
+                              <div style={{ gridColumn: 'span 2' }}><strong>Venue:</strong> {drc.venue}</div>
+                              {drc.committeeMembers && <div style={{ gridColumn: 'span 2' }}><strong>Committee:</strong> {drc.committeeMembers}</div>}
+                              {drc.agenda && <div style={{ gridColumn: 'span 2' }}><strong>Agenda:</strong> {drc.agenda}</div>}
+                              {drc.remarks && <div style={{ gridColumn: 'span 2', background: '#FFFBEB', padding: 6, borderRadius: 6, color: '#92400E', borderLeft: '3px solid #F59E0B', marginTop: 4 }}><strong>Remarks:</strong> {drc.remarks}</div>}
+                            </div>
+
+                            {drc.status === 'SCHEDULED' && !showDrcResult && (
+                              <button type="button" className="btn-primary" onClick={() => { setSelectedDrc(drc); setShowDrcResult(true); }} style={{ marginTop: 10, padding: '5px 12px', fontSize: '0.75rem', background: '#059669' }}>📝 Record DRC Outcome</button>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    {/* DRC Schedule Form */}
+                    {showDrcSchedule && (
+                      <form onSubmit={handleDrcScheduleSubmit} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 16, borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
+                        <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#1E293B' }}>Schedule DRC Meeting</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                          <div>
+                            <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>Meeting Date</label>
+                            <input type="date" className="form-input" style={{ width: '100%', padding: '6px' }} value={drcForm.scheduledDate} onChange={e => setDrcForm({...drcForm, scheduledDate: e.target.value})} required />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>Meeting Time</label>
+                            <input type="text" className="form-input" style={{ width: '100%', padding: '6px' }} placeholder="e.g. 11:00 AM" value={drcForm.scheduledTime} onChange={e => setDrcForm({...drcForm, scheduledTime: e.target.value})} required />
+                          </div>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>Venue</label>
+                          <input type="text" className="form-input" style={{ width: '100%', padding: '6px' }} placeholder="e.g. Committee Room 1" value={drcForm.venue} onChange={e => setDrcForm({...drcForm, venue: e.target.value})} required />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>Committee Panel Members</label>
+                          <input type="text" className="form-input" style={{ width: '100%', padding: '6px' }} placeholder="e.g. Dr. A. Sen (HOD), Prof. M. Roy" value={drcForm.committeeMembers} onChange={e => setDrcForm({...drcForm, committeeMembers: e.target.value})} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>Agenda / Focus Areas</label>
+                          <textarea className="form-input" style={{ width: '100%', padding: '6px', resize: 'vertical' }} rows="2" placeholder="e.g. Synopsis evaluation and research feasibility review." value={drcForm.agenda} onChange={e => setDrcForm({...drcForm, agenda: e.target.value})} />
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                          <button type="button" className="btn-outline" onClick={() => setShowDrcSchedule(false)} style={{ padding: '4px 10px', fontSize: '0.75rem' }}>Cancel</button>
+                          <button type="submit" className="btn-primary" disabled={loading} style={{ padding: '4px 14px', fontSize: '0.75rem', background: '#3B82F6' }}>Schedule Event</button>
+                        </div>
+                      </form>
+                    )}
+
+                    {/* DRC Result Grading Form */}
+                    {showDrcResult && selectedDrc && (
+                      <form onSubmit={handleDrcResultSubmit} style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', padding: 16, borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
+                        <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#065F46' }}>Record DRC Meeting Outcome</div>
+                        <div>
+                          <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#047857', display: 'block', marginBottom: 4 }}>Committee Decision</label>
+                          <select className="form-input" style={{ width: '100%', padding: '6px' }} value={drcResultForm.status} onChange={e => setDrcResultForm({...drcResultForm, status: e.target.value})} required>
+                            <option value="APPROVED">APPROVED (Move Candidate to ACTIVE_RESEARCH)</option>
+                            <option value="REVISION_REQUIRED">REVISION REQUIRED (Revert Synopsis to Candidate)</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#047857', display: 'block', marginBottom: 4 }}>Minutes of Meeting / Remarks</label>
+                          <textarea className="form-input" style={{ width: '100%', padding: '6px', resize: 'vertical' }} rows="3" placeholder="Enter comments or required modifications..." value={drcResultForm.remarks} onChange={e => setDrcResultForm({...drcResultForm, remarks: e.target.value})} required />
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                          <button type="button" className="btn-outline" onClick={() => { setShowDrcResult(false); setSelectedDrc(null); }} style={{ padding: '4px 10px', fontSize: '0.75rem' }}>Cancel</button>
+                          <button type="submit" className="btn-primary" disabled={loading} style={{ padding: '4px 14px', fontSize: '0.75rem', background: '#059669' }}>Submit Decision</button>
+                        </div>
+                      </form>
+                    )}
                   </div>
                 )}
-                <button className="btn-primary" onClick={() => act('drc')} disabled={synopsisMilestone?.status !== 'APPROVED' || loading} style={{ padding: '8px 16px', fontSize: '0.85rem', background: '#059669', alignSelf: 'flex-start' }}>✓ DRC Approve → ACTIVE_RESEARCH</button>
               </div>
             );
           })()}
@@ -221,40 +374,150 @@ const ScholarDetail = ({ thesisId, onClose, onAction }) => {
 };
 
 // ── Overview Page ──
-const OverviewPage = ({ theses, onSelectThesis }) => {
-  const counts = { total: theses.length, pending: theses.filter(t => t.status === 'REGISTRATION_PENDING').length, active: theses.filter(t => t.status === 'ACTIVE_RESEARCH').length, awarded: theses.filter(t => t.status === 'AWARDED').length };
+const OverviewPage = ({ theses, onSelectThesis, user }) => {
+  const isHOD = user?.role === 'HOD';
+  const counts = {
+    total: theses.length,
+    pending: theses.filter(t => t.status === 'REGISTRATION_PENDING').length,
+    active: theses.filter(t => t.status === 'ACTIVE_RESEARCH').length,
+    awarded: theses.filter(t => t.status === 'AWARDED').length
+  };
+  const awaitingDRC = theses.filter(t => t.status === 'SYNOPSIS_PENDING' && t.synopsisStatus === 'APPROVED').length;
+
   return (
-    <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 24 }}>
-        {[{ label: 'Total Scholars', value: counts.total, color: '#3B82F6', Icon: GraduationCap },
-          { label: 'Pending Verification', value: counts.pending, color: '#D97706', Icon: Clock },
-          { label: 'Active Research', value: counts.active, color: '#059669', Icon: CheckCircle2 },
-          { label: 'Degrees Awarded', value: counts.awarded, color: '#8B5CF6', Icon: ShieldCheck }].map(({ label, value, color, Icon }) => (
-          <div key={label} className="card" style={{ display: 'flex', alignItems: 'center', gap: 16, padding: 20 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Welcome Banner Card */}
+      <div className="card" style={{
+        background: isHOD ? 'linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%)' : 'linear-gradient(135deg, #111827 0%, #374151 100%)',
+        color: 'white',
+        padding: '28px 24px',
+        borderRadius: '16px',
+        boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)'
+      }}>
+        <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '6px', color: '#FFFFFF' }}>
+          Welcome back, {user?.name || (isHOD ? 'HOD' : 'Admin')}!
+        </h2>
+        <p style={{ opacity: 0.9, fontSize: '0.85rem', fontWeight: 500, lineHeight: 1.4 }}>
+          {isHOD ? (
+            `Head of Department — ${user?.department || 'Department of Computer Science Engineering'} Central Console. Manage registration requests, supervisor allocations, RAC sessions, and schedule DRC evaluations.`
+          ) : (
+            `System Administrator — Master management console. Control platform users, configure database parameters, coordinate academic departments, and track global doctoral tracks.`
+          )}
+        </p>
+      </div>
+
+      {/* Role-Specific Metric Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }}>
+        {[
+          { label: 'Total Scholars', value: counts.total, color: '#3B82F6', Icon: GraduationCap, bg: '#EFF6FF', border: '#DBEAFE' },
+          { label: 'Awaiting Registration', value: counts.pending, color: '#F59E0B', Icon: Clock, bg: '#FFFBEB', border: '#FEF3C7' },
+          { label: 'Active Research', value: counts.active, color: '#10B981', Icon: CheckCircle2, bg: '#ECFDF5', border: '#D1FAE5' },
+          { label: 'Degrees Awarded', value: counts.awarded, color: '#8B5CF6', Icon: ShieldCheck, bg: '#F5F3FF', border: '#EDE9FE' }
+        ].map(({ label, value, color, Icon, bg, border }) => (
+          <div key={label} className="card" style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '20px 16px', background: bg, border: `1px solid ${border}`, borderRadius: '12px' }}>
             <div style={{ width: 48, height: 48, borderRadius: 12, background: color + '20', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Icon size={24} color={color} />
             </div>
-            <div><div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#111827' }}>{value}</div><div style={{ fontSize: '0.8rem', color: '#6b7280' }}>{label}</div></div>
+            <div>
+              <div style={{ fontSize: '1.8rem', fontWeight: 900, color, marginBottom: '2px' }}>{value}</div>
+              <div style={{ fontSize: '0.78rem', color: '#475569', fontWeight: 600 }}>{label}</div>
+            </div>
           </div>
         ))}
       </div>
-      <div className="card">
-        <h3 className="card-title">Recent Submissions (Click any row to open & verify)</h3>
-        <div className="file-list">
-          <div className="file-header"><div style={{ flex: 2 }}>Scholar</div><div style={{ flex: 1.5 }}>Department</div><div style={{ flex: 2 }}>Title</div><div style={{ flex: 1.2 }}>Status</div></div>
-          {theses.slice(0, 8).map(t => (
-            <div key={t._id} className="file-item" style={{ cursor: 'pointer' }} onClick={() => onSelectThesis(t._id)}>
-              <div className="file-name" style={{ flex: 2 }}>{t.scholarId?.name}</div>
-              <div className="file-date" style={{ flex: 1.5 }}>{t.department}</div>
-              <div style={{ flex: 2, fontSize: '0.85rem', color: '#374151' }}>{t.title?.substring(0, 40)}...</div>
-              <div style={{ flex: 1.2, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ padding: '3px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 600, background: STATUS_BG[t.status], color: STATUS_COLOR[t.status] }}>{t.status?.replace('_', ' ')}</span>
-                {t.status === 'REGISTRATION_PENDING' && (
-                  <span style={{ fontSize: '0.75rem', color: '#3B82F6', fontWeight: 600 }}>Verify ➔</span>
-                )}
-              </div>
+
+      {/* Action Center Banner */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 20 }}>
+        {/* Left Side: Main Submissions Overview */}
+        <div className="card" style={{ padding: '24px', borderRadius: '16px', border: '1px solid #E2E8F0' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>📂 Scholars Summary Checklist</span>
+          </h3>
+
+          {theses.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '32px 0', color: '#94A3B8', fontSize: '0.85rem' }}>
+              No scholars currently registered in this department.
             </div>
-          ))}
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {theses.slice(0, 6).map(t => (
+                <div
+                  key={t._id}
+                  onClick={() => onSelectThesis(t._id)}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '12px 16px',
+                    background: '#F8FAFC',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseOver={e => { e.currentTarget.style.background = '#F1F5F9'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                  onMouseOut={e => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.transform = 'none'; }}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1E293B' }}>{t.scholarId?.name || 'Academic Scholar'}</span>
+                    <span style={{ fontSize: '0.75rem', color: '#64748B', maxWidth: '380px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {t.title || 'No Research Title Declared'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ padding: '3px 8px', borderRadius: 12, fontSize: '0.7rem', fontWeight: 700, background: STATUS_BG[t.status], color: STATUS_COLOR[t.status] }}>
+                      {t.status?.replace('_', ' ')}
+                    </span>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Right Side: Quick Alerts & Recommendations */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div className="card" style={{ padding: '24px', borderRadius: '16px', border: '1px solid #E2E8F0' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', marginBottom: '16px' }}>
+              🔔 Action Needed
+            </h3>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {isHOD ? (
+                <>
+                  {counts.pending > 0 && (
+                    <div style={{ background: '#FFF9E6', borderLeft: '4px solid #F59E0B', padding: '10px 12px', borderRadius: '6px', fontSize: '0.8rem', color: '#B45309' }}>
+                      <strong>Registration Verification:</strong> There are {counts.pending} scholar(s) awaiting initial profile review & supervisor assignment.
+                    </div>
+                  )}
+                  {awaitingDRC > 0 && (
+                    <div style={{ background: '#EFF6FF', borderLeft: '4px solid #3B82F6', padding: '10px 12px', borderRadius: '6px', fontSize: '0.8rem', color: '#1E40AF' }}>
+                      <strong>DRC Meeting Scheduling:</strong> {awaitingDRC} scholar(s) have supervisor synopsis approvals and are ready for official committee evaluation.
+                    </div>
+                  )}
+                  {counts.pending === 0 && awaitingDRC === 0 && (
+                    <div style={{ fontSize: '0.8rem', color: '#15803D', background: '#F0FDF4', padding: '10px 12px', borderRadius: '6px', borderLeft: '4px solid #10B981' }}>
+                      ✅ Department workflow status is clean. All pending milestones are up to date!
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  {counts.pending > 0 && (
+                    <div style={{ background: '#FFF9E6', borderLeft: '4px solid #F59E0B', padding: '10px 12px', borderRadius: '6px', fontSize: '0.8rem', color: '#B45309' }}>
+                      <strong>Pending Verification:</strong> {counts.pending} registration requests require system clearance.
+                    </div>
+                  )}
+                  {counts.pending === 0 && (
+                    <div style={{ fontSize: '0.8rem', color: '#15803D', background: '#F0FDF4', padding: '10px 12px', borderRadius: '6px', borderLeft: '4px solid #10B981' }}>
+                      ✅ No pending system registrations. System is clean!
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1130,7 +1393,7 @@ const AdminDashboard = () => {
     }
 
     switch (activeTab) {
-      case 'overview': return <OverviewPage theses={allTheses} onSelectThesis={setSelectedThesisId} />;
+      case 'overview': return <OverviewPage theses={allTheses} onSelectThesis={setSelectedThesisId} user={user} />;
       case 'scholars': return <ManageScholars theses={allTheses} onSelectThesis={setSelectedThesisId} onAction={handleAction} />;
       case 'lifecycle': return <PhDLifecycleConsole theses={allTheses} fetchAllTheses={fetchAllTheses} />;
       case 'users': return <ManageUsers />;
