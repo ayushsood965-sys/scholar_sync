@@ -164,7 +164,9 @@ const getDefaulters = async (req, res) => {
         status: m.status,
         scholarName: scholar ? scholar.name : 'Unknown Scholar',
         scholarDepartment: thesis ? thesis.department : 'N/A',
-        enrollmentNumber: thesis ? thesis.enrollmentNumber : 'N/A'
+        enrollmentNumber: thesis ? thesis.enrollmentNumber : 'N/A',
+        supervisorId: thesis ? thesis.supervisorId : null,
+        scholarId: scholar ? scholar._id : null
       };
     });
 

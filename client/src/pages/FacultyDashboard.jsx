@@ -1,6 +1,6 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Home, FileText, Users, Calendar, User, LogOut, Bell, CheckCircle2, XCircle, Layers, Award, Upload, ShieldCheck, Edit } from 'lucide-react';
+import { Home, FileText, Users, Calendar, User, LogOut, Bell, CheckCircle2, XCircle, Layers, Award, Upload, ShieldCheck, Edit, AlertTriangle } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE_URL, API_URL } from '../config';
 
@@ -23,6 +23,7 @@ const Sidebar = ({ activeTab, setActiveTab, subRole, isVerified }) => {
     { key: 'scholars', label: 'My Scholars', Icon: Users },
     { key: 'rac', label: 'RAC Progress', Icon: Layers },
     { key: 'reviews', label: 'Pending Reviews', Icon: FileText },
+    { key: 'defaulters', label: 'Defaulter Scholars', Icon: AlertTriangle },
   ];
   const hodItems = [
     { key: 'overview', label: 'Dashboard', Icon: Home },
@@ -32,6 +33,7 @@ const Sidebar = ({ activeTab, setActiveTab, subRole, isVerified }) => {
     { key: 'dept', label: 'Department Theses', Icon: Users },
     { key: 'rac', label: 'RAC Progress', Icon: Layers },
     { key: 'requests', label: 'Change Requests', Icon: Edit },
+    { key: 'defaulters', label: 'Defaulter Scholars', Icon: AlertTriangle },
   ];
   const items = subRole === 'HOD' ? hodItems : supervisorItems;
   return (
@@ -297,10 +299,22 @@ const resolveDetailedStatus = (status, synopsisStatus, finalSubStatus) => {
 };
 
 // ── Thesis Detail + Milestone Review Panel ──
-const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onFinalApprove, onClearCoursework, onVerify, onAssign, subRole, onClose, onToggleAnnualRAC }) => {
+const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onFinalApprove, onClearCoursework, onVerify, onAssign, subRole, onClose, onToggleAnnualRAC, onRefresh }) => {
   const toast = useToast();
   const [remarks, setRemarks] = useState({});
   const [loading, setLoading] = useState(false);
+
+  // Active Research panel variables
+  const [activeResearchTab, setActiveResearchTab] = useState('reports');
+  const [publications, setPublications] = useState([]);
+  const [pubRemarks, setPubRemarks] = useState({});
+  const [pubsLoading, setPubsLoading] = useState(false);
+
+  // Assign Report Form variables
+  const [showAssignReportForm, setShowAssignReportForm] = useState(false);
+  const [newReportTitle, setNewReportTitle] = useState('');
+  const [newReportDueDate, setNewReportDueDate] = useState('');
+  const [assigningReport, setAssigningReport] = useState(false);
 
   // DRC variables
   const [drcMeetings, setDrcMeetings] = useState([]);
@@ -315,6 +329,71 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
   // Faculty and assignment variables
   const [faculty, setFaculty] = useState([]);
   const [selSupervisor, setSelSupervisor] = useState(thesis.supervisorId?._id || '');
+
+  const fetchPublications = async () => {
+    setPubsLoading(true);
+    try {
+      const res = await axios.get(`${API}/publications/thesis/${thesis._id}`, getAuthHeader());
+      setPublications(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+    setPubsLoading(false);
+  };
+
+  const handleVerifyPublication = async (pubId, status) => {
+    const rText = pubRemarks[pubId]?.trim() || '';
+    if (status === 'REJECTED' && !rText) {
+      return toast.warning('Remarks are required to reject a publication log.');
+    }
+    setLoading(true);
+    try {
+      await axios.put(`${API}/publications/${pubId}/verify`, {
+        status,
+        remarks: rText
+      }, getAuthHeader());
+      toast.success(`Publication marked: ${status}`);
+      setPubRemarks(prev => ({ ...prev, [pubId]: '' }));
+      fetchPublications();
+    } catch (err) {
+      toast.error('Failed to update publication status.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAssignReport = async (e) => {
+    e.preventDefault();
+    if (!newReportTitle.trim()) return toast.warning('Please enter a progress report title.');
+    if (!newReportDueDate) return toast.warning('Please choose a due date.');
+    setAssigningReport(true);
+    try {
+      const reportsCount = milestones.filter(m => m.type === '6_MONTH_REPORT').length;
+      await axios.post(`${API}/milestones/create`, {
+        thesisId: thesis._id,
+        type: '6_MONTH_REPORT',
+        title: newReportTitle.trim(),
+        sequence: reportsCount + 1,
+        dueDate: newReportDueDate
+      }, getAuthHeader());
+      
+      toast.success('New 6-Month Progress Report milestone assigned successfully!');
+      setShowAssignReportForm(false);
+      setNewReportTitle('');
+      setNewReportDueDate('');
+      if (onRefresh) await onRefresh();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to assign new report milestone.');
+    } finally {
+      setAssigningReport(false);
+    }
+  };
+
+  useEffect(() => {
+    if (thesis.status === 'ACTIVE_RESEARCH') {
+      fetchPublications();
+    }
+  }, [thesis._id, thesis.status]);
 
   useEffect(() => {
     if (subRole === 'HOD') {
@@ -430,10 +509,10 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
-      <div style={{ background: 'white', borderRadius: 16, padding: 32, width: '100%', maxWidth: 700, maxHeight: '85vh', overflowY: 'auto' }}>
+      <div style={{ background: 'var(--color-surface, #ffffff)', color: 'var(--color-text, #1f2937)', borderRadius: 16, padding: 32, width: '100%', maxWidth: 700, maxHeight: '85vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h3 style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{thesis.scholarId?.name} — {thesis.title?.substring(0, 50)}</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
+          <h3 style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--color-text, #1f2937)' }}>{thesis.scholarId?.name} — {thesis.title?.substring(0, 50)}</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--color-text, #1f2937)' }}>✕</button>
         </div>
 
         {isSynopsisPendingUpload && (
@@ -514,8 +593,8 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
                     </div>
 
                     {/* DRC Meetings List */}
-                    <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 14, borderRadius: 10, width: '100%' }}>
-                      <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#334155', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ background: 'var(--color-bg, #f8fafc)', border: '1px solid var(--color-border, #e2e8f0)', padding: 14, borderRadius: 10, width: '100%' }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--color-text, #334155)', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span>📆 Departmental Research Committee (DRC) Status</span>
                         {subRole === 'HOD' && !showDrcSchedule && !showOfflineDrc && (
                           <div style={{ display: 'flex', gap: 6 }}>
@@ -526,17 +605,17 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
                       </div>
 
                       {drcMeetings.length === 0 ? (
-                        <div style={{ fontSize: '0.8rem', color: '#64748b', fontStyle: 'italic' }}>No DRC meeting scheduled yet.</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted, #64748b)', fontStyle: 'italic' }}>No DRC meeting scheduled yet.</div>
                       ) : (
                         drcMeetings.map((drc, idx) => (
-                          <div key={drc._id} style={{ borderBottom: idx < drcMeetings.length - 1 ? '1px solid #E2E8F0' : 'none', paddingBottom: idx < drcMeetings.length - 1 ? 10 : 0, paddingTop: idx > 0 ? 10 : 0 }}>
+                          <div key={drc._id} style={{ borderBottom: idx < drcMeetings.length - 1 ? '1px solid var(--color-border, #E2E8F0)' : 'none', paddingBottom: idx < drcMeetings.length - 1 ? 10 : 0, paddingTop: idx > 0 ? 10 : 0 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0F172A' }}>DRC Session</span>
-                              <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: '0.7rem', fontWeight: 700, background: drc.status === 'APPROVED' ? '#D1FAE5' : drc.status === 'REVISION_REQUIRED' ? '#FEE2E2' : '#FEF3C7', color: drc.status === 'APPROVED' ? '#065F46' : drc.status === 'REVISION_REQUIRED' ? '#991B1B' : '#92400E' }}>
+                              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-text, #0F172A)' }}>DRC Session</span>
+                              <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: '0.7rem', fontWeight: 700, background: drc.status === 'APPROVED' ? '#D1FAE5' : drc.status === 'REVISION_REQUIRED' ? '#FEE2E2' : '#FEF3C7', color: drc.status === 'APPROVED' ? '#065F46' : drc.status === 'REVISION_REQUIRED' ? '#991B1B' : drc.status === 'REVISION_REQUIRED' ? '#92400E' : '#92400E' }}>
                                 {drc.status}
                               </span>
                             </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px', fontSize: '0.78rem', color: '#475569' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px', fontSize: '0.78rem', color: 'var(--color-text-secondary, #475569)' }}>
                               <div><strong>Date:</strong> {new Date(drc.scheduledDate).toLocaleDateString()}</div>
                               <div><strong>Time:</strong> {drc.scheduledTime}</div>
                               <div style={{ gridColumn: 'span 2' }}><strong>Venue:</strong> {drc.venue}</div>
@@ -755,86 +834,396 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
           )}
         </div>
 
-        {pendingMilestones.length > 0 ? (
-          <div>
-            <div style={{ fontWeight: 700, marginBottom: 12 }}>Submitted Documents for Review</div>
-            {pendingMilestones.map(m => (
-              <div key={m._id} style={{ border: '1px solid #E5E7EB', borderRadius: 12, padding: 16, marginBottom: 12 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <div style={{ fontWeight: 600 }}>{m.title}</div>
-                  <span style={{ fontSize: '0.8rem', fontWeight: 600, color: m.status === 'SUBMITTED' ? '#3B82F6' : '#DC2626' }}>{m.status}</span>
-                </div>
-                {m.documentUrl && <a href={`${API_BASE_URL}${m.documentUrl}`} target="_blank" rel="noreferrer" style={{ color: '#10B981', fontSize: '0.85rem', display: 'block', marginBottom: 10 }}>📄 View Document</a>}
-                {m.comments?.length > 0 && (
-                  <div style={{ background: '#FEF3C7', padding: 8, borderRadius: 6, marginBottom: 8, fontSize: '0.82rem' }}>
-                    Previous feedback: "{m.comments[m.comments.length - 1].text}"
+        {thesis.status === 'ACTIVE_RESEARCH' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, borderTop: '1px solid #E2E8F0', paddingTop: 20, marginTop: 12 }}>
+            <div style={{ display: 'flex', borderBottom: '2px solid #E2E8F0', gap: 16, paddingBottom: 4 }}>
+              <button
+                type="button"
+                onClick={() => setActiveResearchTab('reports')}
+                style={{
+                  background: 'none', border: 'none', padding: '6px 12px', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer',
+                  color: activeResearchTab === 'reports' ? '#10b981' : '#64748B',
+                  borderBottom: activeResearchTab === 'reports' ? '3px solid #10b981' : 'none',
+                  marginBottom: -6
+                }}
+              >
+                Reports Timeline
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveResearchTab('chapters')}
+                style={{
+                  background: 'none', border: 'none', padding: '6px 12px', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer',
+                  color: activeResearchTab === 'chapters' ? '#10b981' : '#64748B',
+                  borderBottom: activeResearchTab === 'chapters' ? '3px solid #10b981' : 'none',
+                  marginBottom: -6
+                }}
+              >
+                Chapter Drafts Workspace
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveResearchTab('outputs')}
+                style={{
+                  background: 'none', border: 'none', padding: '6px 12px', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer',
+                  color: activeResearchTab === 'outputs' ? '#10b981' : '#64748B',
+                  borderBottom: activeResearchTab === 'outputs' ? '3px solid #10b981' : 'none',
+                  marginBottom: -6
+                }}
+              >
+                Research Outputs Vault
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveResearchTab('history')}
+                style={{
+                  background: 'none', border: 'none', padding: '6px 12px', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer',
+                  color: activeResearchTab === 'history' ? '#10b981' : '#64748B',
+                  borderBottom: activeResearchTab === 'history' ? '3px solid #10b981' : 'none',
+                  marginBottom: -6
+                }}
+              >
+                History
+              </button>
+            </div>
+
+            {/* Tab 1: 6-Month Reports */}
+            {activeResearchTab === 'reports' && (() => {
+              const reports = milestones.filter(m => m.type === '6_MONTH_REPORT');
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, color: 'var(--color-text, #1E293B)' }}>Mandatory 6-Month Progress Report Checklist</h4>
+                    {!showAssignReportForm && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAssignReportForm(true);
+                          setNewReportTitle(`6-Month Progress Report #${reports.length + 1}`);
+                          setNewReportDueDate(new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+                        }}
+                        className="btn-primary"
+                        style={{ padding: '4px 10px', fontSize: '0.75rem', background: '#059669' }}
+                      >
+                        + Assign 6-Month Report
+                      </button>
+                    )}
                   </div>
-                )}
-                <textarea 
-                  className="form-input" 
-                  placeholder="Add remarks (required for revision)..." 
-                  rows="2" 
-                  value={remarks[m._id] || ''} 
-                  onChange={e => setRemarks(r => ({ ...r, [m._id]: e.target.value }))} 
-                  style={{ marginBottom: 8, resize: 'vertical' }}
-                  disabled={m.status === 'REVISION_REQUIRED'} 
-                />
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button 
-                    className="btn-primary" 
-                    onClick={() => act(() => onReview(m._id, 'APPROVE', remarks[m._id]))} 
-                    disabled={loading || m.status === 'REVISION_REQUIRED'} 
-                    style={{ 
-                      flex: 1, 
-                      padding: '6px', 
-                      fontSize: '0.85rem',
-                      ...(m.status === 'REVISION_REQUIRED' ? { opacity: 0.5, cursor: 'not-allowed' } : {}) 
-                    }}
-                  >
-                    <CheckCircle2 size={14} style={{ marginRight: 4 }} />Approve
-                  </button>
-                  <button 
-                    onClick={() => act(() => onReview(m._id, 'REVISION', remarks[m._id]))} 
-                    disabled={loading || m.status === 'REVISION_REQUIRED'}
-                    style={{ 
-                      flex: 1, 
-                      padding: '6px', 
-                      fontSize: '0.85rem', 
-                      border: '1px solid #F87171', 
-                      color: '#DC2626', 
-                      background: 'none', 
-                      borderRadius: 6, 
-                      cursor: m.status === 'REVISION_REQUIRED' ? 'not-allowed' : 'pointer',
-                      ...(m.status === 'REVISION_REQUIRED' ? { opacity: 0.5 } : {}) 
-                    }}
-                  >
-                    <XCircle size={14} style={{ marginRight: 4 }} />Request Revision
-                  </button>
+
+                  {showAssignReportForm && (
+                    <form onSubmit={handleAssignReport} style={{ background: 'var(--color-bg, #F8FAFC)', border: '1px solid var(--color-border, #E2E8F0)', padding: 14, borderRadius: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.8rem', color: 'var(--color-text, #1E293B)' }}>Assign New Progress Report Milestone</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 10 }}>
+                        <div>
+                          <label style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', display: 'block', marginBottom: 4 }}>Report Title</label>
+                          <input
+                            type="text"
+                            className="form-input"
+                            required
+                            style={{ width: '100%', padding: '6px' }}
+                            value={newReportTitle}
+                            onChange={e => setNewReportTitle(e.target.value)}
+                            placeholder="e.g. 6-Month Progress Report #2"
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', display: 'block', marginBottom: 4 }}>Due Date</label>
+                          <input
+                            type="date"
+                            className="form-input"
+                            required
+                            style={{ width: '100%', padding: '6px' }}
+                            value={newReportDueDate}
+                            onChange={e => setNewReportDueDate(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                        <button type="button" onClick={() => setShowAssignReportForm(false)} className="btn-outline" style={{ padding: '4px 10px', fontSize: '0.75rem' }}>Cancel</button>
+                        <button type="submit" className="btn-primary" disabled={assigningReport} style={{ padding: '4px 14px', fontSize: '0.75rem', background: '#3B82F6' }}>
+                          {assigningReport ? 'Assigning...' : 'Assign Milestone'}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  {reports.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: 20, color: 'var(--color-text-muted, #64748B)', fontSize: '0.85rem' }}>No 6-month progress report milestones assigned to this student. Click the button above to assign one!</div>
+                  ) : (
+                    reports.map(r => (
+                      <div key={r._id} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 14, borderRadius: 10 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                          <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1E293B' }}>{r.title}</span>
+                          <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: '0.72rem', fontWeight: 700, background: r.status === 'APPROVED' ? '#D1FAE5' : r.status === 'REVISION_REQUIRED' ? '#FEE2E2' : r.status === 'SUBMITTED' ? '#DBEAFE' : '#FEF3C7', color: r.status === 'APPROVED' ? '#065F46' : r.status === 'REVISION_REQUIRED' ? '#991B1B' : r.status === 'SUBMITTED' ? '#1D4ED8' : '#D97706' }}>{r.status}</span>
+                        </div>
+                        <div style={{ fontSize: '0.78rem', color: '#64748B', marginBottom: 8 }}>Due Date: {r.dueDate ? new Date(r.dueDate).toLocaleDateString() : 'N/A'}</div>
+                        {r.documentUrl && (
+                          <a href={`${API_BASE_URL}${r.documentUrl}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.82rem', color: '#3B82F6', fontWeight: 600, display: 'inline-block', marginBottom: 8 }}>📄 View Submitted Progress Report</a>
+                        )}
+                        {r.comments?.length > 0 && (
+                          <div style={{ background: '#FFFBEB', borderLeft: '3px solid #F59E0B', padding: '6px 10px', borderRadius: 6, fontSize: '0.8rem', color: '#92400E', margin: '8px 0' }}>
+                            <strong>Feedback:</strong> {r.comments[r.comments.length - 1].text}
+                          </div>
+                        )}
+
+                        {r.status === 'SUBMITTED' && (
+                          <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8, background: 'white', padding: 10, borderRadius: 8, border: '1px solid #E2E8F0' }}>
+                            <textarea
+                              className="form-input"
+                              placeholder="Enter committee remarks or guidelines for revision..."
+                              rows="2"
+                              value={remarks[r._id] || ''}
+                              onChange={e => setRemarks(prev => ({ ...prev, [r._id]: e.target.value }))}
+                              style={{ fontSize: '0.8rem', padding: '6px', resize: 'vertical' }}
+                            />
+                            <div style={{ display: 'flex', gap: 8 }}>
+                              <button type="button" onClick={() => act(() => onReview(r._id, 'REVISION', remarks[r._id]))} className="btn-outline" style={{ flex: 1, padding: '4px', fontSize: '0.78rem', color: '#DC2626', borderColor: '#FCA5A5' }}>Request Revision</button>
+                              <button type="button" onClick={() => act(() => onReview(r._id, 'APPROVE', remarks[r._id]))} className="btn-primary" style={{ flex: 1, padding: '4px', fontSize: '0.78rem', background: '#059669' }}>Approve Submission</button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
                 </div>
-                {m.status === 'REVISION_REQUIRED' && (
-                  <div style={{
-                    marginTop: '12px',
-                    background: '#FEF2F2',
-                    border: '1px solid #FCA5A5',
-                    borderLeft: '4px solid #EF4444',
-                    padding: '12px 16px',
-                    borderRadius: '8px',
-                    fontSize: '0.85rem',
-                    fontWeight: 600,
-                    color: '#991B1B',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    textAlign: 'left'
-                  }}>
-                    <span>ℹ️ {m.type === 'SYNOPSIS' ? 'Research Synopsis' : m.title || 'Document'} has been sent to candidate for correction. Awaiting updated submission.</span>
-                  </div>
+              );
+            })()}
+
+            {/* Tab 2: Chapter Drafts */}
+            {activeResearchTab === 'chapters' && (() => {
+              const chapters = milestones.filter(m => m.type === 'CHAPTER_DRAFT');
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {chapters.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: 20, color: '#64748B', fontSize: '0.85rem' }}>No chapter drafts uploaded by student yet.</div>
+                  ) : (
+                    chapters.map(c => (
+                      <div key={c._id} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 14, borderRadius: 10 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                          <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1E293B' }}>{c.title}</span>
+                          <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: '0.72rem', fontWeight: 700, background: c.status === 'APPROVED' ? '#D1FAE5' : c.status === 'REVISION_REQUIRED' ? '#FEE2E2' : c.status === 'SUBMITTED' ? '#DBEAFE' : '#FEF3C7', color: c.status === 'APPROVED' ? '#065F46' : c.status === 'REVISION_REQUIRED' ? '#991B1B' : c.status === 'SUBMITTED' ? '#1D4ED8' : '#D97706' }}>{c.status}</span>
+                        </div>
+                        {c.documentUrl && (
+                          <a href={`${API_BASE_URL}${c.documentUrl}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.82rem', color: '#3B82F6', fontWeight: 600, display: 'inline-block', marginBottom: 8 }}>📄 View Chapter Draft</a>
+                        )}
+                        {c.comments?.length > 0 && (
+                          <div style={{ background: '#FFFBEB', borderLeft: '3px solid #F59E0B', padding: '6px 10px', borderRadius: 6, fontSize: '0.8rem', color: '#92400E', margin: '8px 0' }}>
+                            <strong>Feedback:</strong> {c.comments[c.comments.length - 1].text}
+                          </div>
+                        )}
+
+                        {c.status === 'SUBMITTED' && (
+                          <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8, background: 'white', padding: 10, borderRadius: 8, border: '1px solid #E2E8F0' }}>
+                            <textarea
+                              className="form-input"
+                              placeholder="Enter supervisor remarks or required chapter updates..."
+                              rows="2"
+                              value={remarks[c._id] || ''}
+                              onChange={e => setRemarks(prev => ({ ...prev, [c._id]: e.target.value }))}
+                              style={{ fontSize: '0.8rem', padding: '6px', resize: 'vertical' }}
+                            />
+                            <div style={{ display: 'flex', gap: 8 }}>
+                              <button type="button" onClick={() => act(() => onReview(c._id, 'REVISION', remarks[c._id]))} className="btn-outline" style={{ flex: 1, padding: '4px', fontSize: '0.78rem', color: '#DC2626', borderColor: '#FCA5A5' }}>Request Revision</button>
+                              <button type="button" onClick={() => act(() => onReview(c._id, 'APPROVE', remarks[c._id]))} className="btn-primary" style={{ flex: 1, padding: '4px', fontSize: '0.78rem', background: '#059669' }}>Approve Draft</button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Tab 3: Research Outputs */}
+            {activeResearchTab === 'outputs' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {pubsLoading ? (
+                  <div style={{ textAlign: 'center', padding: 15, fontSize: '0.85rem' }}>Loading publications...</div>
+                ) : publications.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: 20, color: '#64748B', fontSize: '0.85rem' }}>No scientific publications logged in vault.</div>
+                ) : (
+                  publications.map(p => (
+                    <div key={p._id} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 14, borderRadius: 10 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1E293B' }}>{p.title}</span>
+                        <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: '0.72rem', fontWeight: 700, background: p.status === 'VERIFIED' ? '#D1FAE5' : p.status === 'REJECTED' ? '#FEE2E2' : '#FEF3C7', color: p.status === 'VERIFIED' ? '#065F46' : p.status === 'REJECTED' ? '#991B1B' : '#92400E' }}>{p.status}</span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 10px', fontSize: '0.78rem', color: '#64748B', margin: '6px 0' }}>
+                        <div><strong>Journal/Publisher:</strong> {p.journalName}</div>
+                        <div><strong>Type:</strong> {p.type}</div>
+                        <div><strong>ISSN:</strong> {p.issn || 'N/A'}</div>
+                        <div><strong>Date:</strong> {p.publicationDate ? new Date(p.publicationDate).toLocaleDateString() : 'N/A'}</div>
+                        {p.doiUrl && <div style={{ gridColumn: 'span 2' }}><strong>DOI:</strong> <a href={p.paperLink || `https://doi.org/${p.doiUrl}`} target="_blank" rel="noreferrer" style={{ color: '#2563EB', textDecoration: 'underline' }}>{p.doiUrl}</a></div>}
+                      </div>
+                      {p.documentUrl && (
+                        <a href={`${API_BASE_URL}${p.documentUrl}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.82rem', color: '#3B82F6', fontWeight: 600, display: 'inline-block', marginBottom: 8 }}>📄 View Publication Proof</a>
+                      )}
+                      {p.remarks && (
+                        <div style={{ background: '#FFFBEB', borderLeft: '3px solid #F59E0B', padding: '6px 10px', borderRadius: 6, fontSize: '0.8rem', color: '#92400E', margin: '8px 0' }}>
+                          <strong>Supervisor Remarks:</strong> {p.remarks}
+                        </div>
+                      )}
+
+                      {p.status === 'PENDING' && (
+                        <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8, background: 'white', padding: 10, borderRadius: 8, border: '1px solid #E2E8F0' }}>
+                          <textarea
+                            className="form-input"
+                            placeholder="Enter remarks/correction notes (required to request corrections)..."
+                            rows="2"
+                            value={pubRemarks[p._id] || ''}
+                            onChange={e => setPubRemarks(prev => ({ ...prev, [p._id]: e.target.value }))}
+                            style={{ fontSize: '0.8rem', padding: '6px', resize: 'vertical' }}
+                          />
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <button type="button" onClick={() => handleVerifyPublication(p._id, 'REJECTED')} className="btn-outline" style={{ flex: 1, padding: '4px', fontSize: '0.78rem', color: '#DC2626', borderColor: '#FCA5A5' }}>Request Corrections</button>
+                            <button type="button" onClick={() => handleVerifyPublication(p._id, 'VERIFIED')} className="btn-primary" style={{ flex: 1, padding: '4px', fontSize: '0.78rem', background: '#059669' }}>Verify & Approve Log</button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))
                 )}
               </div>
-            ))}
+            )}
+            {activeResearchTab === 'history' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'var(--color-text, #1E293B)' }}>Ph.D. Candidate Lifecycle Progress Checklist</h4>
+                
+                {/* Checklist Summary */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
+                  <div style={{ background: 'var(--color-bg, #F8FAFC)', border: '1px solid var(--color-border, #E2E8F0)', padding: 12, borderRadius: 10, textAlign: 'center' }}>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-text-muted, #64748B)' }}>Coursework Status</div>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 700, marginTop: 4, color: thesis.courseworkCompleted ? '#059669' : '#D97706' }}>
+                      {thesis.courseworkCompleted ? 'Completed ✅' : 'Pending ⏳'}
+                    </div>
+                  </div>
+                  <div style={{ background: 'var(--color-bg, #F8FAFC)', border: '1px solid var(--color-border, #E2E8F0)', padding: 12, borderRadius: 10, textAlign: 'center' }}>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-text-muted, #64748B)' }}>Enrollment Verified</div>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 700, marginTop: 4, color: thesis.enrollmentVerified ? '#059669' : '#D97706' }}>
+                      {thesis.enrollmentVerified ? 'Verified ✅' : 'Pending ⏳'}
+                    </div>
+                  </div>
+                  <div style={{ background: 'var(--color-bg, #F8FAFC)', border: '1px solid var(--color-border, #E2E8F0)', padding: 12, borderRadius: 10, textAlign: 'center' }}>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-text-muted, #64748B)' }}>Annual RAC Status</div>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 700, marginTop: 4, color: thesis.annualRACCleared ? '#059669' : '#D97706' }}>
+                      {thesis.annualRACCleared ? 'Cleared ✅' : 'Pending ⏳'}
+                    </div>
+                  </div>
+                  <div style={{ background: 'var(--color-bg, #F8FAFC)', border: '1px solid var(--color-border, #E2E8F0)', padding: 12, borderRadius: 10, textAlign: 'center' }}>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-text-muted, #64748B)' }}>Research Start Date</div>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 700, marginTop: 4, color: 'var(--color-text, #1E293B)' }}>
+                      {thesis.startDate ? new Date(thesis.startDate).toLocaleDateString() : 'N/A ⏳'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Audit Logs */}
+                <div>
+                  <h4 style={{ margin: '12px 0 8px', fontSize: '0.9rem', fontWeight: 700, color: 'var(--color-text, #1E293B)' }}>Complete Lifecycle Audit Logs</h4>
+                  {!thesis.auditLog || thesis.auditLog.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: 20, color: 'var(--color-text-muted, #64748B)', fontSize: '0.85rem' }}>No audit logs recorded yet.</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '350px', overflowY: 'auto', paddingRight: '4px' }}>
+                      {[...thesis.auditLog].reverse().map((log, index) => (
+                        <div key={log._id || index} style={{ background: 'var(--color-bg, #F8FAFC)', border: '1px solid var(--color-border, #E2E8F0)', padding: 12, borderRadius: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{log.action}</span>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted, #64748B)' }}>{new Date(log.date).toLocaleString()}</span>
+                          </div>
+                          <div style={{ fontSize: '0.82rem', color: 'var(--color-text, #1F2937)', fontWeight: 500 }}>{log.note}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         ) : (
-          <div style={{ textAlign: 'center', padding: 24, color: '#9CA3AF' }}>No documents pending review for this scholar.</div>
+          <>
+            {pendingMilestones.length > 0 ? (
+              <div>
+                <div style={{ fontWeight: 700, marginBottom: 12 }}>Submitted Documents for Review</div>
+                {pendingMilestones.map(m => (
+                  <div key={m._id} style={{ border: '1px solid #E5E7EB', borderRadius: 12, padding: 16, marginBottom: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <div style={{ fontWeight: 600 }}>{m.title}</div>
+                      <span style={{ fontSize: '0.8rem', fontWeight: 600, color: m.status === 'SUBMITTED' ? '#3B82F6' : '#DC2626' }}>{m.status}</span>
+                    </div>
+                    {m.documentUrl && <a href={`${API_BASE_URL}${m.documentUrl}`} target="_blank" rel="noreferrer" style={{ color: '#10B981', fontSize: '0.85rem', display: 'block', marginBottom: 10 }}>📄 View Document</a>}
+                    {m.comments?.length > 0 && (
+                      <div style={{ background: '#FEF3C7', padding: 8, borderRadius: 6, marginBottom: 8, fontSize: '0.82rem' }}>
+                        Previous feedback: "{m.comments[m.comments.length - 1].text}"
+                      </div>
+                    )}
+                    <textarea 
+                      className="form-input" 
+                      placeholder="Add remarks (required for revision)..." 
+                      rows="2" 
+                      value={remarks[m._id] || ''} 
+                      onChange={e => setRemarks(r => ({ ...r, [m._id]: e.target.value }))} 
+                      style={{ marginBottom: 8, resize: 'vertical' }}
+                      disabled={m.status === 'REVISION_REQUIRED'} 
+                    />
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button 
+                        className="btn-primary" 
+                        onClick={() => act(() => onReview(m._id, 'APPROVE', remarks[m._id]))} 
+                        disabled={loading || m.status === 'REVISION_REQUIRED'} 
+                        style={{ 
+                          flex: 1, 
+                          padding: '6px', 
+                          fontSize: '0.85rem',
+                          ...(m.status === 'REVISION_REQUIRED' ? { opacity: 0.5, cursor: 'not-allowed' } : {}) 
+                        }}
+                      >
+                        <CheckCircle2 size={14} style={{ marginRight: 4 }} />Approve
+                      </button>
+                      <button 
+                        onClick={() => act(() => onReview(m._id, 'REVISION', remarks[m._id]))} 
+                        disabled={loading || m.status === 'REVISION_REQUIRED'}
+                        style={{ 
+                          flex: 1, 
+                          padding: '6px', 
+                          fontSize: '0.85rem', 
+                          border: '1px solid #F87171', 
+                          color: '#DC2626', 
+                          background: 'none', 
+                          borderRadius: 6, 
+                          cursor: m.status === 'REVISION_REQUIRED' ? 'not-allowed' : 'pointer',
+                          ...(m.status === 'REVISION_REQUIRED' ? { opacity: 0.5 } : {}) 
+                        }}
+                      >
+                        <XCircle size={14} style={{ marginRight: 4 }} />Request Revision
+                      </button>
+                    </div>
+                    {m.status === 'REVISION_REQUIRED' && (
+                      <div style={{
+                        marginTop: '12px',
+                        background: '#FEF2F2',
+                        border: '1px solid #FCA5A5',
+                        borderLeft: '4px solid #EF4444',
+                        padding: '12px 16px',
+                        borderRadius: '8px',
+                        fontSize: '0.85rem',
+                        fontWeight: 600,
+                        color: '#991B1B',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        textAlign: 'left'
+                      }}>
+                        <span>ℹ️ {m.type === 'SYNOPSIS' ? 'Research Synopsis' : m.title || 'Document'} has been sent to candidate for correction. Awaiting updated submission.</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: 24, color: '#9CA3AF' }}>No documents pending review for this scholar.</div>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -872,7 +1261,12 @@ const ScholarList = ({ theses, onSelect, title }) => (
 
 // ── DRC Page (HOD) ──
 const DRCPage = ({ theses, onSelect }) => {
-  const pending = theses.filter(t => t.status === 'SYNOPSIS_PENDING' || t.status === 'ACTIVE_RESEARCH');
+  const pending = theses.filter(t => {
+    if (t.status === 'SYNOPSIS_PENDING') {
+      return t.synopsisStatus === 'APPROVED';
+    }
+    return t.status === 'ACTIVE_RESEARCH';
+  });
   return (
     <div>
       <div className="card" style={{ marginBottom: 16, background: '#F0FDF4', border: '1px solid #BBF7D0' }}>
@@ -2039,6 +2433,93 @@ const PendingReviewsQueue = ({ theses, user }) => {
   );
 };
 
+const FacultyDefaultersPage = ({ user, subRole }) => {
+  const toast = useToast();
+  const [defaulters, setDefaulters] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchDefaulters = async () => {
+    setLoading(true);
+    try {
+      const { data } = await axios.get(`${API_URL}/milestones/defaulters`, getAuthHeader());
+      
+      // Filter based on user role
+      if (subRole === 'HOD') {
+        setDefaulters(data.filter(d => d.scholarDepartment === user.department));
+      } else {
+        setDefaulters(data.filter(d => d.supervisorId === user._id));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchDefaulters();
+  }, [user, subRole]);
+
+  const handleRemind = async (scholarId, scholarName) => {
+    if (!scholarId) return toast.warning('No active scholar user ID found for notification dispatch.');
+    try {
+      await axios.post(`${API_URL}/notifications/create`, {
+        recipient: scholarId,
+        title: '⚠️ URGENT: Progress Report Overdue',
+        message: 'Your mandatory 6-Month Progress Report milestone is overdue. Please submit your report immediately to avoid registration hold.',
+        type: 'PENDING_ACTION',
+        link: 'overview'
+      }, getAuthHeader());
+      toast.success(`Reminder notification sent to ${scholarName}!`);
+    } catch (err) {
+      toast.error('Failed to dispatch reminder.');
+    }
+  };
+
+  return (
+    <div className="card">
+      <h3 className="card-title">Progress Report Defaulters</h3>
+      <p style={{ color: '#64748B', fontSize: '0.85rem', marginBottom: 20 }}>
+        Active research scholars with overdue progress report submissions (due date has passed and status remains pending).
+      </p>
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 30 }}>Loading defaulter list...</div>
+      ) : defaulters.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 40, color: '#64748B', background: '#F8FAFC', borderRadius: 12 }}>
+          <span>🍃</span> No progress report defaulters found in your scope. All scholars are up to date!
+        </div>
+      ) : (
+        <div className="file-list">
+          <div className="file-header">
+            <div style={{ flex: 1.5 }}>Scholar</div>
+            <div style={{ flex: 1.5 }}>Enrollment Number</div>
+            <div style={{ flex: 1.5 }}>Milestone</div>
+            <div style={{ flex: 1.5 }}>Due Date</div>
+            <div style={{ flex: 1, textAlign: 'center' }}>Action</div>
+          </div>
+          {defaulters.map(d => (
+            <div key={d._id} className="file-item">
+              <div style={{ flex: 1.5, fontWeight: 700 }}>{d.scholarName}</div>
+              <div style={{ flex: 1.5, fontSize: '0.9rem', color: '#1E293B' }}>{d.enrollmentNumber}</div>
+              <div style={{ flex: 1.5, fontSize: '0.9rem', color: '#1E293B' }}>{d.milestoneTitle}</div>
+              <div style={{ flex: 1.5, fontSize: '0.82rem', color: '#DC2626', fontWeight: 600 }}>{new Date(d.dueDate).toLocaleDateString()}</div>
+              <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+                <button 
+                  onClick={() => handleRemind(d.scholarId, d.scholarName)} 
+                  className="btn-action" 
+                  style={{ background: '#DC2626', padding: '6px 12px' }}
+                >
+                  Remind
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ── Main Dashboard ──
 const FacultyDashboard = () => {
   const toast = useToast();
@@ -2087,7 +2568,7 @@ const FacultyDashboard = () => {
     if (subRole === 'HOD') fetchDeptTheses(); else fetchAssignedTheses();
   };
 
-  const titles = { overview: 'Faculty Dashboard', registrations: 'Registration Requests', scholars: 'My Scholars', rac: 'RAC Progress Schedule', reviews: 'Pending Reviews', dept: 'Department Theses', drc: 'DRC & Seminar Approvals', requests: 'Student Change Requests Desk', profile: 'My Profile' };
+  const titles = { overview: 'Faculty Dashboard', registrations: 'Registration Requests', scholars: 'My Scholars', rac: 'RAC Progress Schedule', reviews: 'Pending Reviews', dept: 'Department Theses', drc: 'DRC & Seminar Approvals', requests: 'Student Change Requests Desk', profile: 'My Profile', defaulters: 'Progress Report Defaulters' };
 
   const renderContent = () => {
     if (!user?.isVerified) {
@@ -2130,6 +2611,7 @@ const FacultyDashboard = () => {
       case 'drc': return <DRCPage theses={allTheses} onSelect={handleSelectThesis} />;
       case 'reviews': return <PendingReviewsQueue theses={allTheses} user={user} />;
       case 'requests': return <HODChangeRequestsTab user={user} />;
+      case 'defaulters': return <FacultyDefaultersPage user={user} subRole={subRole} />;
       case 'profile': return <ProfileTab />;
       default: return <div className="card"><h3 className="card-title">{titles[activeTab]}</h3><p style={{ color: '#6b7280', marginTop: 8 }}>Content coming soon.</p></div>;
     }
@@ -2198,6 +2680,10 @@ const FacultyDashboard = () => {
           onAssign={(supervisorId) => handleHODAction(() => assignSupervisor(selectedThesisId, supervisorId))}
           onToggleAnnualRAC={() => handleHODAction(toggleAnnualRAC)}
           subRole={subRole}
+          onRefresh={async () => {
+            const data = await fetchThesisById(selectedThesisId);
+            setSelectedThesisData(data);
+          }}
           onClose={() => { setSelectedThesisId(null); setSelectedThesisData(null); }}
         />
       )}

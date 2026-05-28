@@ -75,18 +75,21 @@ const getDeptPublications = async (req, res) => {
 const verifyPublication = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body; // 'VERIFIED' or 'REJECTED'
+    const { status, remarks } = req.body; // 'VERIFIED' or 'REJECTED', and optional remarks
     const pub = await Publication.findById(id);
     if (!pub) return res.status(404).json({ message: 'Publication not found' });
 
     pub.status = status;
+    if (remarks !== undefined) {
+      pub.remarks = remarks;
+    }
     await pub.save();
 
     const thesis = await Thesis.findById(pub.thesisId);
     if (thesis) {
       thesis.auditLog.push({
-        action: 'PUBLICATION_VERIFIED',
-        note: `Publication "${pub.title}" marked ${status}`
+        action: status === 'VERIFIED' ? 'PUBLICATION_VERIFIED' : 'PUBLICATION_REJECTED',
+        note: `Publication "${pub.title}" marked ${status}.${remarks ? ' Remarks: ' + remarks : ''}`
       });
       await thesis.save();
     }

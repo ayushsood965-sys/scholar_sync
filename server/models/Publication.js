@@ -12,7 +12,8 @@ const PublicationSchema = new mongoose.Schema({
   doiUrl: { type: String },
   attachmentUrl: { type: String },
   documentUrl: { type: String }, // Handles PDF upload
-  status: { type: String, enum: ['PENDING', 'VERIFIED', 'REJECTED'], default: 'PENDING' }
+  status: { type: String, enum: ['PENDING', 'VERIFIED', 'REJECTED'], default: 'PENDING' },
+  remarks: { type: String, default: '' }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Publication', PublicationSchema);
