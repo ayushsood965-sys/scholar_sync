@@ -1569,6 +1569,59 @@ body {
   [style*="gridTemplateColumns: '1.2fr 0.8fr'"] {
     grid-template-columns: 1fr !important;
   }
+  
+  /* Landing page header swipeable bar overhaul */
+  .landing-nav {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    padding: 12px 16px !important;
+    gap: 12px 0px !important; /* row-gap: 12px, col-gap: 0 */
+  }
+  
+  .landing-logo {
+    order: 1 !important;
+    transform: scale(0.95);
+  }
+  
+  .logo-text {
+    font-size: 1.1rem !important;
+  }
+  
+  .nav-actions {
+    order: 2 !important;
+    gap: 8px !important;
+  }
+  
+  .nav-links {
+    order: 3 !important;
+    width: 100% !important;
+    justify-content: flex-start !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    flex-wrap: nowrap !important;
+    gap: 14px !important;
+    padding: 6px 2px 6px 2px !important;
+    border-top: 1px dashed rgba(0, 0, 0, 0.05);
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  
+  .nav-links::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .nav-link {
+    font-size: 0.78rem !important;
+    padding: 2px 0 !important;
+    flex-shrink: 0 !important;
+  }
+  
+  .nav-actions .btn-outline, .nav-actions .btn-primary {
+    padding: 5px 12px !important;
+    font-size: 0.76rem !important;
+  }
 }
 
 
