@@ -11,7 +11,33 @@ import axios from 'axios';
 const API = 'http://localhost:5000/api';
 const getAuthHeader = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
-const MilestoneTimeline = ({ currentStatus }) => {
+const MilestoneTimeline = ({ thesis, milestones = [] }) => {
+  const [drcMeetings, setDrcMeetings] = useState([]);
+  const [racSessions, setRacSessions] = useState([]);
+
+  const currentStatus = thesis?.status || 'REGISTRATION_PENDING';
+
+  useEffect(() => {
+    if (thesis?._id && currentStatus === 'SYNOPSIS_PENDING') {
+      axios.get(`${API}/lifecycle/drc/thesis/${thesis._id}`, getAuthHeader())
+        .then(res => {
+          if (Array.isArray(res.data)) {
+            setDrcMeetings(res.data);
+          }
+        })
+        .catch(() => {});
+    }
+    if (thesis?._id && currentStatus === 'ACTIVE_RESEARCH') {
+      axios.get(`${API}/lifecycle/rac/thesis/${thesis._id}`, getAuthHeader())
+        .then(res => {
+          if (Array.isArray(res.data)) {
+            setRacSessions(res.data);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [thesis?._id, currentStatus]);
+
   const PHASES = [
     { key: 'REGISTRATION_PENDING', label: 'Registration', desc: 'Awaiting Verification' },
     { key: 'COURSEWORK', label: 'Coursework', desc: 'Clearing Exams' },
@@ -24,6 +50,205 @@ const MilestoneTimeline = ({ currentStatus }) => {
 
   const currentStep = PHASES.findIndex(p => p.key === currentStatus);
   const activeStepIndex = currentStep === -1 ? 0 : currentStep;
+
+  const renderSubStepSection = (title, steps) => {
+    return (
+      <div style={{ marginTop: '24px', borderTop: '1px solid #E2E8F0', paddingTop: '20px' }}>
+        <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#334155', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span>📋</span> {title}
+        </h4>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+          {steps.map((step, idx) => {
+            const isSuccess = step.status === 'SUCCESS';
+            const isDanger = step.status === 'DANGER';
+            const isWarning = step.status === 'WARNING';
+            
+            let bg = '#F1F5F9';
+            let border = '#CBD5E1';
+            let color = '#475569';
+            let icon = '⚪';
+
+            if (isSuccess) {
+              bg = '#ECFDF5';
+              border = '#A7F3D0';
+              color = '#047857';
+              icon = '✅';
+            } else if (isDanger) {
+              bg = '#FEF2F2';
+              border = '#FCA5A5';
+              color = '#B91C1C';
+              icon = '❌';
+            } else if (isWarning) {
+              bg = '#FFFBEB';
+              border = '#FDE68A';
+              color = '#B45309';
+              icon = '⏳';
+            }
+
+            return (
+              <div 
+                key={idx} 
+                style={{ 
+                  background: bg, 
+                  border: `1px solid ${border}`, 
+                  borderRadius: '10px', 
+                  padding: '14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+                  transition: 'transform 0.2s',
+                  textAlign: 'left'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '1rem' }}>{icon}</span>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 700, color }}>{step.label}</span>
+                </div>
+                <p style={{ fontSize: '0.72rem', color: '#64748B', margin: 0, lineHeight: 1.4 }}>
+                  {step.desc}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  const renderDetailedSubProgression = () => {
+    if (currentStatus === 'SYNOPSIS_PENDING') {
+      const synopsis = milestones?.find(m => m.type === 'SYNOPSIS');
+      
+      const step1Uploaded = synopsis && ['SUBMITTED', 'REVISION_REQUIRED', 'APPROVED'].includes(synopsis.status);
+      const step2Approved = synopsis?.status === 'APPROVED';
+      const step2Revision = synopsis?.status === 'REVISION_REQUIRED';
+      const step2Submitted = synopsis?.status === 'SUBMITTED';
+
+      const activeDrc = drcMeetings.find(m => m.status === 'SCHEDULED');
+      const drcApproved = drcMeetings.some(m => m.status === 'APPROVED');
+      const drcRevision = drcMeetings.some(m => m.status === 'REVISION_REQUIRED');
+
+      const step3Scheduled = drcMeetings.length > 0;
+      const step3AwaitingSchedule = step2Approved && !step3Scheduled;
+
+      const step4Approved = drcApproved;
+      const step4Revision = drcRevision;
+      const step4Scheduled = activeDrc && !drcApproved && !drcRevision;
+
+      const subSteps = [
+        {
+          label: 'Synopsis Document Drafted',
+          desc: step1Uploaded 
+            ? 'Research title, abstract, and proposal PDF uploaded.' 
+            : 'Prepare your draft synopsis and upload for advisor review.',
+          status: step1Uploaded ? 'SUCCESS' : 'PENDING'
+        },
+        {
+          label: 'Supervisor Sign-off',
+          desc: step2Approved 
+            ? 'Approved and recommended by your Research Advisor.' 
+            : step2Revision 
+            ? `Correction needed: "${synopsis.comments?.[synopsis.comments.length - 1]?.text || 'Check remarks'}"`
+            : step2Submitted 
+            ? 'Awaiting your supervisor\'s review and evaluation.' 
+            : 'Awaiting synopsis document upload.',
+          status: step2Approved ? 'SUCCESS' : step2Revision ? 'DANGER' : step2Submitted ? 'WARNING' : 'PENDING'
+        },
+        {
+          label: 'DRC Meeting Scheduling',
+          desc: drcApproved || drcRevision
+            ? 'DRC evaluation session successfully concluded.'
+            : activeDrc 
+            ? `Scheduled: ${new Date(activeDrc.scheduledDate).toLocaleDateString()} at ${activeDrc.scheduledTime} in ${activeDrc.venue}.` 
+            : step3AwaitingSchedule 
+            ? 'Supervisor approved! HOD will schedule the DRC evaluation board shortly.' 
+            : 'Awaiting supervisor approval before committee scheduling.',
+          status: (drcApproved || drcRevision || activeDrc) ? 'SUCCESS' : step3AwaitingSchedule ? 'WARNING' : 'PENDING'
+        },
+        {
+          label: 'DRC Panel Evaluation',
+          desc: drcApproved 
+            ? 'Synopsis officially approved by the Departmental Research Committee!' 
+            : drcRevision 
+            ? `Panel revisions required: "${drcMeetings.find(m => m.status === 'REVISION_REQUIRED')?.remarks || 'Check feedback'}"`
+            : activeDrc 
+            ? 'Awaiting presentation defense and grading outcome.' 
+            : 'DRC evaluation panel will convene after scheduling.',
+          status: drcApproved ? 'SUCCESS' : drcRevision ? 'DANGER' : activeDrc ? 'WARNING' : 'PENDING'
+        }
+      ];
+
+      return renderSubStepSection("Research Synopsis & DRC Progression Details", subSteps);
+    }
+
+    if (currentStatus === 'ACTIVE_RESEARCH') {
+      const reports = milestones?.filter(m => m.type === 'PROGRESS_REPORT') || [];
+      const approvedCount = reports.filter(r => r.status === 'APPROVED').length;
+      
+      const subSteps = [
+        {
+          label: 'Research Advisor Allocation',
+          desc: thesis.supervisorId ? `Supervisor: ${thesis.supervisorId.name}.` : 'Supervisor allocation pending verification.',
+          status: thesis.supervisorId ? 'SUCCESS' : 'WARNING'
+        },
+        {
+          label: 'Periodic RAC Evaluations',
+          desc: racSessions.length > 0 
+            ? `Concluded ${racSessions.filter(r => r.status === 'SATISFACTORY').length} RAC review panels successfully.`
+            : 'Schedule your periodic RAC progress evaluation within 6 months.',
+          status: racSessions.some(r => r.status === 'SATISFACTORY') ? 'SUCCESS' : 'WARNING'
+        },
+        {
+          label: 'Progress Reports Deliverables',
+          desc: reports.length > 0 
+            ? `Cleared ${approvedCount} of ${reports.length} scheduled progress reports.` 
+            : 'No progress reports assigned yet.',
+          status: approvedCount > 0 ? 'SUCCESS' : 'PENDING'
+        }
+      ];
+
+      return renderSubStepSection("Active Research & RAC Progression Details", subSteps);
+    }
+
+    if (currentStatus === 'PRE_SUBMISSION') {
+      const preMilestone = milestones?.find(m => m.type === 'PRE_SUBMISSION');
+      const uploaded = preMilestone && ['SUBMITTED', 'REVISION_REQUIRED', 'APPROVED'].includes(preMilestone.status);
+      const approved = preMilestone?.status === 'APPROVED';
+      const revision = preMilestone?.status === 'REVISION_REQUIRED';
+      const submitted = preMilestone?.status === 'SUBMITTED';
+
+      const subSteps = [
+        {
+          label: 'Pre-Submission Seminar Defense',
+          desc: 'Seminar successfully cleared in front of department experts.',
+          status: 'SUCCESS'
+        },
+        {
+          label: 'Package Upload (Publications & Rough Draft)',
+          desc: uploaded 
+            ? 'Draft package uploaded successfully.' 
+            : 'Upload draft thesis, plagiarism certificate, and publication proofs.',
+          status: uploaded ? 'SUCCESS' : 'PENDING'
+        },
+        {
+          label: 'Advisor Final Sign-off',
+          desc: approved 
+            ? 'Approved by advisor. Ready for digital sign-off and dispatch.' 
+            : revision 
+            ? `Revisions required: "${preMilestone.comments?.[preMilestone.comments.length - 1]?.text || 'Check feedback'}"`
+            : submitted 
+            ? 'Under evaluation by your Research Advisor.' 
+            : 'Awaiting package upload for supervisor signature.',
+          status: approved ? 'SUCCESS' : revision ? 'DANGER' : submitted ? 'WARNING' : 'PENDING'
+        }
+      ];
+
+      return renderSubStepSection("Pre-Submission Progression Details", subSteps);
+    }
+
+    return null;
+  };
 
   return (
     <div className="card" style={{ padding: '24px 20px', background: 'white', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', border: '1px solid #E2E8F0', marginBottom: '16px' }}>
@@ -103,6 +328,9 @@ const MilestoneTimeline = ({ currentStatus }) => {
           );
         })}
       </div>
+
+      {/* Dynamic Detailed Sub-Progression Checklist */}
+      {renderDetailedSubProgression()}
     </div>
   );
 };
@@ -744,12 +972,42 @@ const OverviewPage = ({ thesis, milestones, setActiveTab, user }) => {
     }
   }, [thesis]);
 
+  const synopsisMilestone = milestones.find(m => m.type === 'SYNOPSIS');
+  const isSynopsisRevision = thesis.status === 'SYNOPSIS_PENDING' && synopsisMilestone?.status === 'REVISION_REQUIRED';
+
+  const preMilestone = milestones.find(m => m.type === 'PRE_SUBMISSION');
+  const isPreSubmissionRevision = thesis.status === 'PRE_SUBMISSION' && preMilestone?.status === 'REVISION_REQUIRED';
+
   const statusMap = {
     REGISTRATION_PENDING: { label: 'Awaiting Admin Verification', color: '#D97706', bg: '#FEF3C7', progress: 10, nextAction: 'Wait for HOD to verify your enrollment and assign a department supervisor.' },
     COURSEWORK: { label: 'Coursework Phase', color: '#3B82F6', bg: '#DBEAFE', progress: 25, nextAction: 'Focus on completing your doctoral coursework syllabus and clear your coursework exams.' },
-    SYNOPSIS_PENDING: { label: 'Synopsis Submission', color: '#8B5CF6', bg: '#EDE9FE', progress: 40, nextAction: 'Upload your research synopsis proposal PDF. Ensure similarity indexing is within permissible limits.' },
+    SYNOPSIS_PENDING: isSynopsisRevision ? {
+      label: 'Synopsis Correction Needed',
+      color: '#DC2626',
+      bg: '#FEE2E2',
+      progress: 40,
+      nextAction: `Your supervisor requested corrections. Feedback: "${synopsisMilestone.comments?.[synopsisMilestone.comments.length - 1]?.text || 'Please check supervisor comments.'}". Go to "Research Synopsis" to re-upload your revised proposal.`
+    } : {
+      label: 'Synopsis Submission',
+      color: '#8B5CF6',
+      bg: '#EDE9FE',
+      progress: 40,
+      nextAction: 'Upload your research synopsis proposal PDF. Ensure similarity indexing is within permissible limits.'
+    },
     ACTIVE_RESEARCH: { label: 'Active Research', color: '#059669', bg: '#D1FAE5', progress: 65, nextAction: 'Submit periodic 6-month progress reports to your Research Advisory Committee (RAC) and publish research papers.' },
-    PRE_SUBMISSION: { label: 'Pre-Submission', color: '#EA580C', bg: '#FED7AA', progress: 85, nextAction: 'Prepare for your pre-submission seminar and defense colloquium in front of department experts.' },
+    PRE_SUBMISSION: isPreSubmissionRevision ? {
+      label: 'Thesis Revision Required',
+      color: '#DC2626',
+      bg: '#FEE2E2',
+      progress: 85,
+      nextAction: `Your supervisor requested thesis revisions. Feedback: "${preMilestone.comments?.[preMilestone.comments.length - 1]?.text || 'Please check supervisor comments.'}". Go to "Pre-Submission Package" to re-upload your revised package.`
+    } : {
+      label: 'Pre-Submission',
+      color: '#EA580C',
+      bg: '#FED7AA',
+      progress: 85,
+      nextAction: 'Prepare for your pre-submission seminar and defense colloquium in front of department experts.'
+    },
     SUBMITTED: { label: 'Under Evaluation', color: '#6B7280', bg: '#F3F4F6', progress: 95, nextAction: 'Your final thesis is under review by external examiners. Updates will be visible here shortly.' },
     AWARDED: { label: 'Degree Awarded 🎓', color: '#059669', bg: '#D1FAE5', progress: 100, nextAction: 'Congratulations! Your Ph.D. degree has been officially awarded by the Academic Council.' },
   };
@@ -760,7 +1018,7 @@ const OverviewPage = ({ thesis, milestones, setActiveTab, user }) => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* 1. Milestone Timeline */}
-      <MilestoneTimeline currentStatus={thesis.status} />
+      <MilestoneTimeline thesis={thesis} milestones={milestones} />
 
       {/* 2. DRC Scheduled Reminder Callout (if active) */}
       {activeDrc && (
@@ -1174,6 +1432,8 @@ const RequestChangesTab = ({ thesis }) => {
   const [showForm, setShowForm] = useState(false);
   const [faculty, setFaculty] = useState([]);
   const [form, setForm] = useState({ type: 'TITLE_CHANGE', proposedValue: '', reason: '' });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showSearchResults, setShowSearchResults] = useState(false);
 
   const fetchRequests = async () => {
     try {
@@ -1223,22 +1483,174 @@ const RequestChangesTab = ({ thesis }) => {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 12 }}>
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Request Type</label>
-              <select className="form-input" value={form.type} onChange={e => setForm({ ...form, type: e.target.value, proposedValue: '' })}>
+              <select className="form-input" value={form.type} onChange={e => { setForm({ ...form, type: e.target.value, proposedValue: '' }); setSearchTerm(''); setShowSearchResults(false); }}>
                 <option value="TITLE_CHANGE">Thesis Title Modification</option>
                 <option value="GUIDE_CHANGE">Supervisor Reallocation</option>
               </select>
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>
-                {form.type === 'TITLE_CHANGE' ? 'Proposed New Title' : 'Select Proposed Research Guide'}
-              </label>
               {form.type === 'TITLE_CHANGE' ? (
-                <input type="text" className="form-input" required placeholder="Enter the exact new thesis topic title..." value={form.proposedValue} onChange={e => setForm({ ...form, proposedValue: e.target.value })} />
+                <>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Proposed New Title</label>
+                  <input type="text" className="form-input" required placeholder="Enter the exact new thesis topic title..." value={form.proposedValue} onChange={e => setForm({ ...form, proposedValue: e.target.value })} />
+                </>
               ) : (
-                <select className="form-input" required value={form.proposedValue} onChange={e => setForm({ ...form, proposedValue: e.target.value })}>
-                  <option value="">Select guide...</option>
-                  {faculty.map(f => <option key={f._id} value={f._id}>{f.name} ({f.department})</option>)}
-                </select>
+                <div style={{ position: 'relative' }}>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>
+                    Choose Proposed Research Guide (Active Faculty)
+                  </label>
+                  {/* Select Box Trigger */}
+                  <div 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowSearchResults(!showSearchResults);
+                    }}
+                    style={{
+                      background: '#FFFFFF',
+                      border: '1px solid #CBD5E1',
+                      borderRadius: '8px',
+                      padding: '10px 14px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem',
+                      color: form.proposedValue ? '#0F172A' : '#64748B',
+                      fontWeight: form.proposedValue ? 600 : 400,
+                      userSelect: 'none',
+                      transition: 'border-color 0.2s',
+                    }}
+                    onMouseOver={e => e.currentTarget.style.borderColor = '#94A3B8'}
+                    onMouseOut={e => e.currentTarget.style.borderColor = '#CBD5E1'}
+                  >
+                    <span>
+                      {form.proposedValue 
+                        ? (() => {
+                            const selected = faculty.find(f => f._id === form.proposedValue);
+                            return selected 
+                              ? `👨‍🏫 ${selected.name} (${selected.department})`
+                              : 'Select Faculty Member'
+                          })()
+                        : 'Choose an active supervisor...'
+                      }
+                    </span>
+                    <span style={{ fontSize: '0.8rem', color: '#94A3B8' }}>
+                      {showSearchResults ? '▲' : '▼'}
+                    </span>
+                  </div>
+
+                  {/* Dropdown panel */}
+                  {showSearchResults && (() => {
+                    const activeFacultyList = faculty.filter(f => {
+                      const isActive = f.isActive !== false;
+                      const matchesSearch = 
+                        f.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        f.department?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        f.designation?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        f.specialization?.toLowerCase().includes(searchTerm.toLowerCase());
+                      return isActive && matchesSearch;
+                    });
+
+                    return (
+                      <div 
+                        onClick={e => e.stopPropagation()}
+                        style={{ 
+                          position: 'absolute', 
+                          top: '100%', 
+                          left: 0, 
+                          right: 0, 
+                          background: 'white', 
+                          border: '1px solid #CBD5E1', 
+                          borderRadius: 8, 
+                          boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', 
+                          zIndex: 99,
+                          marginTop: 4,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          overflow: 'hidden'
+                        }}
+                      >
+                        {/* Search input and button inside the dropdown */}
+                        <div style={{ padding: '10px 12px', borderBottom: '1px solid #E2E8F0', background: '#FAFAFA', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569' }}>
+                              Active Faculty Directory ({activeFacultyList.length} matches)
+                            </span>
+                            <button 
+                              type="button" 
+                              onClick={() => setShowSearchResults(false)} 
+                              style={{ background: 'none', border: 'none', fontSize: '0.7rem', color: '#EF4444', cursor: 'pointer', fontWeight: 700 }}
+                            >
+                              Close
+                            </button>
+                          </div>
+                          
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <input 
+                              type="text" 
+                              className="form-input" 
+                              placeholder="Type name, department, or specialization..." 
+                              value={searchTerm} 
+                              onChange={e => setSearchTerm(e.target.value)}
+                              style={{ flex: 1, fontSize: '0.82rem', padding: '6px 10px', height: '36px', margin: 0 }}
+                              onClick={e => e.stopPropagation()}
+                            />
+                            <button 
+                              type="button" 
+                              onClick={() => {
+                                // Searching is live as you type, but this button explicitly confirms and handles search
+                              }}
+                              className="btn-primary" 
+                              style={{ background: '#059669', padding: '6px 14px', fontSize: '0.8rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px', height: '36px' }}
+                            >
+                              🔍 Search
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* List of active faculties */}
+                        <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                          {activeFacultyList.length === 0 ? (
+                            <div style={{ padding: 16, fontSize: '0.8rem', color: '#64748B', fontStyle: 'italic', textAlign: 'center' }}>
+                              No active faculty members found.
+                            </div>
+                          ) : (
+                            activeFacultyList.map(f => (
+                              <div 
+                                key={f._id} 
+                                onClick={() => {
+                                  setForm({ ...form, proposedValue: f._id });
+                                  setShowSearchResults(false);
+                                }}
+                                style={{ 
+                                  padding: '10px 14px', 
+                                  cursor: 'pointer', 
+                                  borderBottom: '1px solid #F1F5F9', 
+                                  background: form.proposedValue === f._id ? '#EFF6FF' : 'white',
+                                  transition: 'background-color 0.2s',
+                                  textAlign: 'left'
+                                }}
+                                onMouseOver={e => e.currentTarget.style.backgroundColor = '#F8FAFC'}
+                                onMouseOut={e => e.currentTarget.style.backgroundColor = form.proposedValue === f._id ? '#EFF6FF' : 'white'}
+                              >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#0F172A' }}>{f.name}</span>
+                                  <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#059669', background: '#D1FAE5', padding: '2px 6px', borderRadius: 4 }}>
+                                    {f.department}
+                                  </span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#64748B', marginTop: 4 }}>
+                                  <span>{f.designation || 'Faculty Supervisor'}</span>
+                                  {f.specialization && <span>Focus: {f.specialization}</span>}
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
               )}
             </div>
           </div>
@@ -1595,7 +2007,7 @@ const StudentDashboard = () => {
       case 'milestones':
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <MilestoneTimeline currentStatus={thesis.status} />
+            <MilestoneTimeline thesis={thesis} milestones={milestones} />
             {(() => {
               if (thesis.status === 'COURSEWORK') return <CourseworkPhase thesis={thesis} />;
               if (thesis.status === 'SYNOPSIS_PENDING') return <SynopsisPhase thesis={thesis} milestones={milestones} onSubmit={submitMilestone} />;

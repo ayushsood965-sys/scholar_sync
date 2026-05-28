@@ -133,10 +133,13 @@ const submitChangeRequest = async (req, res) => {
 const reviewChangeRequest = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, remarks } = req.body; // 'APPROVED' or 'REJECTED'
+    const { status, remarks, proposedValue } = req.body; // 'APPROVED' or 'REJECTED', proposedValue optional override
     const request = await ChangeRequest.findById(id);
     if (!request) return res.status(404).json({ message: 'Change request not found' });
 
+    if (proposedValue) {
+      request.proposedValue = proposedValue;
+    }
     request.status = status;
     request.remarks = remarks;
     await request.save();
@@ -630,6 +633,128 @@ const getDRCMeetings = async (req, res) => {
   }
 };
 
+const recordOfflineDRC = async (req, res) => {
+  try {
+    const { thesisId, conductedDate, venue, committeeMembers, remarks, status } = req.body; // status is 'APPROVED' or 'REVISION_REQUIRED'
+    const thesis = await Thesis.findById(thesisId);
+    if (!thesis) return res.status(404).json({ message: 'Thesis not found' });
+
+    const newDRC = new DRCMeeting({
+      scholarId: thesis.scholarId,
+      thesisId,
+      scheduledDate: conductedDate || new Date(),
+      scheduledTime: 'Offline Conducted',
+      venue: venue || 'Offline Department Room',
+      committeeMembers: committeeMembers || 'Department Board',
+      agenda: 'Offline Evaluation Conducted',
+      status: status,
+      remarks: remarks
+    });
+
+    await newDRC.save();
+
+    if (status === 'APPROVED') {
+      thesis.status = 'ACTIVE_RESEARCH';
+      thesis.startDate = new Date();
+      thesis.auditLog.push({
+        action: 'DRC_APPROVED',
+        note: `DRC approved offline. Remarks: ${remarks}`
+      });
+      await thesis.save();
+
+      // Update synopsis milestone to APPROVED
+      const synopsis = await Milestone.findOne({ thesisId: thesis._id, type: 'SYNOPSIS' });
+      if (synopsis) {
+        synopsis.status = 'APPROVED';
+        await synopsis.save();
+      }
+
+      // Auto-create first 6-month progress report milestone
+      const existingReport = await Milestone.findOne({ thesisId: thesis._id, type: 'PROGRESS_REPORT' });
+      if (!existingReport) {
+        await Milestone.create({
+          thesisId: thesis._id,
+          type: 'PROGRESS_REPORT',
+          title: '6-Month Progress Report #1',
+          status: 'PENDING',
+          sequence: 1,
+          dueDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
+        });
+      }
+
+      await createNotification({
+        recipient: newDRC.scholarId,
+        title: '🎉 DRC Synopsis Approved!',
+        message: `Congratulations! The DRC panel has officially APPROVED your research synopsis offline. You are now in the ACTIVE_RESEARCH phase.`,
+        type: 'SUCCESSFUL_ACTION',
+        link: 'overview'
+      });
+    } else {
+      thesis.auditLog.push({
+        action: 'DRC_REVISION_REQUIRED',
+        note: `DRC marked Revision Required offline. Remarks: ${remarks}`
+      });
+      await thesis.save();
+
+      const synopsis = await Milestone.findOne({ thesisId: thesis._id, type: 'SYNOPSIS' });
+      if (synopsis) {
+        synopsis.status = 'REVISION_REQUIRED';
+        await synopsis.save();
+      }
+
+      await createNotification({
+        recipient: newDRC.scholarId,
+        title: '⚠️ DRC Revision Required',
+        message: `The DRC panel has requested revisions for your synopsis offline. Remarks: "${remarks}". Please revise and re-upload your document.`,
+        type: 'PENDING_ACTION',
+        link: 'thesis'
+      });
+    }
+
+    res.status(201).json(newDRC);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const rescheduleDRC = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { scheduledDate, scheduledTime, venue, committeeMembers, remarks } = req.body;
+    const drc = await DRCMeeting.findById(id);
+    if (!drc) return res.status(404).json({ message: 'DRC meeting not found' });
+
+    drc.scheduledDate = scheduledDate;
+    drc.scheduledTime = scheduledTime;
+    drc.venue = venue;
+    if (committeeMembers !== undefined) drc.committeeMembers = committeeMembers;
+    if (remarks !== undefined) drc.remarks = remarks;
+    drc.status = 'SCHEDULED';
+    await drc.save();
+
+    const thesis = await Thesis.findById(drc.thesisId);
+    if (thesis) {
+      thesis.auditLog.push({
+        action: 'DRC_RESCHEDULED',
+        note: `DRC rescheduled for ${new Date(scheduledDate).toDateString()} at ${scheduledTime} in ${venue}. Reason/Remarks: ${remarks || 'None'}`
+      });
+      await thesis.save();
+
+      await createNotification({
+        recipient: drc.scholarId,
+        title: '📆 DRC Meeting Rescheduled!',
+        message: `HOD has rescheduled your Departmental Research Committee (DRC) synopsis evaluation meeting to ${new Date(scheduledDate).toLocaleDateString()} at ${scheduledTime} in ${venue}.`,
+        type: 'INFO',
+        link: 'overview'
+      });
+    }
+
+    res.json(drc);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 module.exports = {
   scheduleRAC,
   uploadRACReport,
@@ -646,5 +771,7 @@ module.exports = {
   generateCertificate,
   scheduleDRC,
   submitDRCResult,
-  getDRCMeetings
+  getDRCMeetings,
+  recordOfflineDRC,
+  rescheduleDRC
 };

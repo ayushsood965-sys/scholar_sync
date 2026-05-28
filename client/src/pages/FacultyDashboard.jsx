@@ -1,6 +1,6 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Home, FileText, Users, Calendar, User, LogOut, Bell, CheckCircle2, XCircle, Layers, Award, Upload, ShieldCheck } from 'lucide-react';
+import { Home, FileText, Users, Calendar, User, LogOut, Bell, CheckCircle2, XCircle, Layers, Award, Upload, ShieldCheck, Edit } from 'lucide-react';
 import axios from 'axios';
 
 const API = 'http://localhost:5000/api';
@@ -27,6 +27,7 @@ const Sidebar = ({ activeTab, setActiveTab, subRole, isVerified }) => {
     { key: 'dept', label: 'Department Theses', Icon: Users },
     { key: 'drc', label: 'DRC Approvals', Icon: CheckCircle2 },
     { key: 'rac', label: 'RAC Progress', Icon: Layers },
+    { key: 'requests', label: 'Change Requests', Icon: Edit },
     { key: 'profile', label: 'Profile', Icon: User },
   ];
   const items = subRole === 'HOD' ? hodItems : supervisorItems;
@@ -302,7 +303,9 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
   const [drcForm, setDrcForm] = useState({ scheduledDate: '', scheduledTime: '', venue: '', committeeMembers: '', agenda: '' });
   const [showDrcResult, setShowDrcResult] = useState(false);
   const [selectedDrc, setSelectedDrc] = useState(null);
-  const [drcResultForm, setDrcResultForm] = useState({ status: 'APPROVED', remarks: '' });
+  const [drcResultForm, setDrcResultForm] = useState({ status: 'APPROVED', remarks: '', scheduledDate: '', scheduledTime: '', venue: '', committeeMembers: '' });
+  const [showOfflineDrc, setShowOfflineDrc] = useState(false);
+  const [offlineDrcForm, setOfflineDrcForm] = useState({ conductedDate: '', venue: '', committeeMembers: '', remarks: '', status: 'APPROVED' });
 
   // Faculty and assignment variables
   const [faculty, setFaculty] = useState([]);
@@ -354,15 +357,61 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
     if (!selectedDrc) return;
     setLoading(true);
     try {
-      await axios.put(`${API}/lifecycle/drc/${selectedDrc._id}/result`, drcResultForm, getAuthHeader());
-      alert(`DRC meeting successfully marked as ${drcResultForm.status}!`);
+      if (drcResultForm.status === 'RESCHEDULE') {
+        if (!drcResultForm.scheduledDate || !drcResultForm.scheduledTime || !drcResultForm.venue) {
+          alert('Please fill in Date, Time, and Venue for rescheduling');
+          setLoading(false);
+          return;
+        }
+        await axios.put(`${API}/lifecycle/drc/${selectedDrc._id}/reschedule`, {
+          scheduledDate: drcResultForm.scheduledDate,
+          scheduledTime: drcResultForm.scheduledTime,
+          venue: drcResultForm.venue,
+          committeeMembers: drcResultForm.committeeMembers,
+          remarks: drcResultForm.remarks
+        }, getAuthHeader());
+        alert('DRC meeting rescheduled successfully!');
+      } else {
+        await axios.put(`${API}/lifecycle/drc/${selectedDrc._id}/result`, {
+          status: drcResultForm.status,
+          remarks: drcResultForm.remarks
+        }, getAuthHeader());
+        alert(`DRC meeting successfully marked as ${drcResultForm.status}!`);
+      }
       setShowDrcResult(false);
       setSelectedDrc(null);
-      setDrcResultForm({ status: 'APPROVED', remarks: '' });
+      setDrcResultForm({ status: 'APPROVED', remarks: '', scheduledDate: '', scheduledTime: '', venue: '', committeeMembers: '' });
       fetchDrcMeetings();
       if (onDRC) await onDRC();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to record DRC result');
+      alert(err.response?.data?.message || 'Failed to process DRC request');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOfflineDrcSubmit = async (e) => {
+    e.preventDefault();
+    if (!offlineDrcForm.remarks) {
+      return alert('Please enter Remarks / MoM');
+    }
+    setLoading(true);
+    try {
+      await axios.post(`${API}/lifecycle/drc/offline`, {
+        thesisId: thesis._id,
+        conductedDate: offlineDrcForm.conductedDate || new Date(),
+        venue: offlineDrcForm.venue || 'Offline Department Room',
+        committeeMembers: offlineDrcForm.committeeMembers || 'Department Board',
+        remarks: offlineDrcForm.remarks,
+        status: offlineDrcForm.status
+      }, getAuthHeader());
+      alert(`Offline DRC Outcome successfully recorded as ${offlineDrcForm.status}!`);
+      setShowOfflineDrc(false);
+      setOfflineDrcForm({ conductedDate: '', venue: '', committeeMembers: '', remarks: '', status: 'APPROVED' });
+      fetchDrcMeetings();
+      if (onDRC) await onDRC();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to record offline DRC');
     } finally {
       setLoading(false);
     }
@@ -433,11 +482,13 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
           )}
           {subRole === 'HOD' && thesis.status !== 'AWARDED' && (
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <select className="form-input" style={{ padding: '5px 10px', height: 'auto', fontSize: '0.85rem' }} value={selSupervisor} onChange={e => setSelSupervisor(e.target.value)}>
-                <option value="">Assign/Change Department Supervisor...</option>
+              <select className="form-input" style={{ padding: '5px 10px', height: 'auto', fontSize: '0.85rem' }} value={selSupervisor} onChange={e => setSelSupervisor(e.target.value)} disabled={!!thesis.supervisorId}>
+                <option value="">Assign Department Supervisor...</option>
                 {faculty.filter(f => f.department === thesis.department).map(f => <option key={f._id} value={f._id}>{f.name} ({f.designation || f.subRole || 'Supervisor'})</option>)}
               </select>
-              <button className="btn-primary" onClick={() => act(() => onAssign(selSupervisor))} disabled={!selSupervisor || loading} style={{ padding: '5px 14px', fontSize: '0.85rem' }}>Assign</button>
+              <button className="btn-primary" onClick={() => act(() => onAssign(selSupervisor))} disabled={!selSupervisor || !!thesis.supervisorId || loading} style={{ padding: '5px 14px', fontSize: '0.85rem', opacity: thesis.supervisorId ? 0.6 : 1, cursor: thesis.supervisorId ? 'not-allowed' : 'pointer' }}>
+                {thesis.supervisorId ? '✓ Supervisor Assigned' : 'Assign'}
+              </button>
             </div>
           )}
           {thesis.status === 'COURSEWORK' && (
@@ -461,8 +512,11 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
                     <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 14, borderRadius: 10, width: '100%' }}>
                       <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#334155', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span>📆 Departmental Research Committee (DRC) Status</span>
-                        {subRole === 'HOD' && drcMeetings.length === 0 && !showDrcSchedule && (
-                          <button type="button" className="btn-primary" onClick={() => setShowDrcSchedule(true)} style={{ padding: '4px 10px', fontSize: '0.75rem', background: '#3B82F6' }}>+ Schedule Meeting</button>
+                        {subRole === 'HOD' && !showDrcSchedule && !showOfflineDrc && (
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button type="button" className="btn-primary" onClick={() => { setShowDrcSchedule(true); setShowOfflineDrc(false); }} style={{ padding: '4px 10px', fontSize: '0.75rem', background: '#3B82F6' }}>+ Schedule Meeting</button>
+                            <button type="button" className="btn-primary" onClick={() => { setShowOfflineDrc(true); setShowDrcSchedule(false); }} style={{ padding: '4px 10px', fontSize: '0.75rem', background: '#059669' }}>+ Record Offline DRC</button>
+                          </div>
                         )}
                       </div>
 
@@ -527,6 +581,42 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
                       </form>
                     )}
 
+                    {/* Offline DRC Form */}
+                    {showOfflineDrc && (
+                      <form onSubmit={handleOfflineDrcSubmit} style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', padding: 16, borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
+                        <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#065F46' }}>Record Offline Conducted DRC Outcome</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                          <div>
+                            <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#047857', display: 'block', marginBottom: 4 }}>Date Conducted</label>
+                            <input type="date" className="form-input" style={{ width: '100%', padding: '6px' }} value={offlineDrcForm.conductedDate} onChange={e => setOfflineDrcForm({...offlineDrcForm, conductedDate: e.target.value})} required />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#047857', display: 'block', marginBottom: 4 }}>Committee Decision</label>
+                            <select className="form-input" style={{ width: '100%', padding: '6px' }} value={offlineDrcForm.status} onChange={e => setOfflineDrcForm({...offlineDrcForm, status: e.target.value})} required>
+                              <option value="APPROVED">APPROVED (Move Candidate to ACTIVE_RESEARCH)</option>
+                              <option value="REVISION_REQUIRED">REVISION REQUIRED (Revert Synopsis to Candidate)</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#047857', display: 'block', marginBottom: 4 }}>Venue</label>
+                          <input type="text" className="form-input" style={{ width: '100%', padding: '6px' }} placeholder="e.g. Offline Department Office" value={offlineDrcForm.venue} onChange={e => setOfflineDrcForm({...offlineDrcForm, venue: e.target.value})} required />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#047857', display: 'block', marginBottom: 4 }}>Committee Panel Members</label>
+                          <input type="text" className="form-input" style={{ width: '100%', padding: '6px' }} placeholder="e.g. Dr. A. Sen (HOD), Prof. M. Roy" value={offlineDrcForm.committeeMembers} onChange={e => setOfflineDrcForm({...offlineDrcForm, committeeMembers: e.target.value})} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#047857', display: 'block', marginBottom: 4 }}>MoM / Committee Remarks</label>
+                          <textarea className="form-input" style={{ width: '100%', padding: '6px', resize: 'vertical' }} rows="3" placeholder="Enter offline comments or required modifications..." value={offlineDrcForm.remarks} onChange={e => setOfflineDrcForm({...offlineDrcForm, remarks: e.target.value})} required />
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                          <button type="button" className="btn-outline" onClick={() => setShowOfflineDrc(false)} style={{ padding: '4px 10px', fontSize: '0.75rem' }}>Cancel</button>
+                          <button type="submit" className="btn-primary" disabled={loading} style={{ padding: '4px 14px', fontSize: '0.75rem', background: '#059669' }}>Submit Offline Result</button>
+                        </div>
+                      </form>
+                    )}
+
                     {/* DRC Result Grading Form */}
                     {showDrcResult && selectedDrc && (
                       <form onSubmit={handleDrcResultSubmit} style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', padding: 16, borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
@@ -536,15 +626,42 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
                           <select className="form-input" style={{ width: '100%', padding: '6px' }} value={drcResultForm.status} onChange={e => setDrcResultForm({...drcResultForm, status: e.target.value})} required>
                             <option value="APPROVED">APPROVED (Move Candidate to ACTIVE_RESEARCH)</option>
                             <option value="REVISION_REQUIRED">REVISION REQUIRED (Revert Synopsis to Candidate)</option>
+                            <option value="RESCHEDULE">RESCHEDULE MEETING (Select New Date/Time/Venue)</option>
                           </select>
                         </div>
+                        {drcResultForm.status === 'RESCHEDULE' && (
+                          <>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                              <div>
+                                <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#047857', display: 'block', marginBottom: 4 }}>New Date</label>
+                                <input type="date" className="form-input" style={{ width: '100%', padding: '6px' }} value={drcResultForm.scheduledDate} onChange={e => setDrcResultForm({...drcResultForm, scheduledDate: e.target.value})} required />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#047857', display: 'block', marginBottom: 4 }}>New Time</label>
+                                <input type="text" className="form-input" style={{ width: '100%', padding: '6px' }} placeholder="e.g. 11:30 AM" value={drcResultForm.scheduledTime} onChange={e => setDrcResultForm({...drcResultForm, scheduledTime: e.target.value})} required />
+                              </div>
+                            </div>
+                            <div>
+                              <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#047857', display: 'block', marginBottom: 4 }}>New Venue</label>
+                              <input type="text" className="form-input" style={{ width: '100%', padding: '6px' }} placeholder="e.g. Seminar Hall A" value={drcResultForm.venue} onChange={e => setDrcResultForm({...drcResultForm, venue: e.target.value})} required />
+                            </div>
+                            <div>
+                              <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#047857', display: 'block', marginBottom: 4 }}>Committee Panel Members</label>
+                              <input type="text" className="form-input" style={{ width: '100%', padding: '6px' }} placeholder="e.g. Dr. A. Sen, Prof. M. Roy, Dr. S. Bose" value={drcResultForm.committeeMembers} onChange={e => setDrcResultForm({...drcResultForm, committeeMembers: e.target.value})} />
+                            </div>
+                          </>
+                        )}
                         <div>
-                          <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#047857', display: 'block', marginBottom: 4 }}>Minutes of Meeting / Remarks</label>
-                          <textarea className="form-input" style={{ width: '100%', padding: '6px', resize: 'vertical' }} rows="3" placeholder="Enter comments or required modifications..." value={drcResultForm.remarks} onChange={e => setDrcResultForm({...drcResultForm, remarks: e.target.value})} required />
+                          <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#047857', display: 'block', marginBottom: 4 }}>
+                            {drcResultForm.status === 'RESCHEDULE' ? 'Reason for Rescheduling / Remarks' : 'Minutes of Meeting / Remarks'}
+                          </label>
+                          <textarea className="form-input" style={{ width: '100%', padding: '6px', resize: 'vertical' }} rows="3" placeholder={drcResultForm.status === 'RESCHEDULE' ? 'Provide context for rescheduling...' : 'Enter comments or required modifications...'} value={drcResultForm.remarks} onChange={e => setDrcResultForm({...drcResultForm, remarks: e.target.value})} required />
                         </div>
                         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                           <button type="button" className="btn-outline" onClick={() => { setShowDrcResult(false); setSelectedDrc(null); }} style={{ padding: '4px 10px', fontSize: '0.75rem' }}>Cancel</button>
-                          <button type="submit" className="btn-primary" disabled={loading} style={{ padding: '4px 14px', fontSize: '0.75rem', background: '#059669' }}>Submit Decision</button>
+                          <button type="submit" className="btn-primary" disabled={loading} style={{ padding: '4px 14px', fontSize: '0.75rem', background: '#059669' }}>
+                            {drcResultForm.status === 'RESCHEDULE' ? 'Reschedule Meeting' : 'Submit Decision'}
+                          </button>
                         </div>
                       </form>
                     )}
@@ -576,16 +693,66 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
                     Previous feedback: "{m.comments[m.comments.length - 1].text}"
                   </div>
                 )}
-                <textarea className="form-input" placeholder="Add remarks (required for revision)..." rows="2" value={remarks[m._id] || ''} onChange={e => setRemarks(r => ({ ...r, [m._id]: e.target.value }))} style={{ marginBottom: 8, resize: 'vertical' }} />
+                <textarea 
+                  className="form-input" 
+                  placeholder="Add remarks (required for revision)..." 
+                  rows="2" 
+                  value={remarks[m._id] || ''} 
+                  onChange={e => setRemarks(r => ({ ...r, [m._id]: e.target.value }))} 
+                  style={{ marginBottom: 8, resize: 'vertical' }}
+                  disabled={m.status === 'REVISION_REQUIRED'} 
+                />
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button className="btn-primary" onClick={() => act(() => onReview(m._id, 'APPROVE', remarks[m._id]))} disabled={loading} style={{ flex: 1, padding: '6px', fontSize: '0.85rem' }}>
+                  <button 
+                    className="btn-primary" 
+                    onClick={() => act(() => onReview(m._id, 'APPROVE', remarks[m._id]))} 
+                    disabled={loading || m.status === 'REVISION_REQUIRED'} 
+                    style={{ 
+                      flex: 1, 
+                      padding: '6px', 
+                      fontSize: '0.85rem',
+                      ...(m.status === 'REVISION_REQUIRED' ? { opacity: 0.5, cursor: 'not-allowed' } : {}) 
+                    }}
+                  >
                     <CheckCircle2 size={14} style={{ marginRight: 4 }} />Approve
                   </button>
-                  <button onClick={() => act(() => onReview(m._id, 'REVISION', remarks[m._id]))} disabled={loading}
-                    style={{ flex: 1, padding: '6px', fontSize: '0.85rem', border: '1px solid #F87171', color: '#DC2626', background: 'none', borderRadius: 6, cursor: 'pointer' }}>
+                  <button 
+                    onClick={() => act(() => onReview(m._id, 'REVISION', remarks[m._id]))} 
+                    disabled={loading || m.status === 'REVISION_REQUIRED'}
+                    style={{ 
+                      flex: 1, 
+                      padding: '6px', 
+                      fontSize: '0.85rem', 
+                      border: '1px solid #F87171', 
+                      color: '#DC2626', 
+                      background: 'none', 
+                      borderRadius: 6, 
+                      cursor: m.status === 'REVISION_REQUIRED' ? 'not-allowed' : 'pointer',
+                      ...(m.status === 'REVISION_REQUIRED' ? { opacity: 0.5 } : {}) 
+                    }}
+                  >
                     <XCircle size={14} style={{ marginRight: 4 }} />Request Revision
                   </button>
                 </div>
+                {m.status === 'REVISION_REQUIRED' && (
+                  <div style={{
+                    marginTop: '12px',
+                    background: '#FEF2F2',
+                    border: '1px solid #FCA5A5',
+                    borderLeft: '4px solid #EF4444',
+                    padding: '12px 16px',
+                    borderRadius: '8px',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    color: '#991B1B',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    textAlign: 'left'
+                  }}>
+                    <span>ℹ️ {m.type === 'SYNOPSIS' ? 'Research Synopsis' : m.title || 'Document'} has been sent to candidate for correction. Awaiting updated submission.</span>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -639,6 +806,480 @@ const DRCPage = ({ theses, onSelect }) => {
         </p>
       </div>
       <ScholarList theses={pending} onSelect={onSelect} title="Scholars Awaiting HOD Action" />
+    </div>
+  );
+};
+
+const HODChangeRequestsTab = ({ user }) => {
+  const [requests, setRequests] = useState([]);
+  const [faculty, setFaculty] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [btnLoading, setBtnLoading] = useState(false);
+  const [remarks, setRemarks] = useState({});
+  
+  // Modal & Searchable Selector States
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [assignedSupervisorId, setAssignedSupervisorId] = useState('');
+  const [remarksText, setRemarksText] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showSearchResults, setShowSearchResults] = useState(false);
+
+  const fetchAllData = async () => {
+    try {
+      const [reqRes, facRes] = await Promise.all([
+        axios.get(`${API}/lifecycle/change-requests/department/${user?.department}`, getAuthHeader()),
+        axios.get(`${API}/auth/faculty`, getAuthHeader())
+      ]);
+      setRequests(reqRes.data);
+      // Show ALL active faculty registered in ANY department
+      setFaculty(facRes.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user?.department) {
+      fetchAllData();
+    }
+  }, [user?.department]);
+
+  const handleSelectRequest = (r) => {
+    setSelectedRequest(r);
+    setAssignedSupervisorId(r.proposedValue || '');
+    setRemarksText(remarks[r._id] || r.remarks || '');
+    setSearchTerm('');
+    setShowSearchResults(false);
+  };
+
+  const handleReviewInModal = async (status) => {
+    if (!remarksText.trim()) {
+      alert('Please enter remarks/reasons before submitting your decision.');
+      return;
+    }
+
+    setBtnLoading(true);
+    const isGuideChange = selectedRequest.type === 'GUIDE_CHANGE';
+    try {
+      const body = { status, remarks: remarksText };
+      if (status === 'APPROVED' && isGuideChange) {
+        body.proposedValue = assignedSupervisorId || selectedRequest.proposedValue;
+      }
+      await axios.put(`${API}/lifecycle/change-requests/${selectedRequest._id}/review`, body, getAuthHeader());
+      alert(`Modification request successfully ${status}!`);
+      
+      // Update local remarks dictionary
+      setRemarks(prev => ({ ...prev, [selectedRequest._id]: remarksText }));
+      setSelectedRequest(null);
+      fetchAllData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to review request.');
+    } finally {
+      setBtnLoading(false);
+    }
+  };
+
+  if (loading) {
+    return <div style={{ display: 'flex', justifyContent: 'center', padding: 40, fontWeight: 600, color: '#475569' }}>Loading change requests...</div>;
+  }
+
+  const sortedRequests = [...requests].sort((a, b) => (a.status === 'PENDING' ? -1 : 1));
+
+  return (
+    <div className="card" style={{ padding: 24, background: 'white', borderRadius: '16px', border: '1px solid #E2E8F0' }}>
+      <h3 className="card-title" style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0F172A', marginBottom: 6 }}>
+        Student Academic Modification Requests
+      </h3>
+      <p style={{ color: '#64748B', fontSize: '0.85rem', marginBottom: 20 }}>
+        Review, reassign, approve, or reject student requests for Thesis Title modifications and Research Supervisor (Guide) reallocations.
+      </p>
+
+      {sortedRequests.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '40px', color: '#64748B', background: '#F8FAFC', borderRadius: 12, border: '1px solid #E2E8F0', fontStyle: 'italic' }}>
+          No academic modification requests logged for your department.
+        </div>
+      ) : (
+        <div style={{ overflowX: 'auto', border: '1px solid #E2E8F0', borderRadius: '12px' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+            <thead>
+              <tr style={{ borderBottom: '2px solid #E2E8F0', background: '#F8FAFC' }}>
+                <th style={{ padding: '14px 16px', fontWeight: 700, color: '#475569' }}>Scholar</th>
+                <th style={{ padding: '14px 16px', fontWeight: 700, color: '#475569' }}>Request Type</th>
+                <th style={{ padding: '14px 16px', fontWeight: 700, color: '#475569' }}>Current Value</th>
+                <th style={{ padding: '14px 16px', fontWeight: 700, color: '#475569' }}>Proposed Value</th>
+                <th style={{ padding: '14px 16px', fontWeight: 700, color: '#475569' }}>Status</th>
+                <th style={{ padding: '14px 16px', fontWeight: 700, color: '#475569', textAlign: 'center' }}>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedRequests.map(r => {
+                const isPending = r.status === 'PENDING';
+                const isGuideChange = r.type === 'GUIDE_CHANGE';
+                const proposedFaculty = faculty.find(f => f._id === r.proposedValue);
+                const proposedFacultyName = proposedFaculty ? `${proposedFaculty.name} (${proposedFaculty.department})` : r.proposedValue || 'New Faculty Member';
+                
+                return (
+                  <tr 
+                    key={r._id} 
+                    style={{ 
+                      borderBottom: '1px solid #E2E8F0', 
+                      background: isPending ? '#FFFBEB' : 'white',
+                      transition: 'background-color 0.2s' 
+                    }}
+                  >
+                    <td style={{ padding: '14px 16px', fontWeight: 600, color: '#0F172A' }}>
+                      <div style={{ fontWeight: 700 }}>{r.scholarId?.name}</div>
+                      <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 400 }}>{r.scholarId?.username}</div>
+                    </td>
+                    <td style={{ padding: '14px 16px', fontWeight: 700, color: isGuideChange ? '#1E3A8A' : '#047857' }}>
+                      {isGuideChange ? '🤝 Supervisor Reallocation' : '📝 Title Modification'}
+                    </td>
+                    <td style={{ padding: '14px 16px', color: '#475569' }}>{r.currentValue || 'None'}</td>
+                    <td style={{ padding: '14px 16px', color: '#0F172A', fontWeight: 600 }}>
+                      {isGuideChange ? proposedFacultyName : r.proposedValue}
+                    </td>
+                    <td style={{ padding: '14px 16px' }}>
+                      <span style={{ 
+                        padding: '4px 8px', 
+                        borderRadius: 12, 
+                        fontSize: '0.7rem', 
+                        fontWeight: 700, 
+                        background: r.status === 'APPROVED' ? '#ECFDF5' : r.status === 'REJECTED' ? '#FEF2F2' : '#FFFBEB', 
+                        color: r.status === 'APPROVED' ? '#065F46' : r.status === 'REJECTED' ? '#991B1B' : '#B45309' 
+                      }}>
+                        {r.status}
+                      </span>
+                    </td>
+                    <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                      <button 
+                        onClick={() => handleSelectRequest(r)}
+                        className="btn-primary" 
+                        style={{ padding: '6px 14px', fontSize: '0.78rem', background: '#3B82F6', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+                      >
+                        {isPending ? 'Review' : 'View Details'}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Modal Popup overlay */}
+      {selectedRequest && (() => {
+        const isPending = selectedRequest.status === 'PENDING';
+        const isGuideChange = selectedRequest.type === 'GUIDE_CHANGE';
+        const proposedFaculty = faculty.find(f => f._id === selectedRequest.proposedValue);
+        const proposedFacultyName = proposedFaculty ? `${proposedFaculty.name} (${proposedFaculty.department})` : selectedRequest.proposedValue || 'New Faculty Member';
+
+        return (
+          <div 
+            onClick={() => setSelectedRequest(null)}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(15, 23, 42, 0.6)',
+              backdropFilter: 'blur(4px)',
+              zIndex: 99999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '16px'
+            }}
+          >
+            <div 
+              onClick={e => e.stopPropagation()}
+              style={{
+                background: 'white',
+                borderRadius: '16px',
+                width: '100%',
+                maxWidth: '600px',
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
+                animation: 'fadeIn 0.2s ease-out',
+                textAlign: 'left'
+              }}
+            >
+              {/* Modal Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid #E2E8F0', background: '#FAFAFA' }}>
+                <span style={{ fontWeight: 800, fontSize: '1.1rem', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>📋</span> Review Academic Request
+                </span>
+                <button 
+                  onClick={() => setSelectedRequest(null)}
+                  style={{ background: 'none', border: 'none', fontSize: '1.2rem', color: '#64748B', cursor: 'pointer', fontWeight: 700 }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto', maxHeight: 'calc(100vh - 200px)' }}>
+                {/* Scholar Details Banner */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC', border: '1px solid #E2E8F0', padding: '12px 16px', borderRadius: 10 }}>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#0F172A' }}>{selectedRequest.scholarId?.name}</div>
+                    <div style={{ fontSize: '0.78rem', color: '#64748B' }}>{selectedRequest.scholarId?.username}</div>
+                  </div>
+                  <span style={{ 
+                    padding: '4px 10px', 
+                    borderRadius: 12, 
+                    fontSize: '0.72rem', 
+                    fontWeight: 700, 
+                    background: selectedRequest.status === 'APPROVED' ? '#ECFDF5' : selectedRequest.status === 'REJECTED' ? '#FEF2F2' : '#FFFBEB', 
+                    color: selectedRequest.status === 'APPROVED' ? '#065F46' : selectedRequest.status === 'REJECTED' ? '#991B1B' : '#B45309' 
+                  }}>
+                    {selectedRequest.status}
+                  </span>
+                </div>
+
+                {/* Info Fields Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 16px' }}>
+                  <div>
+                    <strong style={{ display: 'block', fontSize: '0.72rem', color: '#64748B', textTransform: 'uppercase', marginBottom: 2 }}>Request Type</strong>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1E3A8A' }}>
+                      {isGuideChange ? '🤝 Supervisor Reallocation' : '📝 Title Modification'}
+                    </span>
+                  </div>
+                  <div>
+                    <strong style={{ display: 'block', fontSize: '0.72rem', color: '#64748B', textTransform: 'uppercase', marginBottom: 2 }}>Current Value</strong>
+                    <span style={{ fontSize: '0.85rem', color: '#334155', fontWeight: 600 }}>{selectedRequest.currentValue || 'None'}</span>
+                  </div>
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <strong style={{ display: 'block', fontSize: '0.72rem', color: '#64748B', textTransform: 'uppercase', marginBottom: 2 }}>Proposed / New Value</strong>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0F172A' }}>
+                      {isGuideChange ? proposedFacultyName : selectedRequest.proposedValue}
+                    </span>
+                  </div>
+                  <div style={{ gridColumn: 'span 2', borderTop: '1px solid #F1F5F9', paddingTop: 8 }}>
+                    <strong style={{ display: 'block', fontSize: '0.72rem', color: '#64748B', textTransform: 'uppercase', marginBottom: 2 }}>Candidate Rationale</strong>
+                    <span style={{ fontSize: '0.82rem', color: '#475569', fontStyle: 'italic' }}>"{selectedRequest.reason}"</span>
+                  </div>
+                </div>
+
+                {/* Form fields */}
+                {isPending ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 16, borderTop: '1px solid #E2E8F0', paddingTop: 16 }}>
+                    {isGuideChange && (
+                      <div style={{ position: 'relative' }}>
+                        <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#475569', marginBottom: 6 }}>
+                          Confirm or Reassign Supervisor (Active Institutional Faculty)
+                        </label>
+                        <div style={{ position: 'relative' }}>
+                          <div 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowSearchResults(!showSearchResults);
+                            }}
+                            style={{
+                              background: '#FFFFFF',
+                              border: '1px solid #CBD5E1',
+                              borderRadius: '8px',
+                              padding: '10px 14px',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              cursor: 'pointer',
+                              fontSize: '0.9rem',
+                              color: '#0F172A',
+                              fontWeight: 600,
+                              userSelect: 'none',
+                              transition: 'border-color 0.2s',
+                            }}
+                            onMouseOver={e => e.currentTarget.style.borderColor = '#94A3B8'}
+                            onMouseOut={e => e.currentTarget.style.borderColor = '#CBD5E1'}
+                          >
+                            <span>
+                              {assignedSupervisorId 
+                                ? (() => {
+                                    const selected = faculty.find(f => f._id === assignedSupervisorId);
+                                    return selected 
+                                      ? `👨‍🏫 ${selected.name} (${selected.department})`
+                                      : 'Select Faculty Member';
+                                  })()
+                                : 'Choose a supervisor...'
+                              }
+                            </span>
+                            <span style={{ fontSize: '0.8rem', color: '#94A3B8' }}>
+                              {showSearchResults ? '▲' : '▼'}
+                            </span>
+                          </div>
+
+                          {showSearchResults && (() => {
+                            const activeFacultyList = faculty.filter(f => {
+                              const isActive = f.isActive !== false;
+                              const matchesSearch = 
+                                f.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                f.department?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                f.designation?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                f.specialization?.toLowerCase().includes(searchTerm.toLowerCase());
+                              return isActive && matchesSearch;
+                            });
+
+                            return (
+                              <div 
+                                onClick={e => e.stopPropagation()}
+                                style={{ 
+                                  position: 'absolute', 
+                                  top: '100%', 
+                                  left: 0, 
+                                  right: 0, 
+                                  background: 'white', 
+                                  border: '1px solid #CBD5E1', 
+                                  borderRadius: 8, 
+                                  boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', 
+                                  zIndex: 9999,
+                                  marginTop: 4,
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  overflow: 'hidden'
+                                }}
+                              >
+                                <div style={{ padding: '10px 12px', borderBottom: '1px solid #E2E8F0', background: '#FAFAFA', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748B' }}>
+                                      Faculty Directory ({activeFacultyList.length} matches)
+                                    </span>
+                                    <button 
+                                      type="button" 
+                                      onClick={() => setShowSearchResults(false)} 
+                                      style={{ background: 'none', border: 'none', fontSize: '0.7rem', color: '#EF4444', cursor: 'pointer', fontWeight: 700 }}
+                                    >
+                                      Close
+                                    </button>
+                                  </div>
+                                  
+                                  <div style={{ display: 'flex', gap: 8 }}>
+                                    <input 
+                                      type="text" 
+                                      className="form-input" 
+                                      placeholder="Type name, department, or specialization..." 
+                                      value={searchTerm} 
+                                      onChange={e => setSearchTerm(e.target.value)}
+                                      style={{ flex: 1, fontSize: '0.82rem', padding: '6px 10px', height: '36px', margin: 0 }}
+                                      onClick={e => e.stopPropagation()}
+                                    />
+                                    <button 
+                                      type="button" 
+                                      className="btn-primary" 
+                                      style={{ background: '#059669', padding: '6px 14px', fontSize: '0.8rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px', height: '36px' }}
+                                    >
+                                      🔍 Search
+                                    </button>
+                                  </div>
+                                </div>
+
+                                <div style={{ maxHeight: '180px', overflowY: 'auto' }}>
+                                  {activeFacultyList.length === 0 ? (
+                                    <div style={{ padding: 16, fontSize: '0.8rem', color: '#64748B', fontStyle: 'italic', textAlign: 'center' }}>
+                                      No faculty members found.
+                                    </div>
+                                  ) : (
+                                    activeFacultyList.map(f => (
+                                      <div 
+                                        key={f._id} 
+                                        onClick={() => {
+                                          setAssignedSupervisorId(f._id);
+                                          setShowSearchResults(false);
+                                        }}
+                                        style={{ 
+                                          padding: '10px 14px', 
+                                          cursor: 'pointer', 
+                                          borderBottom: '1px solid #F1F5F9', 
+                                          background: assignedSupervisorId === f._id ? '#EFF6FF' : 'white',
+                                          transition: 'background-color 0.2s',
+                                          textAlign: 'left'
+                                        }}
+                                        onMouseOver={e => e.currentTarget.style.backgroundColor = '#F8FAFC'}
+                                        onMouseOut={e => e.currentTarget.style.backgroundColor = assignedSupervisorId === f._id ? '#EFF6FF' : 'white'}
+                                      >
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                          <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#0F172A' }}>{f.name}</span>
+                                          <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#059669', background: '#D1FAE5', padding: '2px 6px', borderRadius: 4 }}>
+                                            {f.department}
+                                          </span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#64748B', marginTop: 4 }}>
+                                          <span>{f.designation || 'Faculty Supervisor'}</span>
+                                        </div>
+                                      </div>
+                                    ))
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    )}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#475569', marginBottom: 6 }}>HOD Decision Remarks / MoM Context</label>
+                      <textarea 
+                        className="form-input" 
+                        rows="3" 
+                        placeholder="Enter the official reason or remarks for HOD approval/rejection..." 
+                        value={remarksText} 
+                        onChange={e => setRemarksText(e.target.value)} 
+                        required 
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  selectedRequest.remarks && (
+                    <div style={{ background: '#F8FAFC', borderLeft: '4px solid #64748B', padding: '12px 16px', fontSize: '0.85rem', color: '#475569', borderRadius: 4, marginTop: 8 }}>
+                      <strong>HOD Decision Remarks:</strong> "{selectedRequest.remarks}"
+                    </div>
+                  )
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', padding: '16px 24px', borderTop: '1px solid #E2E8F0', background: '#FAFAFA' }}>
+                <button 
+                  type="button" 
+                  onClick={() => setSelectedRequest(null)}
+                  className="btn-outline"
+                  style={{ padding: '8px 16px', fontSize: '0.85rem' }}
+                >
+                  {isPending ? 'Cancel' : 'Close'}
+                </button>
+                
+                {isPending && (
+                  <>
+                    <button 
+                      type="button" 
+                      onClick={() => handleReviewInModal('REJECTED')} 
+                      disabled={btnLoading} 
+                      className="btn-outline" 
+                      style={{ padding: '8px 16px', fontSize: '0.85rem', borderColor: '#EF4444', color: '#EF4444' }}
+                    >
+                      ✗ Reject Modification
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => handleReviewInModal('APPROVED')} 
+                      disabled={btnLoading} 
+                      className="btn-primary" 
+                      style={{ padding: '8px 20px', fontSize: '0.85rem', background: '#059669' }}
+                    >
+                      ✓ Approve {isGuideChange ? '& Reassign Guide' : 'Title Change'}
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };
@@ -1140,7 +1781,7 @@ const FacultyDashboard = () => {
     if (subRole === 'HOD') fetchDeptTheses(); else fetchAssignedTheses();
   };
 
-  const titles = { overview: 'Faculty Dashboard', registrations: 'Registration Requests', scholars: 'My Scholars', rac: 'RAC Progress Schedule', reviews: 'Pending Reviews', dept: 'Department Theses', drc: 'DRC & Seminar Approvals', profile: 'My Profile' };
+  const titles = { overview: 'Faculty Dashboard', registrations: 'Registration Requests', scholars: 'My Scholars', rac: 'RAC Progress Schedule', reviews: 'Pending Reviews', dept: 'Department Theses', drc: 'DRC & Seminar Approvals', requests: 'Student Change Requests Desk', profile: 'My Profile' };
 
   const renderContent = () => {
     if (!user?.isVerified) {
@@ -1196,6 +1837,7 @@ const FacultyDashboard = () => {
           title="Scholars Awaiting Review"
         />
       );
+      case 'requests': return <HODChangeRequestsTab user={user} />;
       case 'profile': return <ProfileTab />;
       default: return <div className="card"><h3 className="card-title">{titles[activeTab]}</h3><p style={{ color: '#6b7280', marginTop: 8 }}>Content coming soon.</p></div>;
     }

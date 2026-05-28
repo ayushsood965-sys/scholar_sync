@@ -31,6 +31,7 @@ function App() {
         <Route path="/funding" element={<GenericPage title="Funding" description="Manage grants and explore funding opportunities." />} />
         <Route path="/events" element={<GenericPage title="Events" description="Stay updated with university and community events." />} />
         <Route path="/about" element={<GenericPage title="About" description="Learn more about the ScholarSync platform." />} />
+        <Route path="/search" element={<GenericPage title="Search Results" description="Global search directory results." />} />
       </Routes>
     </Router>
   );

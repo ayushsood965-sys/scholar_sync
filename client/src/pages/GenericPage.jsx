@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { 
@@ -21,9 +22,18 @@ import {
 } from 'lucide-react';
 
 const GenericPage = ({ title, description }) => {
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const initialQuery = queryParams.get('q') || '';
+
   const [selectedDept, setSelectedDept] = useState('All');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [copiedIndex, setCopiedIndex] = useState(null);
+
+  useEffect(() => {
+    const q = new URLSearchParams(location.search).get('q') || '';
+    setSearchQuery(q);
+  }, [location.search]);
   
   // Collaboration form states
   const [collabForm, setCollabForm] = useState({ name: '', email: '', institution: '', project: '', details: '' });
@@ -574,6 +584,191 @@ const GenericPage = ({ title, description }) => {
                 </div>
               ))}
             </div>
+          </div>
+        );
+
+      case "Search Results":
+        const term = searchQuery.toLowerCase();
+        
+        const matchingLabs = labsData.filter(lab => 
+          lab.name.toLowerCase().includes(term) || 
+          lab.department.toLowerCase().includes(term) || 
+          lab.focus.toLowerCase().includes(term) ||
+          lab.lead.toLowerCase().includes(term)
+        );
+
+        const matchingPubs = publicationsData.filter(pub => 
+          pub.title.toLowerCase().includes(term) || 
+          pub.authors.toLowerCase().includes(term) || 
+          pub.category.toLowerCase().includes(term) ||
+          pub.journal.toLowerCase().includes(term)
+        );
+
+        const matchingFunding = fundingData.filter(grant => 
+          grant.title.toLowerCase().includes(term) || 
+          grant.agency.toLowerCase().includes(term) || 
+          grant.scope.toLowerCase().includes(term)
+        );
+
+        const matchingEvents = eventsData.filter(evt => 
+          evt.title.toLowerCase().includes(term) || 
+          evt.location.toLowerCase().includes(term) || 
+          evt.speaker.toLowerCase().includes(term) ||
+          evt.type.toLowerCase().includes(term)
+        );
+
+        const matchingJourney = [
+          { title: "Stage 1: Thesis Registration", desc: "Scholar submits detailed research title, scope, and initial proposal. Reviewed and approved by Department HOD." },
+          { title: "Stage 2: Supervisor Assignment", desc: "HOD delegates a certified Faculty Supervisor matching the scholar's research area of interest." },
+          { title: "Stage 3: Coursework Phase", desc: "Scholar undertakes mandatory doctoral course credits, evaluated by the supervisor upon successful completion." },
+          { title: "Stage 4: Active Research & DRC Approval", desc: "Departmental Research Committee (DRC) approves the primary research synopsis, unlocking full dissertation creation." },
+          { title: "Stage 5: Pre-Submission Seminar", desc: "Scholar defends preliminary thesis findings in a public university-wide pre-submission presentation." },
+          { title: "Stage 6: External Thesis Evaluation", desc: "Completed dissertation is securely dispatched to high-profile external subject matter expert examiners." },
+          { title: "Stage 7: Degree Awarded!", desc: "Upon receiving satisfactory external review reports, the final Viva-Voce defense is cleared, and the doctorate degree is officially awarded." }
+        ].filter(stage => 
+          stage.title.toLowerCase().includes(term) || 
+          stage.desc.toLowerCase().includes(term)
+        );
+
+        const totalResults = matchingLabs.length + matchingPubs.length + matchingFunding.length + matchingEvents.length + matchingJourney.length;
+
+        return (
+          <div>
+            {/* Search Input on Results Page */}
+            <div style={{ position: 'relative', maxWidth: '520px', margin: '0 auto 24px' }}>
+              <input 
+                type="text" 
+                className="form-input" 
+                placeholder="Search everything..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                style={{ paddingLeft: '44px', borderRadius: '24px', background: 'white' }}
+              />
+              <Search size={18} color="#9CA3AF" style={{ position: 'absolute', left: '16px', top: '15px' }} />
+            </div>
+
+            <div style={{ textAlign: 'center', marginBottom: '32px', color: '#6B7280', fontSize: '0.9rem', fontWeight: 600 }}>
+              Found {totalResults} matching results for "{searchQuery}"
+            </div>
+
+            {totalResults === 0 ? (
+              <div style={{ textAlign: 'center', padding: '64px 20px', color: '#9CA3AF' }}>
+                <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>🔍</div>
+                <h3>No results found</h3>
+                <p style={{ fontSize: '0.85rem', marginTop: '6px' }}>Try adjusting your search terms or checking another keyword.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                {/* 1. Research Labs */}
+                {matchingLabs.length > 0 && (
+                  <div>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#133A26', borderBottom: '2px solid #E2E8F0', paddingBottom: '8px', marginBottom: '16px' }}>
+                      🔬 Matching Research Labs ({matchingLabs.length})
+                    </h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+                      {matchingLabs.map(lab => {
+                        const LabIcon = lab.icon;
+                        return (
+                          <div key={lab.id} className="card" style={{ padding: '20px', background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+                            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                              <div style={{ background: '#EAF4EE', padding: '8px', borderRadius: '8px', color: '#133A26' }}>
+                                <LabIcon size={20} />
+                              </div>
+                              <div>
+                                <h4 style={{ fontWeight: 700, fontSize: '0.95rem', color: '#133A26' }}>{lab.name}</h4>
+                                <p style={{ fontSize: '0.75rem', color: '#6B7280' }}>{lab.department}</p>
+                              </div>
+                            </div>
+                            <p style={{ fontSize: '0.8rem', color: '#4B5563', marginTop: '10px' }}><strong>PI Lead:</strong> {lab.lead}</p>
+                            <p style={{ fontSize: '0.8rem', color: '#6B7280', marginTop: '4px' }}>{lab.focus}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* 2. Publications */}
+                {matchingPubs.length > 0 && (
+                  <div>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#133A26', borderBottom: '2px solid #E2E8F0', paddingBottom: '8px', marginBottom: '16px' }}>
+                      📄 Matching Publications ({matchingPubs.length})
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      {matchingPubs.map(pub => (
+                        <div key={pub.id} className="card" style={{ padding: '20px', background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+                          <span style={{ fontSize: '0.7rem', background: '#EAF4EE', color: '#133A26', padding: '2px 8px', borderRadius: '10px', fontWeight: 600, display: 'inline-block', marginBottom: '8px' }}>{pub.category}</span>
+                          <h4 style={{ fontWeight: 700, fontSize: '1rem', color: '#111827', margin: 0 }}>{pub.title}</h4>
+                          <p style={{ fontSize: '0.8rem', color: '#4B5563', marginTop: '6px' }}><strong>Authors:</strong> {pub.authors}</p>
+                          <p style={{ fontSize: '0.75rem', color: '#6B7280' }}>{pub.journal} ({pub.year})</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. Funding & Opportunities */}
+                {matchingFunding.length > 0 && (
+                  <div>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#133A26', borderBottom: '2px solid #E2E8F0', paddingBottom: '8px', marginBottom: '16px' }}>
+                      💰 Matching Funding & Grants ({matchingFunding.length})
+                    </h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+                      {matchingFunding.map(grant => (
+                        <div key={grant.id} className="card" style={{ padding: '20px', background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                            <span style={{ fontSize: '0.7rem', background: '#D1FAE5', color: '#065F46', padding: '2px 8px', borderRadius: '10px', fontWeight: 600 }}>{grant.status}</span>
+                            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#133A26' }}>{grant.amount}</span>
+                          </div>
+                          <h4 style={{ fontWeight: 700, fontSize: '0.95rem', color: '#111827' }}>{grant.title}</h4>
+                          <p style={{ fontSize: '0.78rem', color: '#4B5563', marginTop: '4px' }}>{grant.scope}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 4. Events */}
+                {matchingEvents.length > 0 && (
+                  <div>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#133A26', borderBottom: '2px solid #E2E8F0', paddingBottom: '8px', marginBottom: '16px' }}>
+                      📆 Matching Academic Events ({matchingEvents.length})
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      {matchingEvents.map(evt => (
+                        <div key={evt.id} className="card" style={{ padding: '20px', background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', background: '#133A26', color: 'white', padding: '10px 14px', borderRadius: '8px', minWidth: '70px', height: '60px', textAlign: 'center' }}>
+                            <span style={{ fontSize: '0.7rem', fontWeight: 700 }}>{evt.type}</span>
+                          </div>
+                          <div>
+                            <h4 style={{ fontWeight: 700, fontSize: '0.95rem', color: '#111827', margin: 0 }}>{evt.title}</h4>
+                            <p style={{ fontSize: '0.8rem', color: '#374151', marginTop: '4px' }}>{evt.date} | {evt.time}</p>
+                            <p style={{ fontSize: '0.75rem', color: '#6B7280' }}>Speaker/Scholar: {evt.speaker}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 5. Ph.D. Journey Stages */}
+                {matchingJourney.length > 0 && (
+                  <div>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#133A26', borderBottom: '2px solid #E2E8F0', paddingBottom: '8px', marginBottom: '16px' }}>
+                      🎓 Matching Program Milestones ({matchingJourney.length})
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {matchingJourney.map((stage, idx) => (
+                        <div key={idx} className="card" style={{ padding: '16px', background: 'white', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
+                          <h4 style={{ fontWeight: 700, fontSize: '0.9rem', color: '#133A26' }}>{stage.title}</h4>
+                          <p style={{ fontSize: '0.8rem', color: '#4B5563', marginTop: '4px' }}>{stage.desc}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         );
 

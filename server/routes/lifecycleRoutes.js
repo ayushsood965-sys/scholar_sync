@@ -17,7 +17,9 @@ const {
   generateCertificate,
   scheduleDRC,
   submitDRCResult,
-  getDRCMeetings
+  getDRCMeetings,
+  recordOfflineDRC,
+  rescheduleDRC
 } = require('../controllers/lifecycleController');
 
 // ── RAC reviews ──
@@ -40,7 +42,9 @@ router.get('/publications/department/:department', protect, getDeptPublications)
 
 // ── DRC Meetings ──
 router.post('/drc/schedule', protect, scheduleDRC);
+router.post('/drc/offline', protect, recordOfflineDRC);
 router.put('/drc/:id/result', protect, submitDRCResult);
+router.put('/drc/:id/reschedule', protect, rescheduleDRC);
 router.get('/drc/thesis/:thesisId', protect, getDRCMeetings);
 
 // ── Printable dynamic certificates ──

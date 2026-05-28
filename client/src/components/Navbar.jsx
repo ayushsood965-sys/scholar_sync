@@ -13,6 +13,8 @@ const Navbar = () => {
   
   const [showDropdown, setShowDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -44,7 +46,48 @@ const Navbar = () => {
       </div>
       
       <div className="nav-actions">
-        <button className="icon-btn"><Search size={20} /></button>
+        <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+          {showSearch && (
+            <input 
+              type="text" 
+              placeholder="Search ScholarSync..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && searchQuery.trim()) {
+                  navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
+                  setShowSearch(false);
+                  setSearchQuery('');
+                }
+              }}
+              style={{
+                width: '180px',
+                padding: '6px 12px',
+                borderRadius: '20px',
+                border: '1px solid #CBD5E1',
+                fontSize: '0.8rem',
+                marginRight: '8px',
+                outline: 'none',
+                transition: 'all 0.3s ease'
+              }}
+              autoFocus
+            />
+          )}
+          <button 
+            className="icon-btn" 
+            onClick={() => {
+              if (showSearch && searchQuery.trim()) {
+                navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
+                setShowSearch(false);
+                setSearchQuery('');
+              } else {
+                setShowSearch(!showSearch);
+              }
+            }}
+          >
+            <Search size={20} />
+          </button>
+        </div>
         
         {user ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
