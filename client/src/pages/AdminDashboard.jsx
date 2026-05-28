@@ -8,6 +8,7 @@ import axios from 'axios';
 import { API_BASE_URL, API_URL } from '../config';
 import ProfileOnboardingModal from '../components/ProfileOnboardingModal';
 import NotificationPanel from '../components/NotificationPanel';
+import ThemeToggle from '../components/ThemeToggle';
 
 const API = API_URL;
 const getAuthHeader = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
@@ -59,6 +60,7 @@ const Header = ({ title }) => {
       </button>
       <div className="header-title">{title}</div>
       <div className="header-actions">
+        <ThemeToggle style={{ marginRight: '8px', color: '#475569' }} />
         {/* Bell Popover Container */}
         <div style={{ position: 'relative' }}>
           <button 

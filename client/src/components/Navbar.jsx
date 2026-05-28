@@ -3,6 +3,7 @@ import { Search, Bell, User, LogOut, ChevronDown } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { NotificationContext } from '../context/NotificationContext';
+import ThemeToggle from './ThemeToggle';
 
 const Navbar = () => {
   const location = useLocation();
@@ -46,6 +47,7 @@ const Navbar = () => {
       </div>
       
       <div className="nav-actions">
+        <ThemeToggle style={{ color: '#133A26' }} />
         <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
           {showSearch && (
             <input 

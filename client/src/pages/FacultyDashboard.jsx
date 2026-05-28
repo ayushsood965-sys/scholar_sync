@@ -11,6 +11,7 @@ import { NotificationContext } from '../context/NotificationContext';
 import { ThesisContext } from '../context/ThesisContext';
 import ProfileOnboardingModal from '../components/ProfileOnboardingModal';
 import NotificationPanel from '../components/NotificationPanel';
+import ThemeToggle from '../components/ThemeToggle';
 
 const Sidebar = ({ activeTab, setActiveTab, subRole, isVerified }) => {
   const { logout } = useContext(AuthContext);
@@ -122,6 +123,7 @@ const Header = ({ title, user }) => {
       </button>
       <div className="header-title">{title}</div>
       <div className="header-actions">
+        <ThemeToggle style={{ marginRight: '8px', color: '#475569' }} />
         {/* Bell Popover Container */}
         <div style={{ position: 'relative' }}>
           <button 

@@ -6,6 +6,7 @@ import { NotificationContext } from '../context/NotificationContext';
 import axios from 'axios';
 import NotificationPanel from '../components/NotificationPanel';
 import { API_BASE_URL, API_URL } from '../config';
+import ThemeToggle from '../components/ThemeToggle';
 
 const API = API_URL;
 const getAuthHeader = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
@@ -56,6 +57,7 @@ const Header = ({ title }) => {
       </button>
       <div className="header-title" style={{ color: '#34d399', fontWeight: 800 }}>{title}</div>
       <div className="header-actions">
+        <ThemeToggle style={{ marginRight: '8px', color: '#34d399' }} />
         {/* Bell Popover Container */}
         <div style={{ position: 'relative', marginRight: '10px' }}>
           <button 
