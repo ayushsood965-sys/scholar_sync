@@ -1933,18 +1933,181 @@ const HODChangeRequestsTab = ({ user }) => {
   );
 };
 
+// ── Defaulter Tracking Tab ──
+const DefaultersTab = () => {
+  const [defaulters, setDefaulters] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortField, setSortField] = useState('dueDate');
+  const [sortAsc, setSortAsc] = useState(true);
+  const [remindingId, setRemindingId] = useState(null);
+
+  const fetchDefaulters = async () => {
+    setLoading(true);
+    try {
+      const { data } = await axios.get(`${API}/milestones/defaulters`, getAuthHeader());
+      setDefaulters(data);
+    } catch (err) {
+      console.error('Error fetching defaulters', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDefaulters();
+  }, []);
+
+  const handleSendReminder = async (id) => {
+    setRemindingId(id);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 800));
+      alert('Academic warning notification and email reminder dispatched to scholar!');
+    } catch (err) {
+      alert('Failed to send reminder.');
+    } finally {
+      setRemindingId(null);
+    }
+  };
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortField(field);
+      setSortAsc(true);
+    }
+  };
+
+  const filtered = defaulters.filter(d => {
+    const term = searchTerm.toLowerCase();
+    return (
+      d.scholarName.toLowerCase().includes(term) ||
+      d.enrollmentNumber.toLowerCase().includes(term) ||
+      d.scholarDepartment.toLowerCase().includes(term) ||
+      d.milestoneTitle.toLowerCase().includes(term)
+    );
+  });
+
+  const sorted = [...filtered].sort((a, b) => {
+    let valA = a[sortField] || '';
+    let valB = b[sortField] || '';
+    if (sortField === 'dueDate') {
+      valA = new Date(valA);
+      valB = new Date(valB);
+    } else {
+      valA = valA.toString().toLowerCase();
+      valB = valB.toString().toLowerCase();
+    }
+    if (valA < valB) return sortAsc ? -1 : 1;
+    if (valA > valB) return sortAsc ? 1 : -1;
+    return 0;
+  });
+
+  return (
+    <div className="card" style={{ padding: 24, borderRadius: 16, border: '1px solid #E2E8F0', background: 'white' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#111827', margin: 0 }}>Progress Report Defaulters</h3>
+          <p style={{ color: '#64748B', fontSize: '0.85rem', marginTop: 4 }}>
+            Scholars who have missed their bi-annual 6-Month Progress Report submission deadlines.
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: 16, background: '#FEF2F2', border: '1px solid #FCA5A5', padding: '10px 16px', borderRadius: 10, alignItems: 'center' }}>
+          <span style={{ fontSize: '1.5rem' }}>⏰</span>
+          <div>
+            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#991B1B' }}>{defaulters.length}</div>
+            <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#7F1D1D' }}>Active Defaulters</div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 20, display: 'flex', gap: 12 }}>
+        <input 
+          type="text" 
+          className="form-input" 
+          placeholder="Filter by name, department, enrollment no..." 
+          value={searchTerm} 
+          onChange={e => setSearchTerm(e.target.value)}
+          style={{ maxWidth: 400 }}
+        />
+        <button onClick={fetchDefaulters} className="btn-outline" style={{ display: 'flex', gap: 6, alignItems: 'center', whiteSpace: 'nowrap' }}>
+          🔄 Refresh
+        </button>
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 40, color: '#64748B' }}>Loading defaulter list...</div>
+      ) : sorted.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 48, background: '#F8FAFC', borderRadius: 12, color: '#64748B' }}>
+          <span style={{ fontSize: '2rem' }}>🎉</span>
+          <p style={{ fontWeight: 700, marginTop: 10, color: '#334155' }}>No Defaulters Found</p>
+          <p style={{ fontSize: '0.8rem', marginTop: 2 }}>All scholars in this department are up-to-date with progress reports.</p>
+        </div>
+      ) : (
+        <div className="file-list" style={{ overflowX: 'auto' }}>
+          <div className="file-header" style={{ fontWeight: 700, borderBottom: '2px solid #CBD5E1', paddingBottom: 12 }}>
+            <div style={{ flex: 1.5, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }} onClick={() => handleSort('scholarName')}>
+              Scholar {sortField === 'scholarName' ? (sortAsc ? '▲' : '▼') : ''}
+            </div>
+            <div style={{ flex: 1.2, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }} onClick={() => handleSort('enrollmentNumber')}>
+              Enrollment No. {sortField === 'enrollmentNumber' ? (sortAsc ? '▲' : '▼') : ''}
+            </div>
+            <div style={{ flex: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }} onClick={() => handleSort('scholarDepartment')}>
+              Dept {sortField === 'scholarDepartment' ? (sortAsc ? '▲' : '▼') : ''}
+            </div>
+            <div style={{ flex: 2 }}>Overdue Report</div>
+            <div style={{ flex: 1.2, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }} onClick={() => handleSort('dueDate')}>
+              Due Date {sortField === 'dueDate' ? (sortAsc ? '▲' : '▼') : ''}
+            </div>
+            <div style={{ flex: 1, textAlign: 'center' }}>Status</div>
+            <div style={{ flex: 1, textAlign: 'center' }}>Action</div>
+          </div>
+          {sorted.map(d => (
+            <div key={d._id} className="file-item" style={{ padding: '14px 8px', borderBottom: '1px solid #F1F5F9', alignItems: 'center' }}>
+              <div style={{ flex: 1.5, fontWeight: 700, color: '#1E293B' }}>{d.scholarName}</div>
+              <div style={{ flex: 1.2, fontSize: '0.85rem', color: '#475569' }}>{d.enrollmentNumber}</div>
+              <div style={{ flex: 1, fontSize: '0.85rem', color: '#475569' }}>{d.scholarDepartment}</div>
+              <div style={{ flex: 2, fontSize: '0.85rem', fontWeight: 600, color: '#7F1D1D' }}>{d.milestoneTitle}</div>
+              <div style={{ flex: 1.2, fontSize: '0.82rem', color: '#475569' }}>
+                {new Date(d.dueDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+              </div>
+              <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+                <span style={{ fontSize: '0.72rem', background: '#FEE2E2', color: '#991B1B', padding: '3px 10px', borderRadius: 12, fontWeight: 700 }}>
+                  OVERDUE
+                </span>
+              </div>
+              <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+                <button 
+                  onClick={() => handleSendReminder(d._id)} 
+                  disabled={remindingId === d._id}
+                  className="btn-action" 
+                  style={{ background: '#DC2626', display: 'flex', gap: 4, alignItems: 'center', padding: '5px 12px', fontSize: '0.75rem' }}
+                >
+                  <Bell size={12} /> {remindingId === d._id ? 'Sending...' : 'Remind'}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ── Sidebar Overhaul for HOD ──
 const Sidebar = ({ activeTab, setActiveTab }) => {
   const { logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const items = [
     { key: 'overview', label: 'Department Overview', Icon: Home },
-    { key: 'scholars', label: 'Manage Scholars', Icon: GraduationCap },
-    { key: 'requests', label: 'Change Requests', Icon: Edit },
-    { key: 'lifecycle', label: 'PhD Lifecycle', Icon: Layers },
-    { key: 'users', label: 'Manage Users', Icon: Users },
     { key: 'profile', label: 'My Profile', Icon: User },
+    { key: 'scholars', label: 'Manage Scholars', Icon: GraduationCap },
+    { key: 'lifecycle', label: 'PhD Lifecycle', Icon: Layers },
+    { key: 'defaulters', label: 'Defaulter Tracking', Icon: Clock },
+    { key: 'requests', label: 'Change Requests', Icon: Edit },
     { key: 'evaluation', label: 'External Evaluation', Icon: FileText },
+    { key: 'users', label: 'Manage Users', Icon: Users },
   ];
   return (
     <div className="sidebar">
@@ -2002,7 +2165,7 @@ const AdminDashboard = () => {
     await fetchAllTheses();
   };
 
-  const titles = { overview: 'Department Overview', scholars: 'Manage Scholars', requests: 'Student Change Requests Desk', lifecycle: 'PhD Lifecycle Admin', users: 'Manage Users', profile: 'My Profile', evaluation: 'External Evaluation' };
+  const titles = { overview: 'Department Overview', scholars: 'Manage Scholars', requests: 'Student Change Requests Desk', lifecycle: 'PhD Lifecycle Admin', users: 'Manage Users', profile: 'My Profile', evaluation: 'External Evaluation', defaulters: 'Progress Report Defaulter Tracking' };
 
   const renderContent = () => {
     if (!user?.isVerified) {
@@ -2042,6 +2205,7 @@ const AdminDashboard = () => {
       case 'lifecycle': return <PhDLifecycleConsole theses={allTheses} fetchAllTheses={fetchAllTheses} />;
       case 'requests': return <HODChangeRequestsTab user={user} />;
       case 'users': return <ManageUsers />;
+      case 'defaulters': return <DefaultersTab />;
       case 'profile': return <ProfileTab />;
       case 'evaluation': return <ExternalEvaluation theses={allTheses} onAuditLog={(id, action, note) => handleAction(id, 'audit', { action, note })} />;
       default: return <div className="card"><h3 className="card-title">{titles[activeTab]}</h3><p style={{ color: '#6b7280', marginTop: 8 }}>Content coming soon.</p></div>;

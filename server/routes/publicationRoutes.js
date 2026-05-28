@@ -3,7 +3,12 @@ const multer = require('multer');
 const path = require('path');
 const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
-const { getMilestones, submitDocument, reviewMilestone, createMilestone, getDefaulters } = require('../controllers/milestoneController');
+const {
+  submitPublication,
+  getPublicationsByThesis,
+  getDeptPublications,
+  verifyPublication
+} = require('../controllers/publicationController');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, 'uploads/'),
@@ -14,10 +19,9 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } });
 
-router.get('/defaulters', protect, getDefaulters);
-router.get('/:thesisId', protect, getMilestones);
-router.post('/create', protect, createMilestone);
-router.post('/:id/submit', protect, upload.single('document'), submitDocument);
-router.put('/:id/review', protect, reviewMilestone);
+router.post('/', protect, upload.single('document'), submitPublication);
+router.get('/thesis/:thesisId', protect, getPublicationsByThesis);
+router.get('/department/:department', protect, getDeptPublications);
+router.put('/:id/verify', protect, verifyPublication);
 
 module.exports = router;

@@ -284,7 +284,7 @@ const generateCertificate = async (req, res) => {
 
     if (type === 'REGISTRATION') {
       titleText = 'Certificate of PhD Registration';
-      bodyText = `This is to certify that Mr./Ms. <strong>${scholar?.name || 'Academic Scholar'}</strong> has been officially registered as a Doctor of Philosophy (Ph.D.) candidate in the department of <strong>${thesis.department}</strong> on this date <strong>${new Date(thesis.createdAt).toLocaleDateString()}</strong> under the enrollment ID <strong>${thesis.enrollmentNo || 'PENDING'}</strong>.<br/><br/>The registered thesis research topic has been approved as: <i>"${thesis.title}"</i>.`;
+      bodyText = `This is to certify that Mr./Ms. <strong>${scholar?.name || 'Academic Scholar'}</strong> has been officially registered as a Doctor of Philosophy (Ph.D.) candidate in the department of <strong>${thesis.department}</strong> on this date <strong>${new Date(thesis.createdAt).toLocaleDateString()}</strong> under the enrollment ID <strong>${thesis.enrollmentNumber || thesis.enrollmentNo || 'PENDING'}</strong>.<br/><br/>The registered thesis research topic has been approved as: <i>"${thesis.title}"</i>.`;
     } else if (type === 'COURSEWORK') {
       titleText = 'Certificate of Course Work Completion';
       bodyText = `This is to certify that <strong>${scholar?.name || 'Academic Scholar'}</strong> has successfully satisfied all academic course work requirements of the Doctor of Philosophy degree program in <strong>${thesis.department}</strong> as verified on <strong>${new Date().toLocaleDateString()}</strong>. The candidate completed all core and elective subjects under the assigned supervisor <strong>Prof. ${supervisor?.name || 'Academic Guide'}</strong>.`;
@@ -340,12 +340,12 @@ const generateCertificate = async (req, res) => {
         <head>
           <meta charset="utf-8">
           <title>${titleText}</title>
-          <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+          <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Outfit:wght@400;500;600;700;800&family=Great+Vibes&display=swap" rel="stylesheet">
           <style>
             body {
-              background: #f8fafc;
+              background: #f1f5f9;
               margin: 0;
-              padding: 40px;
+              padding: 45px;
               display: flex;
               justify-content: center;
               align-items: center;
@@ -354,114 +354,205 @@ const generateCertificate = async (req, res) => {
             }
             .certificate-container {
               background: white;
-              border: 16px double #d97706;
+              border: 12px double #15803d;
               box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
-              width: 800px;
-              padding: 60px;
+              width: 850px;
+              padding: 50px 65px;
               position: relative;
               border-radius: 4px;
+              box-sizing: border-box;
+              overflow: hidden;
             }
             .certificate-header {
               text-align: center;
-              margin-bottom: 30px;
+              margin-bottom: 25px;
+              z-index: 5;
+              position: relative;
             }
             .university-title {
               font-family: 'Cinzel', serif;
-              font-size: 2.2rem;
+              font-size: 2.1rem;
               font-weight: 800;
-              color: #0f172a;
-              margin: 0 0 5px 0;
-              letter-spacing: 2px;
+              color: #15803d;
+              margin: 8px 0 2px 0;
+              letter-spacing: 1px;
             }
             .university-subtitle {
-              color: #d97706;
-              font-size: 0.95rem;
+              color: #b45309;
+              font-size: 0.82rem;
               text-transform: uppercase;
-              letter-spacing: 3px;
+              letter-spacing: 4px;
               font-weight: 800;
               margin: 0;
+            }
+            .university-location {
+              font-size: 0.8rem;
+              color: #475569;
+              font-weight: 600;
+              margin: 4px 0 0 0;
+              letter-spacing: 1px;
             }
             .watermark {
               position: absolute;
               top: 50%;
               left: 50%;
               transform: translate(-50%, -50%);
-              opacity: 0.04;
+              opacity: 0.022;
               pointer-events: none;
-              width: 320px;
+              width: 440px;
+              height: 440px;
+              z-index: 0;
             }
             .certificate-divider {
               height: 2px;
               background: linear-gradient(to right, transparent, #d97706, transparent);
-              margin: 20px auto;
+              margin: 15px auto;
               width: 80%;
             }
             .certificate-title {
               font-family: 'Cinzel', serif;
               color: #1e3a8a;
-              font-size: 1.6rem;
+              font-size: 1.5rem;
               text-align: center;
               font-weight: 800;
               margin-top: 10px;
-              margin-bottom: 25px;
+              margin-bottom: 24px;
               text-transform: uppercase;
               letter-spacing: 1px;
+              z-index: 5;
+              position: relative;
             }
             .certificate-body {
               color: #334155;
               font-size: 1.05rem;
-              line-height: 1.8;
+              line-height: 1.85;
               text-align: center;
-              margin-bottom: 40px;
-              padding: 0 20px;
+              margin-bottom: 35px;
+              padding: 0 15px;
+              z-index: 5;
+              position: relative;
             }
             .certificate-footer {
               display: flex;
               justify-content: space-between;
-              margin-top: 50px;
+              margin-top: 55px;
               border-top: 1px dashed #cbd5e1;
-              padding-top: 20px;
+              padding-top: 22px;
+              z-index: 5;
+              position: relative;
             }
             .signature-box {
               text-align: center;
-              width: 220px;
+              width: 200px;
             }
             .signature-line {
-              height: 1px;
+              height: 1.2px;
               background: #64748b;
-              margin-bottom: 10px;
+              margin-bottom: 8px;
+            }
+            .signature-handwritten {
+              font-family: 'Great Vibes', cursive;
+              font-size: 1.7rem;
+              color: #0f172a;
+              margin-bottom: 4px;
+              opacity: 0.85;
+              height: 38px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
             }
             .signature-title {
-              font-size: 0.8rem;
+              font-size: 0.78rem;
               color: #64748b;
-              font-weight: 600;
+              font-weight: 700;
               text-transform: uppercase;
               letter-spacing: 1px;
             }
-            .gold-seal {
+            .gold-seal-wrapper {
               position: absolute;
-              bottom: 40px;
+              bottom: 45px;
               left: 50%;
               transform: translateX(-50%);
-              width: 80px;
-              height: 80px;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              z-index: 10;
             }
             @media print {
               body { background: white; padding: 0; }
-              .certificate-container { border: 16px double #d97706; box-shadow: none; width: 100%; box-sizing: border-box; }
+              .certificate-container { border: 12px double #15803d; box-shadow: none; width: 100%; box-sizing: border-box; }
             }
           </style>
         </head>
         <body>
           <div class="certificate-container">
-            <svg class="watermark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-              <circle cx="12" cy="11" r="3"/>
-              <path d="m9 17 3-3 3 3"/>
+            <!-- Giant high-fidelity background watermark seal of HPU -->
+            <svg class="watermark" viewBox="0 0 200 200" fill="none" stroke="currentColor" stroke-width="0.8">
+              <circle cx="100" cy="100" r="94" stroke="#15803d" />
+              <circle cx="100" cy="100" r="88" stroke="#d97706" />
+              <circle cx="100" cy="100" r="62" stroke="#d97706" />
+              <path d="M 52,130 L 80,95 L 105,122 L 138,82 L 170,130 Z" stroke="#15803d" />
+              <circle cx="100" cy="80" r="18" stroke="#d97706" />
+              <path d="M 70,135 Q 100,128 100,138 Q 100,128 130,135 L 130,147 Q 100,140 100,150 Q 100,140 70,147 Z" stroke="#15803d" />
             </svg>
+
             <div class="certificate-header">
-              <h1 class="university-title">ScholarSync</h1>
-              <p class="university-subtitle">Doctoral Research Board of Excellence</p>
+              <!-- Official HPU Logo Emblem (Vector render) -->
+              <svg width="105" height="105" viewBox="0 0 200 200" style="margin: 0 auto; display: block;">
+                <circle cx="100" cy="100" r="94" fill="white" stroke="#15803d" stroke-width="4.5" filter="drop-shadow(0px 3px 5px rgba(0,0,0,0.08))" />
+                <circle cx="100" cy="100" r="88" fill="none" stroke="#d97706" stroke-width="2" />
+                <circle cx="100" cy="100" r="62" fill="none" stroke="#d97706" stroke-width="1.5" />
+                
+                <path id="circleTextTop" d="M 18, 100 A 82,82 0 0,1 182,100" fill="none" />
+                <path id="circleTextBottom" d="M 182, 100 A 82,82 0 0,1 18,100" fill="none" />
+                
+                <text font-family="'Cinzel', serif" font-size="11.2px" fill="#15803d" font-weight="bold" letter-spacing="0.5">
+                  <textPath href="#circleTextTop" startOffset="50%" text-anchor="middle">HIMACHAL PRADESH UNIVERSITY</textPath>
+                </text>
+                <text font-family="'Cinzel', serif" font-size="9.5px" fill="#d97706" font-weight="bold" letter-spacing="2">
+                  <textPath href="#circleTextBottom" startOffset="50%" text-anchor="middle">SHIMLA • ESTD 1970 •</textPath>
+                </text>
+                
+                <path d="M 52,130 L 80,95 L 105,122 L 138,82 L 170,130 Z" fill="url(#crestMountainGrad)" stroke="#15803d" stroke-width="2.2" stroke-linejoin="round" />
+                <path d="M 80,95 L 96,114 L 112,106 L 138,82 L 148,102" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" />
+
+                <circle cx="100" cy="80" r="18" fill="url(#crestSunGrad)" />
+                <g stroke="#d97706" stroke-width="1.5" opacity="0.85">
+                  <line x1="100" y1="56" x2="100" y2="48" />
+                  <line x1="117" y1="63" x2="123" y2="57" />
+                  <line x1="124" y1="80" x2="132" y2="80" />
+                  <line x1="83" y1="63" x2="77" y2="57" />
+                  <line x1="76" y1="80" x2="68" y2="80" />
+                  <line x1="112" y1="92" x2="118" y2="98" />
+                  <line x1="88" y1="92" x2="82" y2="98" />
+                </g>
+                
+                <path d="M 70,135 Q 100,128 100,138 Q 100,128 130,135 L 130,147 Q 100,140 100,150 Q 100,140 70,147 Z" fill="#ffffff" stroke="#15803d" stroke-width="1.8" />
+                <line x1="100" y1="138" x2="100" y2="150" stroke="#15803d" stroke-width="1.8" />
+                
+                <rect x="55" y="156" width="90" height="15" rx="3.5" fill="#15803d" />
+                <text x="100" y="167" font-family="'Outfit', sans-serif" font-size="7.5px" fill="white" font-weight="bold" text-anchor="middle" letter-spacing="0.5">ज्ञानं वै बलम्</text>
+                
+                <defs>
+                  <linearGradient id="crestMountainGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#a7f3d0" />
+                    <stop offset="100%" stop-color="#047857" />
+                  </linearGradient>
+                  <linearGradient id="crestSunGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="#f59e0b" />
+                    <stop offset="100%" stop-color="#ef4444" />
+                  </linearGradient>
+                  <linearGradient id="goldRosetteSeal" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#fef08a" />
+                    <stop offset="50%" stop-color="#fbbf24" />
+                    <stop offset="100%" stop-color="#d97706" />
+                  </linearGradient>
+                </defs>
+              </svg>
+
+              <h1 class="university-title">Himachal Pradesh University</h1>
+              <p class="university-subtitle">Dean of Doctoral Studies & Research Office</p>
+              <p class="university-location">Summer Hill, Shimla, H.P., India</p>
               <div class="certificate-divider"></div>
             </div>
             
@@ -474,14 +565,28 @@ const generateCertificate = async (req, res) => {
             
             <div class="certificate-footer">
               <div class="signature-box">
+                <div class="signature-handwritten">${supervisor ? 'Prof. ' + supervisor.name.split(' ')[0] : 'Academic Guide'}</div>
                 <div class="signature-line"></div>
                 <div class="signature-title">Research Supervisor</div>
               </div>
               <div class="signature-box" style="visibility:${thesis.enrollmentVerified ? 'visible' : 'hidden'}">
-                <div style="font-family:'Cinzel',serif; color:#d97706; font-size:0.9rem; font-weight:800; margin-bottom:5px;">VERIFIED</div>
+                <div class="signature-handwritten" style="font-family:'Cinzel',serif; color:#15803d; font-size:0.9rem; font-weight:800; letter-spacing:1px; transform: rotate(-5deg); border: 2px solid #15803d; padding: 4px 10px; border-radius: 6px; width: fit-content; margin: 0 auto 5px;">HPU VERIFIED</div>
                 <div class="signature-line"></div>
                 <div class="signature-title">Head of Department</div>
               </div>
+            </div>
+
+            <!-- Highly authentic shining gold rosette authentication seal -->
+            <div class="gold-seal-wrapper">
+              <svg width="60" height="60" viewBox="0 0 64 64" filter="drop-shadow(0px 2px 4px rgba(0,0,0,0.15))">
+                <path d="M32 0 L36 8 L44 4 L44 14 L53 11 L50 20 L59 20 L53 28 L60 32 L53 36 L59 44 L50 44 L53 53 L44 50 L44 60 L36 56 L32 64 L28 56 L20 60 L20 50 L11 53 L14 44 L5 44 L11 36 L4 32 L11 28 L5 20 L14 20 L11 11 L20 14 L20 4 L28 8 Z" fill="#fbbf24" stroke="#d97706" stroke-width="1.2" />
+                <circle cx="32" cy="32" r="22" fill="#d97706" />
+                <circle cx="32" cy="32" r="20" fill="url(#goldRosetteSeal)" />
+                <circle cx="32" cy="32" r="16" fill="none" stroke="#ffffff" stroke-width="1" stroke-dasharray="2 2" />
+                <text x="32" y="31" font-family="'Cinzel', serif" font-size="5px" fill="#78350f" font-weight="bold" text-anchor="middle" letter-spacing="0.5">OFFICIAL</text>
+                <text x="32" y="38" font-family="'Cinzel', serif" font-size="5px" fill="#78350f" font-weight="bold" text-anchor="middle" letter-spacing="0.5">HPU SEAL</text>
+                <text x="32" y="44" font-family="'Outfit', sans-serif" font-size="4.5px" fill="#15803d" font-weight="bold" text-anchor="middle" letter-spacing="0.5">ESTD 1970</text>
+              </svg>
             </div>
           </div>
           <script>

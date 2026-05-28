@@ -1,5 +1,6 @@
 const Milestone = require('../models/Milestone');
 const Thesis = require('../models/Thesis');
+const RACReview = require('../models/RACReview');
 const { createNotification } = require('./notificationController');
 
 // GET /api/milestones/:thesisId
@@ -96,6 +97,20 @@ const reviewMilestone = async (req, res) => {
           link: 'overview'
         });
       }
+
+      // Log the supervisor text feedback into the RACReview collection (Step 2)
+      const racReview = new RACReview({
+        scholarId: thesis.scholarId,
+        thesisId: thesis._id,
+        milestoneId: milestone._id,
+        reviewerId: req.user._id,
+        comments: comment || (action === 'APPROVE' ? 'Approved' : 'Revision Required'),
+        status: action === 'APPROVE' ? 'SATISFACTORY' : 'UNSATISFACTORY',
+        remarks: comment || '',
+        racNumber: 1,
+        scheduledDate: new Date()
+      });
+      await racReview.save();
     }
 
     res.json(milestone);
@@ -127,4 +142,42 @@ const createMilestone = async (req, res) => {
   }
 };
 
-module.exports = { getMilestones, submitDocument, reviewMilestone, createMilestone };
+// GET /api/milestones/defaulters — Admin fetches scholars whose progress reports are overdue (Step 5)
+const getDefaulters = async (req, res) => {
+  try {
+    const overdueReports = await Milestone.find({
+      type: '6_MONTH_REPORT',
+      dueDate: { $lt: new Date() },
+      status: 'PENDING'
+    }).populate({
+      path: 'thesisId',
+      populate: { path: 'scholarId' }
+    });
+
+    const formatted = overdueReports.map(m => {
+      const thesis = m.thesisId;
+      const scholar = thesis?.scholarId;
+      return {
+        _id: m._id,
+        milestoneTitle: m.title,
+        dueDate: m.dueDate,
+        status: m.status,
+        scholarName: scholar ? scholar.name : 'Unknown Scholar',
+        scholarDepartment: thesis ? thesis.department : 'N/A',
+        enrollmentNumber: thesis ? thesis.enrollmentNumber : 'N/A'
+      };
+    });
+
+    res.json(formatted);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+module.exports = {
+  getMilestones,
+  submitDocument,
+  reviewMilestone,
+  createMilestone,
+  getDefaulters
+};

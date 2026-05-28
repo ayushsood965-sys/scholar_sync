@@ -3,12 +3,24 @@ const mongoose = require('mongoose');
 const RACReviewSchema = new mongoose.Schema({
   scholarId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   thesisId: { type: mongoose.Schema.Types.ObjectId, ref: 'Thesis', required: true },
-  racNumber: { type: Number, required: true }, // 1 to 6
-  scheduledDate: { type: Date, required: true },
+  
+  // Legacy fields (for HOD scheduled reviews)
+  racNumber: { type: Number, default: 1 }, 
+  scheduledDate: { type: Date, default: Date.now },
   committeeMembers: { type: String, default: '' },
   progressReportUrl: { type: String },
-  status: { type: String, enum: ['SCHEDULED', 'SATISFACTORY', 'UNSATISFACTORY'], default: 'SCHEDULED' },
-  remarks: { type: String }
+  remarks: { type: String },
+
+  // New Phase 5 fields (for supervisor milestone reviews)
+  milestoneId: { type: mongoose.Schema.Types.ObjectId, ref: 'Milestone', default: null },
+  reviewerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  comments: { type: String, default: '' },
+
+  status: { 
+    type: String, 
+    enum: ['SCHEDULED', 'SATISFACTORY', 'UNSATISFACTORY'], 
+    default: 'SCHEDULED' 
+  }
 }, { timestamps: true });
 
 module.exports = mongoose.model('RACReview', RACReviewSchema);

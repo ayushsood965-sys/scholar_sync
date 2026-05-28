@@ -1432,4 +1432,143 @@ body {
   50% { opacity: 1; color: #FFFFFF; }
 }
 
+/* -------------------------------------------------- */
+/* MOBILE RESPONSIVE MEDIA QUERIES                   */
+/* -------------------------------------------------- */
+@media (max-width: 768px) {
+  /* Core layout stacking */
+  .app-container {
+    flex-direction: column;
+  }
+  
+  /* Fixed responsive sidebar overlay menu */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 270px;
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.15);
+  }
+  
+  body.sidebar-mobile-open .sidebar {
+    transform: translateX(0);
+  }
+  
+  .mobile-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 990;
+  }
+  
+  body.sidebar-mobile-open .mobile-overlay {
+    display: block !important;
+  }
+  
+  /* Mobile sticky header and actions */
+  .header {
+    padding: 0 16px;
+    height: 64px;
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 80;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+  }
+  
+  .mobile-menu-toggle {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-sidebar) !important;
+    margin-right: 12px;
+  }
+  
+  /* Dashboard content areas margins */
+  .dashboard-area {
+    padding: 16px;
+  }
+  
+  .welcome-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 20px;
+    text-align: left;
+  }
+  
+  .welcome-text {
+    font-size: 1.25rem;
+  }
+  
+  .brand-text {
+    font-size: 1rem;
+  }
+  
+  /* Collapse grids to single columns */
+  .dashboard-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px;
+  }
+  
+  /* Generic dynamic styling overrides for inline-grid panels */
+  .grid-2col, .grid-3col, 
+  [style*="grid-template-columns"], 
+  [style*="gridTemplateColumns"] {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+  
+  /* Stack inline flexboxes and grids vertically */
+  [style*="display: grid"][style*="grid-template-columns"],
+  [style*="display: flex"][style*="flex-direction: row"],
+  [style*="display:flex"][style*="flex-direction:row"] {
+    grid-template-columns: 1fr !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+  
+  /* Shrink padding inside cards */
+  .card {
+    padding: 16px !important;
+  }
+  
+  /* Scrollable tabular file listings */
+  .file-list {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 8px;
+  }
+  
+  .file-header, .file-item {
+    min-width: 650px; /* Prevents text truncation and layout breakage */
+  }
+  
+  /* Stacking modal popup views */
+  [style*="maxHeight: '85vh'"], [style*="max-height: 85vh"] {
+    max-height: 95vh !important;
+    width: 95% !important;
+    padding: 20px !important;
+  }
+  
+  /* Multi-tab menu lines wrapping */
+  [style*="display: flex"][style*="gap: 24px"],
+  [style*="display: flex"][style*="gap:20px"],
+  [style*="display:flex"][style*="gap:20px"] {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+  
+  /* Split screen reviewers queue stacking */
+  [style*="gridTemplateColumns: '1.2fr 0.8fr'"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 

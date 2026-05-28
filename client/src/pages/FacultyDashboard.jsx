@@ -17,19 +17,19 @@ const Sidebar = ({ activeTab, setActiveTab, subRole, isVerified }) => {
   const navigate = useNavigate();
   const supervisorItems = [
     { key: 'overview', label: 'Dashboard', Icon: Home },
+    { key: 'profile', label: 'Profile', Icon: User },
     { key: 'scholars', label: 'My Scholars', Icon: Users },
     { key: 'rac', label: 'RAC Progress', Icon: Layers },
     { key: 'reviews', label: 'Pending Reviews', Icon: FileText },
-    { key: 'profile', label: 'Profile', Icon: User },
   ];
   const hodItems = [
     { key: 'overview', label: 'Dashboard', Icon: Home },
+    { key: 'profile', label: 'Profile', Icon: User },
     { key: 'registrations', label: 'Registration Requests', Icon: ShieldCheck },
-    { key: 'dept', label: 'Department Theses', Icon: Users },
     { key: 'drc', label: 'DRC Approvals', Icon: CheckCircle2 },
+    { key: 'dept', label: 'Department Theses', Icon: Users },
     { key: 'rac', label: 'RAC Progress', Icon: Layers },
     { key: 'requests', label: 'Change Requests', Icon: Edit },
-    { key: 'profile', label: 'Profile', Icon: User },
   ];
   const items = subRole === 'HOD' ? hodItems : supervisorItems;
   return (
@@ -294,7 +294,7 @@ const resolveDetailedStatus = (status, synopsisStatus, finalSubStatus) => {
 };
 
 // ── Thesis Detail + Milestone Review Panel ──
-const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onFinalApprove, onClearCoursework, onVerify, onAssign, subRole, onClose }) => {
+const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onFinalApprove, onClearCoursework, onVerify, onAssign, subRole, onClose, onToggleAnnualRAC }) => {
   const [remarks, setRemarks] = useState({});
   const [loading, setLoading] = useState(false);
 
@@ -672,7 +672,79 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
             );
           })()}
           {subRole === 'HOD' && thesis.status === 'ACTIVE_RESEARCH' && (
-            <button className="btn-primary" onClick={() => act(onSeminar)} disabled={loading} style={{ padding: '5px 14px', fontSize: '0.85rem', background: '#EA580C' }}>✓ Seminar Cleared → PRE_SUBMISSION</button>
+            <div style={{
+              width: '100%',
+              background: '#F8FAFC',
+              border: '1px solid #E2E8F0',
+              borderRadius: 12,
+              padding: 16,
+              marginTop: 12,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12
+            }}>
+              <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#1E293B' }}>
+                Active Research Monitoring (HOD Desk)
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white', padding: 12, borderRadius: 8, border: '1px solid #F1F5F9' }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: '0.82rem', color: '#334155' }}>Annual RAC Clearance Status</div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: 2 }}>
+                    Must be cleared annually by the HOD based on progress reports.
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    padding: '3px 8px',
+                    borderRadius: 12,
+                    background: thesis.annualRACCleared ? '#D1FAE5' : '#FEE2E2',
+                    color: thesis.annualRACCleared ? '#065F46' : '#991B1B'
+                  }}>
+                    {thesis.annualRACCleared ? 'CLEARED' : 'PENDING'}
+                  </span>
+                  <label style={{ position: 'relative', display: 'inline-block', width: 44, height: 24, cursor: 'pointer' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={!!thesis.annualRACCleared} 
+                      onChange={() => act(onToggleAnnualRAC)} 
+                      disabled={loading}
+                      style={{ opacity: 0, width: 0, height: 0 }}
+                    />
+                    <span style={{
+                      position: 'absolute',
+                      cursor: 'pointer',
+                      top: 0, left: 0, right: 0, bottom: 0,
+                      backgroundColor: thesis.annualRACCleared ? '#059669' : '#CBD5E1',
+                      transition: '0.3s',
+                      borderRadius: 24,
+                    }}>
+                      <span style={{
+                        position: 'absolute',
+                        content: '""',
+                        height: 18, width: 18,
+                        left: thesis.annualRACCleared ? 22 : 4,
+                        bottom: 3,
+                        backgroundColor: 'white',
+                        transition: '0.3s',
+                        borderRadius: '50%'
+                      }} />
+                    </span>
+                  </label>
+                </div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid #F1F5F9', paddingTop: 10 }}>
+                <button 
+                  className="btn-primary" 
+                  onClick={() => act(onSeminar)} 
+                  disabled={loading} 
+                  style={{ padding: '6px 14px', fontSize: '0.82rem', background: '#EA580C', fontWeight: 600 }}
+                >
+                  ✓ Seminar Cleared → Move to Pre-Submission
+                </button>
+              </div>
+            </div>
           )}
           {subRole !== 'HOD' && thesis.status === 'PRE_SUBMISSION' && milestones.find(m => m.type === 'FINAL_SUBMISSION' && m.status === 'SUBMITTED') && (
             <button className="btn-primary" onClick={() => act(onFinalApprove)} disabled={loading} style={{ padding: '5px 14px', fontSize: '0.85rem', background: '#8B5CF6' }}>✓ Final Digital Approval → SUBMITTED</button>
@@ -1741,11 +1813,230 @@ const ProfileTab = () => {
   );
 };
 
+// ── Step 4 Pending Reviews Queue and Split-Screen PDF Evaluator ──
+const PendingReviewsQueue = ({ theses, user }) => {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedDoc, setSelectedDoc] = useState(null); 
+  const [commentText, setCommentText] = useState('');
+  const [reviewLoading, setReviewLoading] = useState(false);
+
+  const fetchPending = async () => {
+    setLoading(true);
+    try {
+      const allPendingDocs = [];
+
+      await Promise.all(theses.map(async (t) => {
+        // Fetch milestones
+        const mRes = await axios.get(`${API_URL}/milestones/${t._id}`, getAuthHeader());
+        const pendingMilestones = mRes.data.filter(m => m.status === 'SUBMITTED');
+        pendingMilestones.forEach(m => {
+          allPendingDocs.push({
+            _id: m._id,
+            docType: 'MILESTONE',
+            title: m.title,
+            type: m.type,
+            submittedAt: m.submittedAt || m.updatedAt,
+            documentUrl: m.documentUrl,
+            scholarName: t.scholarId?.name || 'Scholar',
+            thesisTitle: t.title,
+            thesisId: t._id
+          });
+        });
+
+        // Fetch publications
+        const pRes = await axios.get(`${API_URL}/publications/thesis/${t._id}`, getAuthHeader());
+        const pendingPubs = pRes.data.filter(p => p.status === 'PENDING');
+        pendingPubs.forEach(p => {
+          allPendingDocs.push({
+            _id: p._id,
+            docType: 'PUBLICATION',
+            title: p.title,
+            type: p.type || 'JOURNAL',
+            submittedAt: p.createdAt || p.updatedAt,
+            documentUrl: p.documentUrl || p.attachmentUrl,
+            scholarName: t.scholarId?.name || 'Scholar',
+            thesisTitle: t.title,
+            thesisId: t._id
+          });
+        });
+      }));
+
+      allPendingDocs.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+      setItems(allPendingDocs);
+    } catch (err) {
+      console.error(err);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchPending();
+  }, [theses]);
+
+  const handleReviewAction = async (action) => {
+    if (!commentText.trim() && action === 'REVISION') {
+      return alert('Remarks and revision requirements are required to request corrections.');
+    }
+    setReviewLoading(true);
+    try {
+      if (selectedDoc.docType === 'MILESTONE') {
+        await axios.put(`${API_URL}/milestones/${selectedDoc._id}/review`, {
+          action: action === 'APPROVE' ? 'APPROVE' : 'REVISION',
+          comment: commentText.trim()
+        }, getAuthHeader());
+        alert(`Milestone marked: ${action === 'APPROVE' ? 'APPROVED' : 'REVISION REQUIRED'}`);
+      } else {
+        await axios.put(`${API_URL}/publications/${selectedDoc._id}/verify`, {
+          status: action === 'APPROVE' ? 'VERIFIED' : 'REJECTED',
+          remarks: commentText.trim()
+        }, getAuthHeader());
+        alert(`Publication marked: ${action === 'APPROVE' ? 'VERIFIED' : 'REJECTED'}`);
+      }
+      setSelectedDoc(null);
+      setCommentText('');
+      fetchPending();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Error processing review.');
+    } finally {
+      setReviewLoading(false);
+    }
+  };
+
+  if (selectedDoc) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <button onClick={() => { setSelectedDoc(null); setCommentText(''); }} className="btn-outline" style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '6px 14px' }}>
+            ← Back to Reviews Queue
+          </button>
+          <span style={{ fontWeight: 700, color: '#475569' }}>
+            Reviewing: {selectedDoc.scholarName}'s Submission
+          </span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 20, minHeight: '650px' }}>
+          {/* Left panel: PDF Viewer */}
+          <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '650px', border: '1px solid #CBD5E1' }}>
+            <div style={{ background: '#F1F5F9', padding: '10px 16px', borderBottom: '1px solid #CBD5E1', fontWeight: 600, fontSize: '0.85rem', color: '#334155' }}>
+              📄 Inline PDF Document Viewer
+            </div>
+            {selectedDoc.documentUrl ? (
+              <iframe 
+                src={`${API_BASE_URL}${selectedDoc.documentUrl}`} 
+                title="Document Viewer" 
+                style={{ width: '100%', height: '100%', border: 'none' }}
+              />
+            ) : (
+              <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', background: '#F8FAFC', color: '#64748B', flexDirection: 'column', padding: 20 }}>
+                <span style={{ fontSize: '2rem' }}>⚠️</span>
+                <p style={{ marginTop: 10, fontWeight: 600 }}>No PDF copy uploaded by scholar.</p>
+              </div>
+            )}
+          </div>
+
+          {/* Right panel: Feedback form */}
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '650px', padding: 24, border: '1px solid #CBD5E1' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#133A26', borderBottom: '1px solid #E2E8F0', paddingBottom: 12 }}>
+                Evaluation Form
+              </h3>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, background: '#F8FAFC', padding: 16, borderRadius: 10, fontSize: '0.85rem' }}>
+                <div><strong>Scholar Name:</strong> {selectedDoc.scholarName}</div>
+                <div><strong>Document Title:</strong> {selectedDoc.title}</div>
+                <div><strong>Deliverable Type:</strong> {selectedDoc.type}</div>
+                <div><strong>Submission Date:</strong> {new Date(selectedDoc.submittedAt).toLocaleString()}</div>
+                <div><strong>Research Title:</strong> {selectedDoc.thesisTitle}</div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#475569', marginBottom: 6 }}>
+                  Supervisor Feedback & Directives
+                </label>
+                <textarea 
+                  className="form-input" 
+                  rows="8" 
+                  placeholder="Enter comments, guidelines, or required corrections in detail..." 
+                  value={commentText} 
+                  onChange={e => setCommentText(e.target.value)}
+                  style={{ width: '100%', resize: 'vertical' }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 12, borderTop: '1px solid #E2E8F0', paddingTop: 16 }}>
+              <button 
+                type="button" 
+                onClick={() => handleReviewAction('REVISION')} 
+                disabled={reviewLoading} 
+                className="btn-outline" 
+                style={{ flex: 1, padding: '12px', fontSize: '0.9rem', color: '#DC2626', borderColor: '#FCA5A5', fontWeight: 700 }}
+              >
+                ✗ Request Revision
+              </button>
+              <button 
+                type="button" 
+                onClick={() => handleReviewAction('APPROVE')} 
+                disabled={reviewLoading} 
+                className="btn-primary" 
+                style={{ flex: 1, padding: '12px', fontSize: '0.9rem', background: '#059669', fontWeight: 700 }}
+              >
+                ✓ Approve Submission
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card">
+      <h3 className="card-title">Pending Reviews Queue</h3>
+      <p style={{ color: '#64748B', fontSize: '0.85rem', marginBottom: 20 }}>
+        Central assessment desk for review and sign-off on assigned progress reports, drafts, and research outputs.
+      </p>
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 30 }}>Loading pending queue...</div>
+      ) : items.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 40, color: '#64748B', background: '#F8FAFC', borderRadius: 12 }}>
+          <span>🍃</span> You have no pending documents in your queue. All reviews are up to date!
+        </div>
+      ) : (
+        <div className="file-list">
+          <div className="file-header">
+            <div style={{ flex: 1.5 }}>Scholar</div>
+            <div style={{ flex: 2 }}>Document Name</div>
+            <div style={{ flex: 1 }}>Category</div>
+            <div style={{ flex: 1.5 }}>Submitted Date</div>
+            <div style={{ flex: 1, textAlign: 'center' }}>Action</div>
+          </div>
+          {items.map(i => (
+            <div key={i._id} className="file-item">
+              <div style={{ flex: 1.5, fontWeight: 700 }}>{i.scholarName}</div>
+              <div style={{ flex: 2, fontSize: '0.9rem', color: '#1E293B' }}>{i.title}</div>
+              <div style={{ flex: 1 }}><span style={{ fontSize: '0.72rem', background: i.docType === 'MILESTONE' ? '#EFF6FF' : '#F5F3FF', color: i.docType === 'MILESTONE' ? '#1E40AF' : '#5B21B6', padding: '3px 8px', borderRadius: 12, fontWeight: 600 }}>{i.docType}</span></div>
+              <div style={{ flex: 1.5, fontSize: '0.82rem', color: '#64748B' }}>{new Date(i.submittedAt).toLocaleString()}</div>
+              <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+                <button onClick={() => setSelectedDoc(i)} className="btn-action" style={{ background: '#133A26' }}>
+                  Evaluate
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ── Main Dashboard ──
 const FacultyDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const { user, fetchMe } = useContext(AuthContext);
-  const { allTheses, loading, fetchAssignedTheses, fetchDeptTheses, fetchThesisById, reviewMilestone, drcApprove, seminarClear, finalApprove, clearCoursework, verifyEnrollment, assignSupervisor } = useContext(ThesisContext);
+  const { allTheses, loading, fetchAssignedTheses, fetchDeptTheses, fetchThesisById, reviewMilestone, drcApprove, seminarClear, finalApprove, clearCoursework, verifyEnrollment, assignSupervisor, toggleAnnualRAC } = useContext(ThesisContext);
   const [selectedThesisId, setSelectedThesisId] = useState(null);
   const [selectedThesisData, setSelectedThesisData] = useState(null);
 
@@ -1823,21 +2114,7 @@ const FacultyDashboard = () => {
       case 'rac': return <SupervisorRACConsole theses={allTheses} />;
       case 'dept': return <ScholarList theses={allTheses} onSelect={handleSelectThesis} title="All Department Theses" />;
       case 'drc': return <DRCPage theses={allTheses} onSelect={handleSelectThesis} />;
-      case 'reviews': return (
-        <ScholarList
-          theses={allTheses.filter(t => {
-            if (t.status === 'SYNOPSIS_PENDING') {
-              return t.synopsisStatus === 'SUBMITTED';
-            }
-            if (t.status === 'PRE_SUBMISSION') {
-              return t.finalSubStatus === 'SUBMITTED';
-            }
-            return t.status === 'ACTIVE_RESEARCH';
-          })}
-          onSelect={handleSelectThesis}
-          title="Scholars Awaiting Review"
-        />
-      );
+      case 'reviews': return <PendingReviewsQueue theses={allTheses} user={user} />;
       case 'requests': return <HODChangeRequestsTab user={user} />;
       case 'profile': return <ProfileTab />;
       default: return <div className="card"><h3 className="card-title">{titles[activeTab]}</h3><p style={{ color: '#6b7280', marginTop: 8 }}>Content coming soon.</p></div>;
@@ -1905,6 +2182,7 @@ const FacultyDashboard = () => {
           onClearCoursework={() => handleHODAction(clearCoursework)}
           onVerify={() => handleHODAction(verifyEnrollment)}
           onAssign={(supervisorId) => handleHODAction(() => assignSupervisor(selectedThesisId, supervisorId))}
+          onToggleAnnualRAC={() => handleHODAction(toggleAnnualRAC)}
           subRole={subRole}
           onClose={() => { setSelectedThesisId(null); setSelectedThesisData(null); }}
         />

@@ -5,7 +5,7 @@ const milestoneSchema = new mongoose.Schema(
     thesisId: { type: mongoose.Schema.Types.ObjectId, ref: 'Thesis', required: true },
     type: {
       type: String,
-      enum: ['SYNOPSIS', 'PROGRESS_REPORT', 'PRE_SUBMISSION', 'FINAL_SUBMISSION'],
+      enum: ['SYNOPSIS', 'PROGRESS_REPORT', 'PRE_SUBMISSION', 'FINAL_SUBMISSION', '6_MONTH_REPORT', 'CHAPTER_DRAFT'],
       required: true,
     },
     title: { type: String, required: true },

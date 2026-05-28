@@ -341,16 +341,19 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
   const navigate = useNavigate();
   const items = [
     { key: 'overview', label: 'Dashboard', Icon: Home },
+    { key: 'profile', label: 'Profile', Icon: User },
     { key: 'registration', label: 'Registration', Icon: ClipboardList },
     { key: 'thesis', label: 'My Thesis', Icon: Book },
+    { key: 'milestones', label: 'Milestones', Icon: Flag },
     { key: 'rac', label: 'RAC Progress', Icon: Layers },
+    { key: 'sixMonthReports', label: '6-Month Reports', Icon: Calendar },
+    { key: 'chapterDrafts', label: 'Chapter Drafts', Icon: FileText },
+    { key: 'researchOutputs', label: 'Research Outputs', Icon: Award },
     { key: 'publications', label: 'Publications', Icon: File },
+    { key: 'meetings', label: 'Meetings', Icon: Calendar },
+    { key: 'documents', label: 'Documents', Icon: FileText },
     { key: 'changes', label: 'Request Changes', Icon: Edit },
     { key: 'certificates', label: 'Certificates', Icon: Award },
-    { key: 'milestones', label: 'Milestones', Icon: Flag },
-    { key: 'documents', label: 'Documents', Icon: FileText },
-    { key: 'meetings', label: 'Meetings', Icon: Calendar },
-    { key: 'profile', label: 'Profile', Icon: User },
   ];
   return (
     <div className="sidebar">
@@ -1753,9 +1756,9 @@ const CertificatesTab = ({ thesis }) => {
   return (
     <div>
       <div className="card" style={{ marginBottom: 20 }}>
-        <h3 className="card-title">Dynamic Academic Credentials</h3>
+        <h3 className="card-title">H.P. University Academic Credentials</h3>
         <p style={{ color: '#64748B', fontSize: '0.85rem' }}>
-          Upon formal HOD reviews and supervisor clearances, download official printable registration, coursework, progress, and publication credentials.
+          Upon formal HOD reviews and supervisor clearances, download official printable registration, coursework, progress, and publication credentials certified by Himachal Pradesh University.
         </p>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
@@ -1794,6 +1797,429 @@ const CertificatesTab = ({ thesis }) => {
           </div>
         ))}
       </div>
+    </div>
+  );
+};
+
+// ── Phase 5 Active Research Tab views ──
+const SixMonthReportsTab = ({ thesis, milestones = [], onSubmit }) => {
+  const reports = milestones.filter(m => m.type === '6_MONTH_REPORT') || [];
+  const [file, setFile] = useState(null);
+  const [uploadingId, setUploadingId] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleUpload = async (id) => {
+    if (!file) return alert('Please choose a PDF document first.');
+    setLoading(true);
+    try {
+      await onSubmit(id, file);
+      alert('6-Month Progress Report submitted successfully!');
+      setFile(null);
+      setUploadingId(null);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to upload document.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="card">
+      <h3 className="card-title">6-Month Progress Reports Timeline</h3>
+      <p style={{ color: '#64748B', fontSize: '0.85rem', marginBottom: 24 }}>
+        Chronological portal for uploading mandatory periodic progress reports. Track supervisor reviews and advisory committee clearances.
+      </p>
+
+      {reports.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 40, color: '#64748B', background: '#F8FAFC', borderRadius: 12 }}>
+          <span>⏳</span> No 6-month progress report milestones assigned yet. Your supervisor/admin will allocate these deliverables.
+        </div>
+      ) : (
+        <div style={{ position: 'relative', paddingLeft: '24px', borderLeft: '3px solid #E2E8F0', display: 'flex', flexDirection: 'column', gap: '30px' }}>
+          {reports.map((report, idx) => {
+            const isSubmitted = ['SUBMITTED', 'APPROVED', 'REVISION_REQUIRED'].includes(report.status);
+            const isApproved = report.status === 'APPROVED';
+            const isRevision = report.status === 'REVISION_REQUIRED';
+            const isPending = report.status === 'PENDING';
+
+            let dotBg = '#CBD5E1';
+            let titleColor = '#475569';
+            if (isApproved) { dotBg = '#10B981'; titleColor = '#065F46'; }
+            else if (isRevision) { dotBg = '#EF4444'; titleColor = '#B91C1C'; }
+            else if (isSubmitted) { dotBg = '#3B82F6'; titleColor = '#1D4ED8'; }
+
+            return (
+              <div key={report._id} style={{ position: 'relative' }}>
+                {/* Timeline Dot */}
+                <div style={{
+                  position: 'absolute',
+                  left: '-34px',
+                  top: '4px',
+                  width: '18px',
+                  height: '18px',
+                  borderRadius: '50%',
+                  background: dotBg,
+                  border: '4px solid #FFFFFF',
+                  boxShadow: '0 0 0 2px ' + dotBg
+                }} />
+
+                {/* Content Panel */}
+                <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px' }}>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: titleColor }}>
+                        {report.title}
+                      </h4>
+                      <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#64748B' }}>
+                        Due Date: {report.dueDate ? new Date(report.dueDate).toLocaleDateString() : 'N/A'}
+                      </p>
+                    </div>
+                    <span style={{
+                      padding: '4px 10px',
+                      borderRadius: '12px',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      background: isApproved ? '#D1FAE5' : isRevision ? '#FEE2E2' : isSubmitted ? '#DBEAFE' : '#FEF3C7',
+                      color: isApproved ? '#065F46' : isRevision ? '#991B1B' : isSubmitted ? '#1D4ED8' : '#D97706'
+                    }}>
+                      {report.status}
+                    </span>
+                  </div>
+
+                  {/* Document Link */}
+                  {report.documentUrl && (
+                    <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '0.85rem' }}>📄</span>
+                      <a href={`${API_BASE_URL}${report.documentUrl}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.85rem', color: '#2563EB', fontWeight: 600, textDecoration: 'underline' }}>
+                        View Submitted Report
+                      </a>
+                    </div>
+                  )}
+
+                  {/* Comments Panel */}
+                  {report.comments?.length > 0 && (
+                    <div style={{ marginTop: '16px', padding: '12px', background: '#FFFBEB', borderRadius: '8px', borderLeft: '4px solid #F59E0B' }}>
+                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#B45309', marginBottom: '6px' }}>Advisory Committee Feedback:</div>
+                      {report.comments.map((c, i) => (
+                        <div key={i} style={{ fontSize: '0.82rem', color: '#78350F', fontStyle: 'italic', marginBottom: '4px' }}>
+                          "{c.text}" — <span style={{ fontWeight: 600 }}>{c.authorName}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Submission Form */}
+                  {(isPending || isRevision) && (
+                    <div style={{ marginTop: '16px', borderTop: '1px dashed #CBD5E1', paddingTop: '16px' }}>
+                      {uploadingId === report._id ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#475569' }}>Select Progress Report PDF</label>
+                          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <input type="file" accept=".pdf" onChange={e => setFile(e.target.files[0])} style={{ fontSize: '0.85rem' }} />
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button onClick={() => setUploadingId(null)} className="btn-outline" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>Cancel</button>
+                              <button onClick={() => handleUpload(report._id)} className="btn-primary" disabled={loading} style={{ background: '#133A26', padding: '6px 16px', fontSize: '0.8rem' }}>
+                                {loading ? 'Submitting...' : 'Upload & Submit'}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <button onClick={() => { setUploadingId(report._id); setFile(null); }} className="btn-primary" style={{ background: '#133A26', padding: '6px 14px', fontSize: '0.8rem', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                          <Upload size={14} /> Submit Report
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const ChapterDraftsTab = ({ thesis, milestones = [], onSubmit }) => {
+  const drafts = milestones.filter(m => m.type === 'CHAPTER_DRAFT') || [];
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [file, setFile] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleCreateAndUpload = async (e) => {
+    e.preventDefault();
+    if (!newTitle.trim()) return alert('Please enter the chapter title.');
+    if (!file) return alert('Please select a PDF document.');
+    setLoading(true);
+    try {
+      const res = await axios.post(`${API_URL}/milestones/create`, {
+        thesisId: thesis._id,
+        type: 'CHAPTER_DRAFT',
+        title: newTitle.trim(),
+        sequence: drafts.length + 1
+      }, getAuthHeader());
+
+      await onSubmit(res.data._id, file);
+
+      alert('Chapter Draft uploaded successfully!');
+      setNewTitle('');
+      setFile(null);
+      setShowAddForm(false);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to upload chapter draft.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="card">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <div>
+          <h3 className="card-title" style={{ margin: 0 }}>Chapter Drafts Workspace</h3>
+          <p style={{ color: '#64748B', fontSize: '0.85rem', marginTop: 4 }}>
+            Iteratively submit your PhD thesis chapter drafts for adviser review and track text revisions and approval.
+          </p>
+        </div>
+        <button onClick={() => setShowAddForm(!showAddForm)} className="btn-primary" style={{ background: '#059669', display: 'flex', gap: '6px', alignItems: 'center' }}>
+          <Plus size={16} /> Upload Draft
+        </button>
+      </div>
+
+      {showAddForm && (
+        <form onSubmit={handleCreateAndUpload} style={{ background: '#F8FAFC', padding: '20px', borderRadius: '12px', border: '1px solid #E2E8F0', marginBottom: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <h4 style={{ margin: 0, color: '#0F172A' }}>Upload Chapter Draft</h4>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>Chapter Title (e.g. Chapter 1: Introduction)</label>
+              <input type="text" className="form-input" required value={newTitle} onChange={e => setNewTitle(e.target.value)} placeholder="e.g. Chapter 1: Literature Review" />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>Chapter Document Proof (PDF)</label>
+              <input type="file" accept=".pdf" required onChange={e => setFile(e.target.files[0])} style={{ fontSize: '0.85rem', marginTop: '6px' }} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+            <button type="button" onClick={() => setShowAddForm(false)} className="btn-outline" style={{ padding: '8px 16px' }}>Cancel</button>
+            <button type="submit" className="btn-primary" disabled={loading} style={{ background: '#133A26', padding: '8px 16px' }}>
+              {loading ? 'Submitting...' : 'Upload & Submit Draft'}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {drafts.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '36px', color: '#64748B', background: '#F8FAFC', borderRadius: 8 }}>
+          No chapter drafts uploaded yet. Complete your outline and upload the first draft!
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {drafts.map(d => (
+            <div key={d._id} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#0F172A' }}>{d.title}</h4>
+                  <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: '#64748B' }}>
+                    Uploaded at: {d.submittedAt ? new Date(d.submittedAt).toLocaleDateString() : 'N/A'}
+                  </p>
+                </div>
+                <span style={{
+                  padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 700,
+                  background: d.status === 'APPROVED' ? '#D1FAE5' : d.status === 'REVISION_REQUIRED' ? '#FEE2E2' : d.status === 'SUBMITTED' ? '#DBEAFE' : '#FEF3C7',
+                  color: d.status === 'APPROVED' ? '#065F46' : d.status === 'REVISION_REQUIRED' ? '#991B1B' : d.status === 'SUBMITTED' ? '#1D4ED8' : '#D97706'
+                }}>
+                  {d.status}
+                </span>
+              </div>
+
+              {d.documentUrl && (
+                <div style={{ marginTop: '12px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <span>📄</span>
+                  <a href={`${API_BASE_URL}${d.documentUrl}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.85rem', color: '#2563EB', fontWeight: 600, textDecoration: 'underline' }}>
+                    View Uploaded Chapter
+                  </a>
+                </div>
+              )}
+
+              {d.comments?.length > 0 && (
+                <div style={{ marginTop: '16px', padding: '12px', background: '#FFFBEB', borderRadius: '8px', borderLeft: '4px solid #F59E0B' }}>
+                  <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#B45309', marginBottom: '6px' }}>Supervisor Feedback:</div>
+                  {d.comments.map((c, i) => (
+                    <div key={i} style={{ fontSize: '0.82rem', color: '#78350F', fontStyle: 'italic', marginBottom: '4px' }}>
+                      "{c.text}" — <span style={{ fontWeight: 600 }}>{c.authorName}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const ResearchOutputsTab = ({ thesis }) => {
+  const [pubs, setPubs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ title: '', journalName: '', issn: '', publicationDate: '', paperLink: '', type: 'JOURNAL', doiUrl: '' });
+  const [file, setFile] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const fetchPubs = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/publications/thesis/${thesis._id}`, getAuthHeader());
+      setPubs(res.data);
+    } catch (err) {}
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchPubs(); }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.title.trim() || !form.journalName.trim()) return alert('Please enter paper title and publisher details.');
+    setSubmitting(true);
+    try {
+      const formData = new FormData();
+      formData.append('thesisId', thesis._id);
+      formData.append('title', form.title);
+      formData.append('journalName', form.journalName);
+      formData.append('issn', form.issn);
+      formData.append('publicationDate', form.publicationDate);
+      formData.append('paperLink', form.paperLink);
+      formData.append('type', form.type);
+      formData.append('doiUrl', form.doiUrl);
+      if (file) formData.append('document', file);
+
+      await axios.post(`${API_URL}/publications`, formData, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      alert('Scientific Publication logged successfully & pending verification!');
+      setShowForm(false);
+      setForm({ title: '', journalName: '', issn: '', publicationDate: '', paperLink: '', type: 'JOURNAL', doiUrl: '' });
+      setFile(null);
+      fetchPubs();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Error logging publication.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="card">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <div>
+          <h3 className="card-title" style={{ margin: 0 }}>Research Outputs Vault</h3>
+          <p style={{ color: '#64748B', fontSize: '0.85rem', marginTop: 4 }}>
+            Log peer-reviewed journal articles, conference papers, and patents logged during your doctoral tenure.
+          </p>
+        </div>
+        <button onClick={() => setShowForm(!showForm)} className="btn-primary" style={{ background: '#059669', display: 'flex', gap: 6, alignItems: 'center' }}>
+          <Plus size={16} /> Log Paper
+        </button>
+      </div>
+
+      {showForm && (
+        <form onSubmit={handleSubmit} style={{ background: '#F8FAFC', padding: 20, borderRadius: 12, border: '1px solid #E2E8F0', marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <h4 style={{ margin: 0, color: '#0F172A' }}>Log Scientific Output</h4>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Paper Title *</label>
+              <input type="text" className="form-input" required value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Enter exact title of publication" />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Journal / Conference Name *</label>
+              <input type="text" className="form-input" required value={form.journalName} onChange={e => setForm({ ...form, journalName: e.target.value })} placeholder="e.g. IEEE Transactions on Software Engineering" />
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Publication Type</label>
+              <select className="form-input" value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}>
+                <option value="JOURNAL">Peer-Reviewed Journal</option>
+                <option value="CONFERENCE">International Conference</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>ISSN / ISBN</label>
+              <input type="text" className="form-input" value={form.issn} onChange={e => setForm({ ...form, issn: e.target.value })} placeholder="e.g. 1234-567X" />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Publication Date *</label>
+              <input type="date" className="form-input" required value={form.publicationDate} onChange={e => setForm({ ...form, publicationDate: e.target.value })} />
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>DOI URL / Paper Link</label>
+              <input type="text" className="form-input" value={form.paperLink} onChange={e => setForm({ ...form, paperLink: e.target.value })} placeholder="e.g. https://doi.org/10.1145/..." />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Exact DOI String</label>
+              <input type="text" className="form-input" value={form.doiUrl} onChange={e => setForm({ ...form, doiUrl: e.target.value })} placeholder="e.g. 10.1145/12345" />
+            </div>
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Upload Publication Proof (PDF copy of article) *</label>
+            <input type="file" accept=".pdf" required onChange={e => setFile(e.target.files[0])} style={{ fontSize: '0.85rem' }} />
+          </div>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+            <button type="button" onClick={() => setShowForm(false)} className="btn-outline" style={{ padding: '8px 16px' }}>Cancel</button>
+            <button type="submit" className="btn-primary" disabled={submitting} style={{ background: '#133A26', padding: '8px 16px' }}>
+              {submitting ? 'Submitting...' : 'Log Research Output'}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 20 }}>Loading outputs...</div>
+      ) : pubs.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '36px', color: '#64748B', background: '#F8FAFC', borderRadius: 8 }}>
+          No peer-reviewed papers or outputs logged in this vault yet.
+        </div>
+      ) : (
+        <div className="file-list">
+          <div className="file-header">
+            <div style={{ flex: 2.5 }}>Paper Title</div>
+            <div style={{ flex: 1.5 }}>Journal/Conference</div>
+            <div style={{ flex: 1 }}>ISSN</div>
+            <div style={{ flex: 1.2 }}>DOI</div>
+            <div style={{ flex: 1 }}>Status</div>
+            <div style={{ flex: 1, textAlign: 'center' }}>Links</div>
+          </div>
+          {pubs.map(p => (
+            <div key={p._id} className="file-item">
+              <div style={{ flex: 2.5, fontWeight: 700 }}>{p.title}</div>
+              <div style={{ flex: 1.5, fontSize: '0.85rem' }}>{p.journalName} <span style={{ fontSize: '0.72rem', background: '#F1F5F9', padding: '2px 6px', borderRadius: 4, marginLeft: 4 }}>{p.type}</span></div>
+              <div style={{ flex: 1, fontSize: '0.85rem', color: '#64748B' }}>{p.issn || '—'}</div>
+              <div style={{ flex: 1.2, fontSize: '0.8rem', color: '#0F172A', fontFamily: 'monospace' }}>{p.doiUrl || '—'}</div>
+              <div style={{ flex: 1 }}>
+                <span style={{
+                  padding: '4px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 600,
+                  background: p.status === 'VERIFIED' ? '#D1FAE5' : p.status === 'REJECTED' ? '#FEE2E2' : '#FEF3C7',
+                  color: p.status === 'VERIFIED' ? '#065F46' : p.status === 'REJECTED' ? '#991B1B' : '#D97706'
+                }}>
+                  {p.status}
+                </span>
+              </div>
+              <div style={{ flex: 1, display: 'flex', gap: 8, justifyContent: 'center' }}>
+                {(p.paperLink || p.doiUrl) && <a href={p.paperLink || `https://doi.org/${p.doiUrl}`} target="_blank" rel="noreferrer" title="Publisher Link" style={{ color: '#2563EB' }}><File size={16} /></a>}
+                {p.documentUrl && <a href={`${API_BASE_URL}${p.documentUrl}`} target="_blank" rel="noreferrer" title="View Article PDF" style={{ color: '#059669' }}><Upload size={16} /></a>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
@@ -1959,7 +2385,22 @@ const StudentDashboard = () => {
     await fetchMyThesis();
   };
 
-  const titles = { overview: 'Student Dashboard', registration: 'Thesis Registration', thesis: 'My Thesis', rac: 'RAC Progress', publications: 'Publications', changes: 'Request Changes', certificates: 'Certificates', milestones: 'Milestones', documents: 'Documents', meetings: 'Meetings', profile: 'Profile' };
+  const titles = { 
+    overview: 'Student Dashboard', 
+    registration: 'Thesis Registration', 
+    thesis: 'My Thesis', 
+    rac: 'RAC Progress', 
+    publications: 'Publications', 
+    sixMonthReports: '6-Month Progress Reports',
+    chapterDrafts: 'Chapter Drafts Workspace',
+    researchOutputs: 'Research Outputs Vault',
+    changes: 'Request Changes', 
+    certificates: 'Certificates', 
+    milestones: 'Milestones', 
+    documents: 'Documents', 
+    meetings: 'Meetings', 
+    profile: 'Profile' 
+  };
 
   const renderStatusContent = () => {
     if (loading) return <div style={{ textAlign: 'center', padding: 48, color: '#6b7280' }}>Loading...</div>;
@@ -2003,6 +2444,9 @@ const StudentDashboard = () => {
         );
       case 'rac': return <RACProgressTab thesis={thesis} />;
       case 'publications': return <PublicationsTab thesis={thesis} />;
+      case 'sixMonthReports': return <SixMonthReportsTab thesis={thesis} milestones={milestones} onSubmit={submitMilestone} />;
+      case 'chapterDrafts': return <ChapterDraftsTab thesis={thesis} milestones={milestones} onSubmit={submitMilestone} />;
+      case 'researchOutputs': return <ResearchOutputsTab thesis={thesis} />;
       case 'changes': return <RequestChangesTab thesis={thesis} />;
       case 'certificates': return <CertificatesTab thesis={thesis} />;
       case 'milestones':

@@ -416,8 +416,49 @@ const finalApprove = async (req, res) => {
   }
 };
 
+// PUT /api/thesis/:id/annual-rac — HOD/Admin logs annual RAC cleared
+const toggleAnnualRAC = async (req, res) => {
+  try {
+    const thesis = await Thesis.findById(req.params.id);
+    if (!thesis) return res.status(404).json({ message: 'Thesis not found' });
+
+    // HOD department check
+    if (req.user.role === 'HOD' && thesis.department !== req.user.department) {
+      return res.status(403).json({ message: 'Not authorized. This scholar belongs to another department.' });
+    }
+
+    thesis.annualRACCleared = !thesis.annualRACCleared;
+    
+    const note = thesis.annualRACCleared 
+      ? `Annual RAC clearance recorded by HOD ${req.user.name}`
+      : `Annual RAC clearance rescinded by HOD ${req.user.name}`;
+      
+    thesis.auditLog.push({ 
+      action: 'ANNUAL_RAC_TOGGLED', 
+      note
+    });
+    
+    await thesis.save();
+
+    await createNotification({
+      recipient: thesis.scholarId,
+      title: thesis.annualRACCleared ? '✅ Annual RAC Cleared!' : '⚠️ Annual RAC Clear Rescinded',
+      message: thesis.annualRACCleared 
+        ? `Your Head of Department (${req.user.name}) has officially logged your Annual RAC clearance for this academic year.`
+        : `Your Annual RAC clearance status has been updated by HOD (${req.user.name}).`,
+      type: thesis.annualRACCleared ? 'SUCCESSFUL_ACTION' : 'PENDING_ACTION',
+      link: 'overview'
+    });
+
+    res.json(thesis);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 module.exports = {
   createThesis, getMyThesis, getAllTheses, getThesisById,
   verifyEnrollment, assignSupervisor, clearCoursework, awardDegree, updateAuditLog,
   getAssignedTheses, getDeptTheses, drcApprove, seminarClear, finalApprove,
+  toggleAnnualRAC
 };

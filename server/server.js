@@ -9,6 +9,7 @@ const milestoneRoutes = require('./routes/milestoneRoutes');
 const departmentRoutes = require('./routes/departmentRoutes');
 const lifecycleRoutes = require('./routes/lifecycleRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const publicationRoutes = require('./routes/publicationRoutes');
 const fs = require('fs');
 
 const app = express();
@@ -183,6 +184,7 @@ app.use('/api/milestones', milestoneRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/lifecycle', lifecycleRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/publications', publicationRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
