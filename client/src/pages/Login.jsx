@@ -8,6 +8,7 @@ const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
 
@@ -20,6 +21,7 @@ const Login = () => {
       return;
     }
 
+    setIsLoggingIn(true);
     const result = await login(username, password);
     if (result.success) {
       if (result.role === 'SUPER_ADMIN') navigate('/super-dashboard');
@@ -28,11 +30,32 @@ const Login = () => {
       else navigate('/student-dashboard');
     } else {
       setError(result.message);
+      setIsLoggingIn(false);
     }
   };
 
   return (
     <div className="subpage-container">
+      {isLoggingIn && (
+        <div className="login-preloader-overlay">
+          <div className="login-preloader-container">
+            <div className="login-preloader-glow"></div>
+            <div className="login-preloader-ring-wrapper">
+              <div className="login-preloader-ring"></div>
+              <img src="/favicon.svg" alt="ScholarSync Logo" className="login-preloader-logo" />
+            </div>
+            <div className="login-preloader-text-container">
+              <h2 className="login-preloader-title">ScholarSync</h2>
+              <div className="login-preloader-status">
+                <span className="status-dot"></span>
+                <span className="status-dot"></span>
+                <span className="status-dot"></span>
+                <span className="login-preloader-text">Authenticating credentials</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <Navbar />
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 0' }}>
         <div className="glass-panel auth-panel" style={{ margin: 0 }}>
