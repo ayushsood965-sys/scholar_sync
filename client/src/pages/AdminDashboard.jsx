@@ -4,6 +4,7 @@ import { Home, Users, FileText, BarChart2, Settings, LogOut, Bell, CheckCircle2,
 import { AuthContext } from '../context/AuthContext';
 import { NotificationContext } from '../context/NotificationContext';
 import { ThesisContext } from '../context/ThesisContext';
+import { useToast } from '../context/ToastContext';
 import axios from 'axios';
 import { API_BASE_URL, API_URL } from '../config';
 import ProfileOnboardingModal from '../components/ProfileOnboardingModal';
@@ -245,6 +246,7 @@ const STATUS_BG = {
 
 // ── Scholar Detail Modal ──
 const ScholarDetail = ({ thesisId, onClose, onAction }) => {
+  const toast = useToast();
   const [data, setData] = useState(null);
   const [faculty, setFaculty] = useState([]);
   const [selSupervisor, setSelSupervisor] = useState('');
@@ -289,19 +291,19 @@ const ScholarDetail = ({ thesisId, onClose, onAction }) => {
       });
       fetchDrcMeetings();
     }
-    catch (e) { alert(e.response?.data?.message || 'Error'); }
+    catch (e) { toast.error(e.response?.data?.message || 'Error'); }
     finally { setLoading(false); }
   };
 
   const handleDrcScheduleSubmit = async (e) => {
     e.preventDefault();
     if (!drcForm.scheduledDate || !drcForm.scheduledTime || !drcForm.venue) {
-      return alert('Please fill in Date, Time, and Venue');
+      return toast.warning('Please fill in Date, Time, and Venue');
     }
     setLoading(true);
     try {
       await axios.post(`${API}/lifecycle/drc/schedule`, { thesisId, ...drcForm }, getAuthHeader());
-      alert('DRC meeting scheduled successfully!');
+      toast.success('DRC meeting scheduled successfully!');
       setShowDrcSchedule(false);
       setDrcForm({ scheduledDate: '', scheduledTime: '', venue: '', committeeMembers: '', agenda: '' });
       fetchDrcMeetings();
@@ -309,7 +311,7 @@ const ScholarDetail = ({ thesisId, onClose, onAction }) => {
       setData(r.data);
       if (onAction) onAction(thesisId, 'refresh_list');
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to schedule DRC meeting');
+      toast.error(err.response?.data?.message || 'Failed to schedule DRC meeting');
     } finally {
       setLoading(false);
     }
@@ -321,7 +323,7 @@ const ScholarDetail = ({ thesisId, onClose, onAction }) => {
     setLoading(true);
     try {
       await axios.put(`${API}/lifecycle/drc/${selectedDrc._id}/result`, drcResultForm, getAuthHeader());
-      alert(`DRC meeting successfully marked as ${drcResultForm.status}!`);
+      toast.success(`DRC meeting successfully marked as ${drcResultForm.status}!`);
       setShowDrcResult(false);
       setSelectedDrc(null);
       setDrcResultForm({ status: 'APPROVED', remarks: '' });
@@ -330,7 +332,7 @@ const ScholarDetail = ({ thesisId, onClose, onAction }) => {
       setData(r.data);
       if (onAction) onAction(thesisId, 'refresh_list');
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to record DRC result');
+      toast.error(err.response?.data?.message || 'Failed to record DRC result');
     } finally {
       setLoading(false);
     }
@@ -936,6 +938,7 @@ const ProfileTab = () => {
 
 // ── Manage Department Users ──
 const ManageUsers = () => {
+  const toast = useToast();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -961,7 +964,7 @@ const ManageUsers = () => {
       await axios.put(`${API}/auth/users/${userId}/active`, {}, getAuthHeader());
       setUsers(users.map(u => u._id === userId ? { ...u, isActive: !u.isActive } : u));
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to toggle account active status.');
+      toast.error(err.response?.data?.message || 'Failed to toggle account active status.');
     }
   };
 
@@ -1060,10 +1063,10 @@ const ManageUsers = () => {
                     onClick={async () => {
                       try {
                         await axios.put(`${API}/auth/users/${u._id}/verify`, {}, getAuthHeader());
-                        alert("Account verified successfully!");
+                        toast.success("Account verified successfully!");
                         fetchUsers();
                       } catch (err) {
-                        alert(err.response?.data?.message || 'Verification failed');
+                        toast.error(err.response?.data?.message || 'Verification failed');
                       }
                     }}
                     style={{
@@ -1113,6 +1116,7 @@ const ManageFaculty = () => {
 
 // ── PhD Lifecycle Administration console ──
 const PhDLifecycleConsole = ({ theses, fetchAllTheses }) => {
+  const toast = useToast();
   const [activeSubTab, setActiveSubTab] = useState('rac');
   const [scholars, setScholars] = useState([]);
   const [racs, setRacs] = useState([]);
@@ -1159,46 +1163,46 @@ const PhDLifecycleConsole = ({ theses, fetchAllTheses }) => {
 
   const handleScheduleSubmit = async (e) => {
     e.preventDefault();
-    if (!schedForm.thesisId || !schedForm.scheduledDate) return alert('Please complete the scheduling form.');
+    if (!schedForm.thesisId || !schedForm.scheduledDate) return toast.warning('Please complete the scheduling form.');
     try {
       await axios.post(`${API}/lifecycle/rac/schedule`, schedForm, getAuthHeader());
-      alert('RAC review meeting scheduled successfully!');
+      toast.success('RAC review meeting scheduled successfully!');
       setShowScheduleForm(false);
       setSchedForm({ thesisId: '', racNumber: 1, scheduledDate: '', committeeMembers: '' });
       fetchData();
     } catch (err) {
-      alert('Failed to schedule RAC.');
+      toast.error('Failed to schedule RAC.');
     }
   };
 
   const handleRACGrade = async (racId, status, remarks) => {
     try {
       await axios.put(`${API}/lifecycle/rac/${racId}/result`, { status, remarks }, getAuthHeader());
-      alert(`RAC progress successfully graded as ${status}!`);
+      toast.success(`RAC progress successfully graded as ${status}!`);
       fetchData();
     } catch (err) {
-      alert('Failed to submit grade.');
+      toast.error('Failed to submit grade.');
     }
   };
 
   const handleRequestReview = async (reqId, status, remarks) => {
     try {
       await axios.put(`${API}/lifecycle/change-requests/${reqId}/review`, { status, remarks }, getAuthHeader());
-      alert(`Modification request successfully ${status}!`);
+      toast.success(`Modification request successfully ${status}!`);
       fetchData();
       fetchAllTheses();
     } catch (err) {
-      alert('Failed to resolve request.');
+      toast.error('Failed to resolve request.');
     }
   };
 
   const handlePubVerify = async (pubId, status) => {
     try {
       await axios.put(`${API}/lifecycle/publications/${pubId}/verify`, { status }, getAuthHeader());
-      alert(`Publication record successfully ${status === 'VERIFIED' ? 'Verified' : 'Rejected'}!`);
+      toast.success(`Publication record successfully ${status === 'VERIFIED' ? 'Verified' : 'Rejected'}!`);
       fetchData();
     } catch (err) {
-      alert('Failed to verify publication.');
+      toast.error('Failed to verify publication.');
     }
   };
 
@@ -1462,6 +1466,7 @@ const PhDLifecycleConsole = ({ theses, fetchAllTheses }) => {
 };
 
 const HODChangeRequestsTab = ({ user }) => {
+  const toast = useToast();
   const [requests, setRequests] = useState([]);
   const [faculty, setFaculty] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1507,7 +1512,7 @@ const HODChangeRequestsTab = ({ user }) => {
 
   const handleReviewInModal = async (status) => {
     if (!remarksText.trim()) {
-      alert('Please enter remarks/reasons before submitting your decision.');
+      toast.warning('Please enter remarks/reasons before submitting your decision.');
       return;
     }
 
@@ -1519,14 +1524,14 @@ const HODChangeRequestsTab = ({ user }) => {
         body.proposedValue = assignedSupervisorId || selectedRequest.proposedValue;
       }
       await axios.put(`${API}/lifecycle/change-requests/${selectedRequest._id}/review`, body, getAuthHeader());
-      alert(`Modification request successfully ${status}!`);
+      toast.success(`Modification request successfully ${status}!`);
       
       // Update local remarks dictionary
       setRemarks(prev => ({ ...prev, [selectedRequest._id]: remarksText }));
       setSelectedRequest(null);
       fetchAllData();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to review request.');
+      toast.error(err.response?.data?.message || 'Failed to review request.');
     } finally {
       setBtnLoading(false);
     }
@@ -1937,6 +1942,7 @@ const HODChangeRequestsTab = ({ user }) => {
 
 // ── Defaulter Tracking Tab ──
 const DefaultersTab = () => {
+  const toast = useToast();
   const [defaulters, setDefaulters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -1964,9 +1970,9 @@ const DefaultersTab = () => {
     setRemindingId(id);
     try {
       await new Promise(resolve => setTimeout(resolve, 800));
-      alert('Academic warning notification and email reminder dispatched to scholar!');
+      toast.success('Academic warning notification and email reminder dispatched to scholar!');
     } catch (err) {
-      alert('Failed to send reminder.');
+      toast.error('Failed to send reminder.');
     } finally {
       setRemindingId(null);
     }
@@ -2144,6 +2150,7 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
 // ── Main ──
 // ── Main ──
 const AdminDashboard = () => {
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedThesisId, setSelectedThesisId] = useState(null);
   const { allTheses, fetchAllTheses, verifyEnrollment, assignSupervisor, clearCoursework, awardDegree, updateAuditLog, drcApprove, seminarClear } = useContext(ThesisContext);
@@ -2185,10 +2192,10 @@ const AdminDashboard = () => {
               onClick={async () => {
                 const fresh = await fetchMe();
                 if (fresh?.isVerified) {
-                  alert("Your account has been approved! Reloading dashboard...");
+                  toast.success("Your account has been approved! Reloading dashboard...");
                   window.location.reload();
                 } else {
-                  alert("Your account is still unverified. Please contact HOD of your department in case of faculty and contact the super admin in case of HOD.");
+                  toast.warning("Your account is still unverified. Please contact HOD of your department in case of faculty and contact the super admin in case of HOD.");
                 }
               }}
               className="btn-primary"

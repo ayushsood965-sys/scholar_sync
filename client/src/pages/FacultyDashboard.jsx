@@ -9,6 +9,7 @@ const getAuthHeader = () => ({ headers: { Authorization: `Bearer ${localStorage.
 import { AuthContext } from '../context/AuthContext';
 import { NotificationContext } from '../context/NotificationContext';
 import { ThesisContext } from '../context/ThesisContext';
+import { useToast } from '../context/ToastContext';
 import ProfileOnboardingModal from '../components/ProfileOnboardingModal';
 import NotificationPanel from '../components/NotificationPanel';
 import ThemeToggle from '../components/ThemeToggle';
@@ -297,6 +298,7 @@ const resolveDetailedStatus = (status, synopsisStatus, finalSubStatus) => {
 
 // ── Thesis Detail + Milestone Review Panel ──
 const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onFinalApprove, onClearCoursework, onVerify, onAssign, subRole, onClose, onToggleAnnualRAC }) => {
+  const toast = useToast();
   const [remarks, setRemarks] = useState({});
   const [loading, setLoading] = useState(false);
 
@@ -333,23 +335,23 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
     fetchDrcMeetings();
   }, [thesis._id]);
 
-  const act = async (fn) => { setLoading(true); try { await fn(); } catch (e) { alert(e.response?.data?.message || 'Error'); } finally { setLoading(false); } };
+  const act = async (fn) => { setLoading(true); try { await fn(); } catch (e) { toast.error(e.response?.data?.message || 'Error'); } finally { setLoading(false); } };
 
   const handleDrcScheduleSubmit = async (e) => {
     e.preventDefault();
     if (!drcForm.scheduledDate || !drcForm.scheduledTime || !drcForm.venue) {
-      return alert('Please fill in Date, Time, and Venue');
+      return toast.warning('Please fill in Date, Time, and Venue');
     }
     setLoading(true);
     try {
       await axios.post(`${API}/lifecycle/drc/schedule`, { thesisId: thesis._id, ...drcForm }, getAuthHeader());
-      alert('DRC meeting scheduled successfully!');
+      toast.success('DRC meeting scheduled successfully!');
       setShowDrcSchedule(false);
       setDrcForm({ scheduledDate: '', scheduledTime: '', venue: '', committeeMembers: '', agenda: '' });
       fetchDrcMeetings();
       if (onDRC) await onDRC();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to schedule DRC meeting');
+      toast.error(err.response?.data?.message || 'Failed to schedule DRC meeting');
     } finally {
       setLoading(false);
     }
@@ -362,7 +364,7 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
     try {
       if (drcResultForm.status === 'RESCHEDULE') {
         if (!drcResultForm.scheduledDate || !drcResultForm.scheduledTime || !drcResultForm.venue) {
-          alert('Please fill in Date, Time, and Venue for rescheduling');
+          toast.warning('Please fill in Date, Time, and Venue for rescheduling');
           setLoading(false);
           return;
         }
@@ -373,13 +375,13 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
           committeeMembers: drcResultForm.committeeMembers,
           remarks: drcResultForm.remarks
         }, getAuthHeader());
-        alert('DRC meeting rescheduled successfully!');
+        toast.success('DRC meeting rescheduled successfully!');
       } else {
         await axios.put(`${API}/lifecycle/drc/${selectedDrc._id}/result`, {
           status: drcResultForm.status,
           remarks: drcResultForm.remarks
         }, getAuthHeader());
-        alert(`DRC meeting successfully marked as ${drcResultForm.status}!`);
+        toast.success(`DRC meeting successfully marked as ${drcResultForm.status}!`);
       }
       setShowDrcResult(false);
       setSelectedDrc(null);
@@ -387,7 +389,7 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
       fetchDrcMeetings();
       if (onDRC) await onDRC();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to process DRC request');
+      toast.error(err.response?.data?.message || 'Failed to process DRC request');
     } finally {
       setLoading(false);
     }
@@ -396,7 +398,7 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
   const handleOfflineDrcSubmit = async (e) => {
     e.preventDefault();
     if (!offlineDrcForm.remarks) {
-      return alert('Please enter Remarks / MoM');
+      return toast.warning('Please enter Remarks / MoM');
     }
     setLoading(true);
     try {
@@ -408,13 +410,13 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
         remarks: offlineDrcForm.remarks,
         status: offlineDrcForm.status
       }, getAuthHeader());
-      alert(`Offline DRC Outcome successfully recorded as ${offlineDrcForm.status}!`);
+      toast.success(`Offline DRC Outcome successfully recorded as ${offlineDrcForm.status}!`);
       setShowOfflineDrc(false);
       setOfflineDrcForm({ conductedDate: '', venue: '', committeeMembers: '', remarks: '', status: 'APPROVED' });
       fetchDrcMeetings();
       if (onDRC) await onDRC();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to record offline DRC');
+      toast.error(err.response?.data?.message || 'Failed to record offline DRC');
     } finally {
       setLoading(false);
     }
@@ -886,6 +888,7 @@ const DRCPage = ({ theses, onSelect }) => {
 };
 
 const HODChangeRequestsTab = ({ user }) => {
+  const toast = useToast();
   const [requests, setRequests] = useState([]);
   const [faculty, setFaculty] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -931,7 +934,7 @@ const HODChangeRequestsTab = ({ user }) => {
 
   const handleReviewInModal = async (status) => {
     if (!remarksText.trim()) {
-      alert('Please enter remarks/reasons before submitting your decision.');
+      toast.warning('Please enter remarks/reasons before submitting your decision.');
       return;
     }
 
@@ -943,14 +946,14 @@ const HODChangeRequestsTab = ({ user }) => {
         body.proposedValue = assignedSupervisorId || selectedRequest.proposedValue;
       }
       await axios.put(`${API}/lifecycle/change-requests/${selectedRequest._id}/review`, body, getAuthHeader());
-      alert(`Modification request successfully ${status}!`);
+      toast.success(`Modification request successfully ${status}!`);
       
       // Update local remarks dictionary
       setRemarks(prev => ({ ...prev, [selectedRequest._id]: remarksText }));
       setSelectedRequest(null);
       fetchAllData();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to review request.');
+      toast.error(err.response?.data?.message || 'Failed to review request.');
     } finally {
       setBtnLoading(false);
     }
@@ -1534,6 +1537,7 @@ const OverviewPage = ({ theses, user, onSelect, setActiveTab }) => {
 
 // ── Supervisor RAC clearance view ──
 const SupervisorRACConsole = ({ theses }) => {
+  const toast = useToast();
   const [racs, setRacs] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -1559,10 +1563,10 @@ const SupervisorRACConsole = ({ theses }) => {
     if (rem === null) return;
     try {
       await axios.put(`${API}/lifecycle/rac/${racId}/remarks`, { remarks: rem }, getAuthHeader());
-      alert('Remarks saved successfully!');
+      toast.success('Remarks saved successfully!');
       fetchRacs();
     } catch (err) {
-      alert('Failed to save remarks.');
+      toast.error('Failed to save remarks.');
     }
   };
 
@@ -1817,6 +1821,7 @@ const ProfileTab = () => {
 
 // ── Step 4 Pending Reviews Queue and Split-Screen PDF Evaluator ──
 const PendingReviewsQueue = ({ theses, user }) => {
+  const toast = useToast();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedDoc, setSelectedDoc] = useState(null); 
@@ -1878,7 +1883,7 @@ const PendingReviewsQueue = ({ theses, user }) => {
 
   const handleReviewAction = async (action) => {
     if (!commentText.trim() && action === 'REVISION') {
-      return alert('Remarks and revision requirements are required to request corrections.');
+      return toast.warning('Remarks and revision requirements are required to request corrections.');
     }
     setReviewLoading(true);
     try {
@@ -1887,19 +1892,19 @@ const PendingReviewsQueue = ({ theses, user }) => {
           action: action === 'APPROVE' ? 'APPROVE' : 'REVISION',
           comment: commentText.trim()
         }, getAuthHeader());
-        alert(`Milestone marked: ${action === 'APPROVE' ? 'APPROVED' : 'REVISION REQUIRED'}`);
+        toast.success(`Milestone marked: ${action === 'APPROVE' ? 'APPROVED' : 'REVISION REQUIRED'}`);
       } else {
         await axios.put(`${API_URL}/publications/${selectedDoc._id}/verify`, {
           status: action === 'APPROVE' ? 'VERIFIED' : 'REJECTED',
           remarks: commentText.trim()
         }, getAuthHeader());
-        alert(`Publication marked: ${action === 'APPROVE' ? 'VERIFIED' : 'REJECTED'}`);
+        toast.success(`Publication marked: ${action === 'APPROVE' ? 'VERIFIED' : 'REJECTED'}`);
       }
       setSelectedDoc(null);
       setCommentText('');
       fetchPending();
     } catch (err) {
-      alert(err.response?.data?.message || 'Error processing review.');
+      toast.error(err.response?.data?.message || 'Error processing review.');
     } finally {
       setReviewLoading(false);
     }
@@ -2036,6 +2041,7 @@ const PendingReviewsQueue = ({ theses, user }) => {
 
 // ── Main Dashboard ──
 const FacultyDashboard = () => {
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState('overview');
   const { user, fetchMe } = useContext(AuthContext);
   const { allTheses, loading, fetchAssignedTheses, fetchDeptTheses, fetchThesisById, reviewMilestone, drcApprove, seminarClear, finalApprove, clearCoursework, verifyEnrollment, assignSupervisor, toggleAnnualRAC } = useContext(ThesisContext);
@@ -2068,6 +2074,12 @@ const FacultyDashboard = () => {
     setSelectedThesisData(data);
   };
 
+  const handleClosePanel = () => {
+    setSelectedThesisId(null);
+    setSelectedThesisData(null);
+    if (subRole === 'HOD') fetchDeptTheses(); else fetchAssignedTheses();
+  };
+
   const handleHODAction = async (fn) => {
     await fn(selectedThesisId);
     const data = await fetchThesisById(selectedThesisId);
@@ -2093,10 +2105,10 @@ const FacultyDashboard = () => {
               onClick={async () => {
                 const fresh = await fetchMe();
                 if (fresh?.isVerified) {
-                  alert("Your account has been approved! Reloading dashboard...");
+                  toast.success("Your account has been approved! Reloading dashboard...");
                   window.location.reload();
                 } else {
-                  alert("Your account is still unverified. Please contact HOD of your department in case of faculty and contact the super admin in case of HOD.");
+                  toast.warning("Your account is still unverified. Please contact HOD of your department in case of faculty and contact the super admin in case of HOD.");
                 }
               }}
               className="btn-primary"

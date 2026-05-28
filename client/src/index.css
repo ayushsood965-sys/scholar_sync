@@ -2490,4 +2490,111 @@ body {
   color: var(--color-text-secondary) !important;
 }
 
+/* Custom Toast Notifications Styles */
+.custom-toast-container {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 999999;
+  max-width: 400px;
+  width: calc(100% - 48px);
+  pointer-events: none;
+}
+
+.custom-toast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #1f2937;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.02);
+  border: 1px solid #e5e7eb;
+  pointer-events: auto;
+  animation: toast-slide-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: all 0.25s ease;
+}
+
+[data-theme='dark'] .custom-toast {
+  background: #1e1e20;
+  color: #ffffff;
+  border-color: #2d2d30;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4), 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.custom-toast-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.custom-toast-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.custom-toast-message {
+  font-size: 0.88rem;
+  font-weight: 500;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.custom-toast-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  margin-left: 8px;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.custom-toast-close:hover {
+  background-color: #f3f4f6;
+  color: #4b5563;
+}
+
+[data-theme='dark'] .custom-toast-close:hover {
+  background-color: #27272a;
+  color: #cbcccd;
+}
+
+/* Toast Variant Enhancements */
+.custom-toast-success {
+  border-left: 4px solid #10b981;
+}
+.custom-toast-error {
+  border-left: 4px solid #ef4444;
+}
+.custom-toast-warning {
+  border-left: 4px solid #f59e0b;
+}
+.custom-toast-info {
+  border-left: 4px solid #3b82f6;
+}
+
+@keyframes toast-slide-in {
+  from {
+    transform: translateY(-16px) scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+
 

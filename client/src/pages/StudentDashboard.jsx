@@ -4,6 +4,7 @@ import { Home, Book, Flag, FileText, Calendar, User, LogOut, Bell, ClipboardList
 import { AuthContext } from '../context/AuthContext';
 import { NotificationContext } from '../context/NotificationContext';
 import { ThesisContext } from '../context/ThesisContext';
+import { useToast } from '../context/ToastContext';
 import ProfileOnboardingModal from '../components/ProfileOnboardingModal';
 import NotificationPanel from '../components/NotificationPanel';
 import axios from 'axios';
@@ -586,6 +587,7 @@ const Header = ({ title }) => {
 // ── Enrollment Form (no thesis yet) ──
 const EnrollmentForm = ({ onSubmit }) => {
   const { user } = useContext(AuthContext);
+  const toast = useToast();
   const [form, setForm] = useState({ 
     enrollmentNumber: '', 
     department: user?.department || '', 
@@ -619,7 +621,7 @@ const EnrollmentForm = ({ onSubmit }) => {
         department: user?.department || form.department
       }); 
     } catch (err) { 
-      alert(err.response?.data?.message || 'Error'); 
+      toast.error(err.response?.data?.message || 'Error'); 
     } finally { 
       setLoading(false); 
     }
@@ -698,6 +700,7 @@ const CourseworkPhase = ({ thesis }) => (
 // ── Synopsis Phase ──
 const SynopsisPhase = ({ thesis, milestones, onSubmit }) => {
   const synopsisMilestone = milestones.find(m => m.type === 'SYNOPSIS');
+  const toast = useToast();
   const [file, setFile] = useState(null);
   const [title, setTitle] = useState(thesis.title || '');
   const [abstract, setAbstract] = useState(thesis.abstract || '');
@@ -722,15 +725,15 @@ const SynopsisPhase = ({ thesis, milestones, onSubmit }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!file) return alert('Please select a synopsis document');
-    if (!title.trim()) return alert('Please enter your finalized research title');
-    if (!abstract.trim()) return alert('Please enter your finalized research abstract');
+    if (!file) return toast.warning('Please select a synopsis document');
+    if (!title.trim()) return toast.warning('Please enter your finalized research title');
+    if (!abstract.trim()) return toast.warning('Please enter your finalized research abstract');
     setLoading(true);
     try {
       await onSubmit(synopsisMilestone._id, file, title, abstract);
-      alert('Synopsis and finalized research outline submitted successfully!');
+      toast.success('Synopsis and finalized research outline submitted successfully!');
     } catch (err) {
-      alert(err.response?.data?.message || 'Upload failed');
+      toast.error(err.response?.data?.message || 'Upload failed');
     } finally {
       setLoading(false);
     }
@@ -850,16 +853,17 @@ const SynopsisPhase = ({ thesis, milestones, onSubmit }) => {
 
 // ── Milestone Upload Card ──
 const MilestoneCard = ({ milestone, onSubmit, isLocked }) => {
+  const toast = useToast();
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const statusColor = { PENDING: '#D97706', SUBMITTED: '#3B82F6', APPROVED: '#059669', REVISION_REQUIRED: '#DC2626' };
   const statusBg = { PENDING: '#FEF3C7', SUBMITTED: '#DBEAFE', APPROVED: '#D1FAE5', REVISION_REQUIRED: '#FEE2E2' };
 
   const handleSubmit = async () => {
-    if (!file) return alert('Please select a file');
+    if (!file) return toast.warning('Please select a file');
     setLoading(true);
     try { await onSubmit(milestone._id, file); setFile(null); }
-    catch (e) { alert(e.response?.data?.message || 'Upload failed'); }
+    catch (e) { toast.error(e.response?.data?.message || 'Upload failed'); }
     finally { setLoading(false); }
   };
 
@@ -1205,6 +1209,7 @@ const OverviewPage = ({ thesis, milestones, setActiveTab, user }) => {
 // ── Profile Tab ──
 // ── GNUMS Ph.D. Lifecycle components ──
 const RACProgressTab = ({ thesis }) => {
+  const toast = useToast();
   const [racs, setRacs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [reportUrl, setReportUrl] = useState('');
@@ -1221,15 +1226,15 @@ const RACProgressTab = ({ thesis }) => {
   useEffect(() => { fetchRACs(); }, []);
 
   const handleReportUpload = async (racId) => {
-    if (!reportUrl) return alert('Please enter report URL or document link.');
+    if (!reportUrl) return toast.warning('Please enter report URL or document link.');
     try {
       await axios.put(`${API}/lifecycle/rac/${racId}/report`, { progressReportUrl: reportUrl }, getAuthHeader());
-      alert('Progress report submitted successfully!');
+      toast.success('Progress report submitted successfully!');
       setUploadingId(null);
       setReportUrl('');
       fetchRACs();
     } catch (err) {
-      alert('Upload failed.');
+      toast.error('Upload failed.');
     }
   };
 
@@ -1309,6 +1314,7 @@ const RACProgressTab = ({ thesis }) => {
 };
 
 const PublicationsTab = ({ thesis }) => {
+  const toast = useToast();
   const [pubs, setPubs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -1328,12 +1334,12 @@ const PublicationsTab = ({ thesis }) => {
     e.preventDefault();
     try {
       await axios.post(`${API}/lifecycle/publications`, { ...form, thesisId: thesis._id }, getAuthHeader());
-      alert('Publication logged successfully and pending review!');
+      toast.success('Publication logged successfully and pending review!');
       setShowForm(false);
       setForm({ title: '', journalName: '', issn: '', publicationDate: '', paperLink: '', attachmentUrl: '' });
       fetchPubs();
     } catch (err) {
-      alert('Error logging publication.');
+      toast.error('Error logging publication.');
     }
   };
 
@@ -1433,6 +1439,7 @@ const PublicationsTab = ({ thesis }) => {
 };
 
 const RequestChangesTab = ({ thesis }) => {
+  const toast = useToast();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -1457,15 +1464,15 @@ const RequestChangesTab = ({ thesis }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.proposedValue) return alert('Please enter proposed value.');
+    if (!form.proposedValue) return toast.warning('Please enter proposed value.');
     try {
       await axios.post(`${API}/lifecycle/change-requests`, { ...form, thesisId: thesis._id }, getAuthHeader());
-      alert('Change request submitted successfully!');
+      toast.success('Change request submitted successfully!');
       setShowForm(false);
       setForm({ type: 'TITLE_CHANGE', proposedValue: '', reason: '' });
       fetchRequests();
     } catch (err) {
-      alert('Error submitting request.');
+      toast.error('Error submitting request.');
     }
   };
 
@@ -1805,21 +1812,22 @@ const CertificatesTab = ({ thesis }) => {
 
 // ── Phase 5 Active Research Tab views ──
 const SixMonthReportsTab = ({ thesis, milestones = [], onSubmit }) => {
+  const toast = useToast();
   const reports = milestones.filter(m => m.type === '6_MONTH_REPORT') || [];
   const [file, setFile] = useState(null);
   const [uploadingId, setUploadingId] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const handleUpload = async (id) => {
-    if (!file) return alert('Please choose a PDF document first.');
+    if (!file) return toast.warning('Please choose a PDF document first.');
     setLoading(true);
     try {
       await onSubmit(id, file);
-      alert('6-Month Progress Report submitted successfully!');
+      toast.success('6-Month Progress Report submitted successfully!');
       setFile(null);
       setUploadingId(null);
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to upload document.');
+      toast.error(err.response?.data?.message || 'Failed to upload document.');
     } finally {
       setLoading(false);
     }
@@ -1944,6 +1952,7 @@ const SixMonthReportsTab = ({ thesis, milestones = [], onSubmit }) => {
 };
 
 const ChapterDraftsTab = ({ thesis, milestones = [], onSubmit }) => {
+  const toast = useToast();
   const drafts = milestones.filter(m => m.type === 'CHAPTER_DRAFT') || [];
   const [showAddForm, setShowAddForm] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -1952,8 +1961,8 @@ const ChapterDraftsTab = ({ thesis, milestones = [], onSubmit }) => {
 
   const handleCreateAndUpload = async (e) => {
     e.preventDefault();
-    if (!newTitle.trim()) return alert('Please enter the chapter title.');
-    if (!file) return alert('Please select a PDF document.');
+    if (!newTitle.trim()) return toast.warning('Please enter the chapter title.');
+    if (!file) return toast.warning('Please select a PDF document.');
     setLoading(true);
     try {
       const res = await axios.post(`${API_URL}/milestones/create`, {
@@ -1965,12 +1974,12 @@ const ChapterDraftsTab = ({ thesis, milestones = [], onSubmit }) => {
 
       await onSubmit(res.data._id, file);
 
-      alert('Chapter Draft uploaded successfully!');
+      toast.success('Chapter Draft uploaded successfully!');
       setNewTitle('');
       setFile(null);
       setShowAddForm(false);
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to upload chapter draft.');
+      toast.error(err.response?.data?.message || 'Failed to upload chapter draft.');
     } finally {
       setLoading(false);
     }
@@ -2064,6 +2073,7 @@ const ChapterDraftsTab = ({ thesis, milestones = [], onSubmit }) => {
 };
 
 const ResearchOutputsTab = ({ thesis }) => {
+  const toast = useToast();
   const [pubs, setPubs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -2083,7 +2093,7 @@ const ResearchOutputsTab = ({ thesis }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.title.trim() || !form.journalName.trim()) return alert('Please enter paper title and publisher details.');
+    if (!form.title.trim() || !form.journalName.trim()) return toast.warning('Please enter paper title and publisher details.');
     setSubmitting(true);
     try {
       const formData = new FormData();
@@ -2104,13 +2114,13 @@ const ResearchOutputsTab = ({ thesis }) => {
         }
       });
 
-      alert('Scientific Publication logged successfully & pending verification!');
+      toast.success('Scientific Publication logged successfully & pending verification!');
       setShowForm(false);
       setForm({ title: '', journalName: '', issn: '', publicationDate: '', paperLink: '', type: 'JOURNAL', doiUrl: '' });
       setFile(null);
       fetchPubs();
     } catch (err) {
-      alert(err.response?.data?.message || 'Error logging publication.');
+      toast.error(err.response?.data?.message || 'Error logging publication.');
     } finally {
       setSubmitting(false);
     }

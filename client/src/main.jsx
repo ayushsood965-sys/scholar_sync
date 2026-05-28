@@ -5,15 +5,19 @@ import './index.css'
 import { AuthProvider } from './context/AuthContext'
 import { NotificationProvider } from './context/NotificationContext'
 import { ThesisProvider } from './context/ThesisContext'
+import { ToastProvider } from './context/ToastContext'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <NotificationProvider>
-      <AuthProvider>
-        <ThesisProvider>
-          <App />
-        </ThesisProvider>
-      </AuthProvider>
-    </NotificationProvider>
+    <ToastProvider>
+      <NotificationProvider>
+        <AuthProvider>
+          <ThesisProvider>
+            <App />
+          </ThesisProvider>
+        </AuthProvider>
+      </NotificationProvider>
+    </ToastProvider>
   </React.StrictMode>,
 )
+
