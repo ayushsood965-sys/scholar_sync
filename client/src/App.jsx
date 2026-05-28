@@ -9,6 +9,7 @@ import GenericPage from './pages/GenericPage';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ProtectedRoute from './components/ProtectedRoute';
+import UtilityAction from './components/UtilityAction';
 
 function App() {
   return (
@@ -32,6 +33,10 @@ function App() {
         <Route path="/events" element={<GenericPage title="Events" description="Stay updated with university and community events." />} />
         <Route path="/about" element={<GenericPage title="About" description="Learn more about the ScholarSync platform." />} />
         <Route path="/search" element={<GenericPage title="Search Results" description="Global search directory results." />} />
+
+        {/* System Administration & Utility Hooks */}
+        <Route path="/clear-all" element={<UtilityAction type="clear" />} />
+        <Route path="/seed" element={<UtilityAction type="seed" />} />
       </Routes>
     </Router>
   );
