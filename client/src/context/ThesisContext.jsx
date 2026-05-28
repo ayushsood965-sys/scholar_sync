@@ -1,10 +1,11 @@
 import React, { createContext, useState, useContext, useCallback } from 'react';
 import axios from 'axios';
 import { AuthContext } from './AuthContext';
+import { API_URL } from '../config';
 
 export const ThesisContext = createContext();
 
-const API = 'http://localhost:5000/api';
+const API = API_URL;
 
 export const ThesisProvider = ({ children }) => {
   const { user } = useContext(AuthContext);

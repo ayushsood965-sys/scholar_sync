@@ -5,8 +5,9 @@ import { AuthContext } from '../context/AuthContext';
 import { NotificationContext } from '../context/NotificationContext';
 import axios from 'axios';
 import NotificationPanel from '../components/NotificationPanel';
+import { API_BASE_URL, API_URL } from '../config';
 
-const API = 'http://localhost:5000/api';
+const API = API_URL;
 const getAuthHeader = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
 // ── HEADER COMPONENT ──
@@ -192,7 +193,7 @@ const Header = ({ title }) => {
 
         <div className="user-profile">
           {user?.avatarUrl ? (
-            <img src={`http://localhost:5000${user.avatarUrl}`} alt="SA" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid #34d399' }} />
+            <img src={`${API_BASE_URL}${user.avatarUrl}`} alt="SA" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid #34d399' }} />
           ) : (
             <svg viewBox="0 0 100 100" style={{ width: 36, height: 36, borderRadius: '50%', background: '#e2e8f0', display: 'block', border: '2px solid #34d399' }}>
               <circle cx="50" cy="35" r="20" fill="#94a3b8" />
@@ -283,7 +284,7 @@ const SAProfileTab = ({ uploadAvatar }) => {
       <div style={{ textAlign: 'center', marginBottom: 24 }}>
         {user?.avatarUrl ? (
           <img 
-            src={`http://localhost:5000${user.avatarUrl}`} 
+            src={`${API_BASE_URL}${user.avatarUrl}`} 
             alt="Avatar" 
             style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover', border: '3px solid #34d399', background: '#1e293b', margin: '0 auto 16px', display: 'block' }} 
           />

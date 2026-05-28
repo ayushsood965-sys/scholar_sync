@@ -3,6 +3,7 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
+import { API_URL } from '../config';
 
 const Signup = () => {
   const [name, setName] = useState('');
@@ -17,7 +18,7 @@ const Signup = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/departments')
+    fetch(`${API_URL}/departments`)
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) setDepts(data);

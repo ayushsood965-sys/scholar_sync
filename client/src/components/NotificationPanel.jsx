@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Bell, Check, CheckSquare, ShieldAlert, Sparkles, CheckCircle2, Clock, Info } from 'lucide-react';
+import { API_URL } from '../config';
 
-const API = 'http://localhost:5000/api';
+const API = API_URL;
 const getAuthHeader = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
 const NotificationPanel = ({ user, onTabChange }) => {

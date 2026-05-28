@@ -5,10 +5,11 @@ import { AuthContext } from '../context/AuthContext';
 import { NotificationContext } from '../context/NotificationContext';
 import { ThesisContext } from '../context/ThesisContext';
 import axios from 'axios';
+import { API_BASE_URL, API_URL } from '../config';
 import ProfileOnboardingModal from '../components/ProfileOnboardingModal';
 import NotificationPanel from '../components/NotificationPanel';
 
-const API = 'http://localhost:5000/api';
+const API = API_URL;
 const getAuthHeader = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
 
@@ -195,7 +196,7 @@ const Header = ({ title }) => {
 
         <div className="user-profile">
           {user?.avatarUrl ? (
-            <img src={`http://localhost:5000${user.avatarUrl}`} alt="Admin" className="user-avatar" style={{ objectFit: 'cover' }} />
+            <img src={`${API_BASE_URL}${user.avatarUrl}`} alt="Admin" className="user-avatar" style={{ objectFit: 'cover' }} />
           ) : (
             <svg viewBox="0 0 100 100" className="user-avatar" style={{ width: 36, height: 36, borderRadius: '50%', background: '#e2e8f0', display: 'block' }}>
               <circle cx="50" cy="35" r="20" fill="#94a3b8" />
@@ -517,7 +518,7 @@ const ScholarDetail = ({ thesisId, onClose, onAction }) => {
                   </span>
                 </div>
                 {m.documentUrl && (
-                  <a href={`http://localhost:5000${m.documentUrl}`} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', color: '#0284C7', fontSize: '0.82rem', fontWeight: 600, marginTop: 4, textDecoration: 'none' }}>
+                  <a href={`${API_BASE_URL}${m.documentUrl}`} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', color: '#0284C7', fontSize: '0.82rem', fontWeight: 600, marginTop: 4, textDecoration: 'none' }}>
                     📄 View Submitted Document
                   </a>
                 )}
@@ -843,7 +844,7 @@ const ProfileTab = () => {
       <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '24px', paddingBottom: '20px', borderBottom: '1px solid #E5E7EB' }}>
         {user?.avatarUrl ? (
           <img 
-            src={`http://localhost:5000${user.avatarUrl}`} 
+            src={`${API_BASE_URL}${user.avatarUrl}`} 
             alt="Avatar Preview" 
             style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #E2E8F0', background: '#F8FAFC' }} 
           />

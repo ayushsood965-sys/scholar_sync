@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
 import { NotificationContext } from './NotificationContext';
+import { API_URL } from '../config';
 
 export const AuthContext = createContext();
 
@@ -31,7 +32,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (username, password) => {
     try {
-      const { data } = await axios.post('http://localhost:5000/api/auth/login', { username, password });
+      const { data } = await axios.post(`${API_URL}/auth/login`, { username, password });
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data));
       setUser(data);
@@ -44,7 +45,7 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (userData) => {
     try {
-      const { data } = await axios.post('http://localhost:5000/api/auth/register', userData);
+      const { data } = await axios.post(`${API_URL}/auth/register`, userData);
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data));
       setUser(data);
@@ -59,7 +60,7 @@ export const AuthProvider = ({ children }) => {
   const updateProfile = async (profileData) => {
     try {
       const token = localStorage.getItem('token');
-      const { data } = await axios.put('http://localhost:5000/api/auth/profile', profileData, {
+      const { data } = await axios.put(`${API_URL}/auth/profile`, profileData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const updatedUser = { ...user, ...data };
@@ -77,7 +78,7 @@ export const AuthProvider = ({ children }) => {
       const token = localStorage.getItem('token');
       const formData = new FormData();
       formData.append('avatar', file);
-      const { data } = await axios.put('http://localhost:5000/api/auth/profile/avatar', formData, {
+      const { data } = await axios.put(`${API_URL}/auth/profile/avatar`, formData, {
         headers: { 
           Authorization: `Bearer ${token}`,
           'Content-Type': 'multipart/form-data'
@@ -97,7 +98,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const token = localStorage.getItem('token');
       if (!token) return;
-      const { data } = await axios.get('http://localhost:5000/api/auth/me', {
+      const { data } = await axios.get(`${API_URL}/auth/me`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const updatedUser = { ...user, ...data };

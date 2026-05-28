@@ -1,9 +1,10 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { API_URL } from '../config';
 
 export const NotificationContext = createContext();
 
-const API = 'http://localhost:5000/api';
+const API = API_URL;
 const getAuthHeader = () => {
   const token = localStorage.getItem('token');
   return token ? { headers: { Authorization: `Bearer ${token}` } } : null;

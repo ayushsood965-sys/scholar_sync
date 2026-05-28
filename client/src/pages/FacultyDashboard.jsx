@@ -2,8 +2,9 @@ import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Home, FileText, Users, Calendar, User, LogOut, Bell, CheckCircle2, XCircle, Layers, Award, Upload, ShieldCheck, Edit } from 'lucide-react';
 import axios from 'axios';
+import { API_BASE_URL, API_URL } from '../config';
 
-const API = 'http://localhost:5000/api';
+const API = API_URL;
 const getAuthHeader = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 import { AuthContext } from '../context/AuthContext';
 import { NotificationContext } from '../context/NotificationContext';
@@ -258,7 +259,7 @@ const Header = ({ title, user }) => {
 
         <div className="user-profile">
           {user?.avatarUrl ? (
-            <img src={`http://localhost:5000${user.avatarUrl}`} alt="Faculty" className="user-avatar" style={{ objectFit: 'cover' }} />
+            <img src={`${API_BASE_URL}${user.avatarUrl}`} alt="Faculty" className="user-avatar" style={{ objectFit: 'cover' }} />
           ) : (
             <svg viewBox="0 0 100 100" className="user-avatar" style={{ width: 36, height: 36, borderRadius: '50%', background: '#e2e8f0', display: 'block' }}>
               <circle cx="50" cy="35" r="20" fill="#94a3b8" />
@@ -687,7 +688,7 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
                   <div style={{ fontWeight: 600 }}>{m.title}</div>
                   <span style={{ fontSize: '0.8rem', fontWeight: 600, color: m.status === 'SUBMITTED' ? '#3B82F6' : '#DC2626' }}>{m.status}</span>
                 </div>
-                {m.documentUrl && <a href={`http://localhost:5000${m.documentUrl}`} target="_blank" rel="noreferrer" style={{ color: '#10B981', fontSize: '0.85rem', display: 'block', marginBottom: 10 }}>📄 View Document</a>}
+                {m.documentUrl && <a href={`${API_BASE_URL}${m.documentUrl}`} target="_blank" rel="noreferrer" style={{ color: '#10B981', fontSize: '0.85rem', display: 'block', marginBottom: 10 }}>📄 View Document</a>}
                 {m.comments?.length > 0 && (
                   <div style={{ background: '#FEF3C7', padding: 8, borderRadius: 6, marginBottom: 8, fontSize: '0.82rem' }}>
                     Previous feedback: "{m.comments[m.comments.length - 1].text}"
@@ -1629,7 +1630,7 @@ const ProfileTab = () => {
       <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '24px', paddingBottom: '20px', borderBottom: '1px solid #E5E7EB' }}>
         {user?.avatarUrl ? (
           <img 
-            src={`http://localhost:5000${user.avatarUrl}`} 
+            src={`${API_BASE_URL}${user.avatarUrl}`} 
             alt="Avatar Preview" 
             style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #E2E8F0', background: '#F8FAFC' }} 
           />
