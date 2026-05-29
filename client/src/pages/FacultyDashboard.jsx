@@ -298,8 +298,200 @@ const resolveDetailedStatus = (status, synopsisStatus, finalSubStatus) => {
   return { text: status?.replace(/_/g, ' '), color: '#374151', bg: '#F3F4F6' };
 };
 
+// ── Faculty Document Evaluation Modal ──
+const FacultyDocumentEvaluationModal = ({ doc, onClose, onRefresh }) => {
+  const toast = useToast();
+  const [commentText, setCommentText] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleReviewAction = async (action) => {
+    if (!commentText.trim() && action === 'REVISION') {
+      return toast.warning('Remarks and requirements are required to request corrections/reject.');
+    }
+    setLoading(true);
+    try {
+      if (doc.docType === 'MILESTONE') {
+        await axios.put(`${API_URL}/milestones/${doc._id}/review`, {
+          action: action === 'APPROVE' ? 'APPROVE' : 'REVISION',
+          comment: commentText.trim()
+        }, getAuthHeader());
+        toast.success(`Milestone marked: ${action === 'APPROVE' ? 'APPROVED' : 'REVISION REQUIRED'}`);
+      } else {
+        await axios.put(`${API_URL}/publications/${doc._id}/verify`, {
+          status: action === 'APPROVE' ? 'VERIFIED' : 'REJECTED',
+          remarks: commentText.trim()
+        }, getAuthHeader());
+        toast.success(`Publication marked: ${action === 'APPROVE' ? 'VERIFIED' : 'REJECTED'}`);
+      }
+      onClose();
+      onRefresh();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Error processing review.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fileUrl = doc.documentUrl || doc.attachmentUrl;
+  const isDocx = fileUrl?.toLowerCase().endsWith('.docx') || fileUrl?.toLowerCase().endsWith('.doc');
+  const viewerUrl = fileUrl ? (isDocx ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(API_BASE_URL + fileUrl)}` : `${API_BASE_URL}${fileUrl}`) : '';
+
+  return (
+    <div style={{ 
+      position: 'fixed', 
+      inset: 0, 
+      background: 'rgba(0,0,0,0.6)', 
+      backdropFilter: 'blur(4px)', 
+      zIndex: 1100, 
+      display: 'flex', 
+      alignItems: 'center', 
+      justifyContent: 'center', 
+      overflow: 'hidden', 
+      padding: '20px',
+      pointerEvents: 'auto'
+    }}>
+      <div style={{
+        background: 'var(--color-surface, #ffffff)',
+        color: 'var(--color-text, #1f2937)',
+        borderRadius: 20,
+        padding: 24,
+        width: '95%',
+        maxWidth: 1100,
+        height: 'min(720px, 90vh)',
+        display: 'flex',
+        flexDirection: 'column',
+        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+        boxSizing: 'border-box',
+        overflow: 'hidden',
+        position: 'relative'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid var(--color-border, #E2E8F0)', paddingBottom: 12, flexShrink: 0 }}>
+          <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: 'var(--color-text, #0F172A)' }}>
+            Reviewing: {doc.scholarName}'s Submission
+          </h3>
+          <button 
+            onClick={onClose} 
+            style={{ 
+              background: 'var(--color-bg, #F1F5F9)', 
+              border: 'none', 
+              width: '36px', 
+              height: '36px', 
+              borderRadius: '50%', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              fontSize: '1rem', 
+              cursor: 'pointer', 
+              color: 'var(--color-text, #475569)', 
+              transition: 'all 0.2s',
+              flexShrink: 0,
+              marginLeft: 12
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--color-border, #E2E8F0)';
+              e.currentTarget.style.transform = 'rotate(90deg)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--color-bg, #F1F5F9)';
+              e.currentTarget.style.transform = 'none';
+            }}
+          >
+            ✕
+          </button>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 20, flex: 1, minHeight: 0 }}>
+          {/* Left Panel: Document Viewer */}
+          <div style={{ background: '#F8FAFC', borderRadius: 12, border: '1px solid var(--color-border, #E2E8F0)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ background: '#F1F5F9', padding: '8px 16px', borderBottom: '1px solid var(--color-border, #E2E8F0)', fontWeight: 600, fontSize: '0.8rem', color: '#475569', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>📄 Document Preview Window</span>
+              {fileUrl && <a href={`${API_BASE_URL}${fileUrl}`} target="_blank" rel="noreferrer" style={{ color: '#2563EB', fontWeight: 700 }}>Download Copy ⬇️</a>}
+            </div>
+            <div style={{ flex: 1, position: 'relative' }}>
+              {fileUrl ? (
+                <>
+                  <iframe 
+                    src={viewerUrl} 
+                    title="Document Previewer" 
+                    style={{ width: '100%', height: '100%', border: 'none' }}
+                  />
+                  {API_BASE_URL.includes('localhost') && (
+                    <div style={{ position: 'absolute', bottom: 10, left: 10, right: 10, background: 'rgba(254, 243, 199, 0.95)', border: '1px solid #F59E0B', padding: '8px 12px', borderRadius: 8, fontSize: '0.75rem', color: '#92400E' }}>
+                      ℹ️ <strong>Local Development Warning:</strong> External Word viewers cannot read local files. Use "Download Copy" above if preview does not load.
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: '#94A3B8', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '2.5rem' }}>⚠️</span>
+                  <p style={{ marginTop: 8, fontWeight: 700 }}>No document attachment found</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Panel: Feedback Form */}
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '4px 0', overflowY: 'auto' }} className="custom-scrollbar">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, background: 'var(--color-bg, #F8FAFC)', padding: 16, borderRadius: 12, border: '1px solid var(--color-border, #E2E8F0)', fontSize: '0.82rem' }}>
+                <div><strong>Scholar:</strong> {doc.scholarName} ({doc.enrollmentNumber})</div>
+                <div><strong>Deliverable:</strong> {doc.title}</div>
+                <div><strong>Type:</strong> {doc.type || doc.docType}</div>
+                {doc.thesisTitle && <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><strong>Thesis:</strong> {doc.thesisTitle}</div>}
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 6 }}>
+                  Review Remarks & Requirements
+                </label>
+                <textarea 
+                  className="form-input" 
+                  rows="8" 
+                  placeholder="Enter detailed feedback, comments, guidelines, or required corrections..." 
+                  value={commentText} 
+                  onChange={e => setCommentText(e.target.value)}
+                  style={{ width: '100%', resize: 'none' }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 12, borderTop: '1px solid var(--color-border, #E2E8F0)', paddingTop: 16 }}>
+              {doc.status === 'SUBMITTED' || doc.status === 'PENDING' ? (
+                <>
+                  <button 
+                    type="button" 
+                    onClick={() => handleReviewAction('REVISION')} 
+                    disabled={loading} 
+                    className="btn-outline" 
+                    style={{ flex: 1, padding: '12px', fontSize: '0.85rem', color: '#DC2626', borderColor: '#FCA5A5', fontWeight: 700 }}
+                  >
+                    ✗ Request Revision
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => handleReviewAction('APPROVE')} 
+                    disabled={loading} 
+                    className="btn-primary" 
+                    style={{ flex: 1, padding: '12px', fontSize: '0.85rem', background: '#059669', fontWeight: 700 }}
+                  >
+                    ✓ Approve Deliverable
+                  </button>
+                </>
+              ) : (
+                <div style={{ textAlign: 'center', width: '100%', padding: '10px', background: '#F1F5F9', borderRadius: 8, fontWeight: 700, color: '#475569', fontSize: '0.85rem' }}>
+                  Already Evaluated: <span style={{ color: doc.status === 'APPROVED' || doc.status === 'VERIFIED' ? '#059669' : '#DC2626' }}>{doc.status}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── Thesis Detail + Milestone Review Panel ──
-const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onFinalApprove, onClearCoursework, onVerify, onAssign, subRole, onClose, onToggleAnnualRAC, onRefresh }) => {
+const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onFinalApprove, onClearCoursework, onVerify, onAssign, subRole, onClose, onToggleAnnualRAC, onRefresh, selectedEvalDoc, setSelectedEvalDoc }) => {
   const toast = useToast();
   const [remarks, setRemarks] = useState({});
   const [loading, setLoading] = useState(false);
@@ -524,9 +716,37 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
         flexDirection: 'column',
         boxSizing: 'border-box'
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20, flexShrink: 0 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20, flexShrink: 0, alignItems: 'center' }}>
           <h3 style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--color-text, #1f2937)', margin: 0 }}>{thesis.scholarId?.name} — {thesis.title?.substring(0, 50)}</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--color-text, #1f2937)' }}>✕</button>
+          <button 
+            onClick={onClose} 
+            style={{ 
+              background: 'var(--color-bg, #F1F5F9)', 
+              border: 'none', 
+              width: '36px', 
+              height: '36px', 
+              borderRadius: '50%', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              fontSize: '1rem', 
+              cursor: 'pointer', 
+              color: 'var(--color-text, #475569)', 
+              transition: 'all 0.2s',
+              flexShrink: 0,
+              marginLeft: 12
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--color-border, #E2E8F0)';
+              e.currentTarget.style.transform = 'rotate(90deg)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--color-bg, #F1F5F9)';
+              e.currentTarget.style.transform = 'none';
+            }}
+          >
+            ✕
+          </button>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', paddingRight: '8px' }} className="custom-scrollbar">
 
@@ -1102,19 +1322,21 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
                         )}
 
                         {r.status === 'SUBMITTED' && (
-                          <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8, background: 'var(--color-surface, #ffffff)', padding: 10, borderRadius: 8, border: '1px solid var(--color-border, #E2E8F0)' }}>
-                            <textarea
-                              className="form-input"
-                              placeholder="Enter committee remarks or guidelines for revision..."
-                              rows="2"
-                              value={remarks[r._id] || ''}
-                              onChange={e => setRemarks(prev => ({ ...prev, [r._id]: e.target.value }))}
-                              style={{ fontSize: '0.8rem', padding: '6px', resize: 'vertical' }}
-                            />
-                            <div style={{ display: 'flex', gap: 8 }}>
-                              <button type="button" onClick={() => act(() => onReview(r._id, 'REVISION', remarks[r._id]))} className="btn-outline" style={{ flex: 1, padding: '4px', fontSize: '0.78rem', color: '#DC2626', borderColor: '#FCA5A5' }}>Request Revision</button>
-                              <button type="button" onClick={() => act(() => onReview(r._id, 'APPROVE', remarks[r._id]))} className="btn-primary" style={{ flex: 1, padding: '4px', fontSize: '0.78rem', background: '#059669' }}>Approve Submission</button>
-                            </div>
+                          <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
+                            <button 
+                              type="button" 
+                              onClick={() => setSelectedEvalDoc({
+                                ...r,
+                                docType: 'MILESTONE',
+                                scholarName: thesis.scholarId?.name,
+                                enrollmentNumber: thesis.scholarId?.username,
+                                thesisTitle: thesis.title
+                              })}
+                              className="btn-primary" 
+                              style={{ padding: '6px 14px', fontSize: '0.8rem', background: '#133A26' }}
+                            >
+                              Evaluate Report
+                            </button>
                           </div>
                         )}
                       </div>
@@ -1148,19 +1370,21 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
                         )}
 
                         {c.status === 'SUBMITTED' && (
-                          <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8, background: 'var(--color-surface, #ffffff)', padding: 10, borderRadius: 8, border: '1px solid var(--color-border, #E2E8F0)' }}>
-                            <textarea
-                              className="form-input"
-                              placeholder="Enter supervisor remarks or required chapter updates..."
-                              rows="2"
-                              value={remarks[c._id] || ''}
-                              onChange={e => setRemarks(prev => ({ ...prev, [c._id]: e.target.value }))}
-                              style={{ fontSize: '0.8rem', padding: '6px', resize: 'vertical' }}
-                            />
-                            <div style={{ display: 'flex', gap: 8 }}>
-                              <button type="button" onClick={() => act(() => onReview(c._id, 'REVISION', remarks[c._id]))} className="btn-outline" style={{ flex: 1, padding: '4px', fontSize: '0.78rem', color: '#DC2626', borderColor: '#FCA5A5' }}>Request Revision</button>
-                              <button type="button" onClick={() => act(() => onReview(c._id, 'APPROVE', remarks[c._id]))} className="btn-primary" style={{ flex: 1, padding: '4px', fontSize: '0.78rem', background: '#059669' }}>Approve Draft</button>
-                            </div>
+                          <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
+                            <button 
+                              type="button" 
+                              onClick={() => setSelectedEvalDoc({
+                                ...c,
+                                docType: 'MILESTONE',
+                                scholarName: thesis.scholarId?.name,
+                                enrollmentNumber: thesis.scholarId?.username,
+                                thesisTitle: thesis.title
+                              })}
+                              className="btn-primary" 
+                              style={{ padding: '6px 14px', fontSize: '0.8rem', background: '#133A26' }}
+                            >
+                              Evaluate Chapter
+                            </button>
                           </div>
                         )}
                       </div>
@@ -1201,19 +1425,21 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
                       )}
 
                       {p.status === 'PENDING' && (
-                        <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8, background: 'var(--color-surface, #ffffff)', padding: 10, borderRadius: 8, border: '1px solid var(--color-border, #E2E8F0)' }}>
-                          <textarea
-                            className="form-input"
-                            placeholder="Enter remarks/correction notes (required to request corrections)..."
-                            rows="2"
-                            value={pubRemarks[p._id] || ''}
-                            onChange={e => setPubRemarks(prev => ({ ...prev, [p._id]: e.target.value }))}
-                            style={{ fontSize: '0.8rem', padding: '6px', resize: 'vertical' }}
-                          />
-                          <div style={{ display: 'flex', gap: 8 }}>
-                            <button type="button" onClick={() => handleVerifyPublication(p._id, 'REJECTED')} className="btn-outline" style={{ flex: 1, padding: '4px', fontSize: '0.78rem', color: '#DC2626', borderColor: '#FCA5A5' }}>Request Corrections</button>
-                            <button type="button" onClick={() => handleVerifyPublication(p._id, 'VERIFIED')} className="btn-primary" style={{ flex: 1, padding: '4px', fontSize: '0.78rem', background: '#059669' }}>Verify & Approve Log</button>
-                          </div>
+                        <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
+                          <button 
+                            type="button" 
+                            onClick={() => setSelectedEvalDoc({
+                              ...p,
+                              docType: 'PUBLICATION',
+                              scholarName: thesis.scholarId?.name,
+                              enrollmentNumber: thesis.scholarId?.username,
+                              thesisTitle: thesis.title
+                            })}
+                            className="btn-primary" 
+                            style={{ padding: '6px 14px', fontSize: '0.8rem', background: '#133A26' }}
+                          >
+                            Evaluate Publication
+                          </button>
                         </div>
                       )}
                     </div>
@@ -2453,27 +2679,60 @@ const PendingReviewsQueue = ({ theses, user }) => {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 20, minHeight: '650px' }}>
-          {/* Left panel: PDF Viewer */}
-          <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '650px', border: '1px solid #CBD5E1' }}>
-            <div style={{ background: '#F1F5F9', padding: '10px 16px', borderBottom: '1px solid #CBD5E1', fontWeight: 600, fontSize: '0.85rem', color: '#334155' }}>
-              📄 Inline PDF Document Viewer
+          {/* Left panel: Document Viewer */}
+          <div style={{ 
+            background: 'var(--color-surface, #ffffff)',
+            borderRadius: 12,
+            padding: 0, 
+            overflow: 'hidden', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            height: '650px', 
+            border: '1px solid var(--color-border, #CBD5E1)',
+            boxShadow: 'var(--shadow-sm)'
+          }}>
+            <div style={{ background: 'var(--color-bg, #F1F5F9)', padding: '10px 16px', borderBottom: '1px solid var(--color-border, #CBD5E1)', fontWeight: 600, fontSize: '0.85rem', color: 'var(--color-text, #334155)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>📄 Inline Document Previewer</span>
+              {selectedDoc.documentUrl && <a href={`${API_BASE_URL}${selectedDoc.documentUrl}`} target="_blank" rel="noreferrer" style={{ color: '#2563EB', fontWeight: 700 }}>Download Copy ⬇️</a>}
             </div>
-            {selectedDoc.documentUrl ? (
-              <iframe 
-                src={`${API_BASE_URL}${selectedDoc.documentUrl}`} 
-                title="Document Viewer" 
-                style={{ width: '100%', height: '100%', border: 'none' }}
-              />
-            ) : (
-              <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', background: '#F8FAFC', color: '#64748B', flexDirection: 'column', padding: 20 }}>
-                <span style={{ fontSize: '2rem' }}>⚠️</span>
-                <p style={{ marginTop: 10, fontWeight: 600 }}>No PDF copy uploaded by scholar.</p>
-              </div>
-            )}
+            <div style={{ flex: 1, position: 'relative' }}>
+              {selectedDoc.documentUrl ? (
+                <>
+                  <iframe 
+                    src={selectedDoc.documentUrl.toLowerCase().endsWith('.docx') || selectedDoc.documentUrl.toLowerCase().endsWith('.doc') 
+                      ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(API_BASE_URL + selectedDoc.documentUrl)}` 
+                      : `${API_BASE_URL}${selectedDoc.documentUrl}`
+                    } 
+                    title="Document Viewer" 
+                    style={{ width: '100%', height: '100%', border: 'none' }}
+                  />
+                  {API_BASE_URL.includes('localhost') && (
+                    <div style={{ position: 'absolute', bottom: 10, left: 10, right: 10, background: 'rgba(254, 243, 199, 0.95)', border: '1px solid #F59E0B', padding: '8px 12px', borderRadius: 8, fontSize: '0.75rem', color: '#92400E' }}>
+                      ℹ️ <strong>Local Development Warning:</strong> External Word viewers cannot read local files. Use "Download Copy" above if preview does not load.
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div style={{ display: 'flex', flex: 1, height: '100%', alignItems: 'center', justifyContent: 'center', background: 'var(--color-bg, #F8FAFC)', color: '#64748B', flexDirection: 'column', padding: 20 }}>
+                  <span style={{ fontSize: '2rem' }}>⚠️</span>
+                  <p style={{ marginTop: 10, fontWeight: 600 }}>No PDF or Word copy uploaded by scholar.</p>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Right panel: Feedback form */}
-          <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '650px', padding: 24, border: '1px solid #CBD5E1' }}>
+          <div style={{ 
+            background: 'var(--color-surface, #ffffff)',
+            borderRadius: 12,
+            display: 'flex', 
+            flexDirection: 'column', 
+            justifyContent: 'space-between', 
+            height: '650px', 
+            padding: 24, 
+            border: '1px solid #CBD5E1',
+            boxShadow: 'var(--shadow-sm)'
+          }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#133A26', borderBottom: '1px solid #E2E8F0', paddingBottom: 12 }}>
                 Evaluation Form
@@ -2664,6 +2923,7 @@ const FacultyDashboard = () => {
   const { allTheses, loading, fetchAssignedTheses, fetchDeptTheses, fetchThesisById, reviewMilestone, drcApprove, seminarClear, finalApprove, clearCoursework, verifyEnrollment, assignSupervisor, toggleAnnualRAC } = useContext(ThesisContext);
   const [selectedThesisId, setSelectedThesisId] = useState(null);
   const [selectedThesisData, setSelectedThesisData] = useState(null);
+  const [selectedEvalDoc, setSelectedEvalDoc] = useState(null);
 
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(user && !user.profileCompleted);
 
@@ -2821,6 +3081,21 @@ const FacultyDashboard = () => {
             setSelectedThesisData(data);
           }}
           onClose={() => { setSelectedThesisId(null); setSelectedThesisData(null); }}
+          selectedEvalDoc={selectedEvalDoc}
+          setSelectedEvalDoc={setSelectedEvalDoc}
+        />
+      )}
+      {selectedEvalDoc && (
+        <FacultyDocumentEvaluationModal 
+          doc={selectedEvalDoc} 
+          onClose={() => setSelectedEvalDoc(null)} 
+          onRefresh={async () => {
+            if (selectedThesisId) {
+              const data = await fetchThesisById(selectedThesisId);
+              setSelectedThesisData(data);
+            }
+            if (subRole === 'HOD') fetchDeptTheses(); else fetchAssignedTheses();
+          }} 
         />
       )}
       <ProfileOnboardingModal isOpen={isOnboardingOpen} onClose={() => setIsOnboardingOpen(false)} />

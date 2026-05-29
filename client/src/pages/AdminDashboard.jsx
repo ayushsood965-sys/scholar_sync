@@ -344,9 +344,37 @@ const ScholarDetail = ({ thesisId, onClose, onAction }) => {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
       <div style={{ background: 'white', borderRadius: 16, padding: 32, width: '100%', maxWidth: 680, maxHeight: '85vh', overflowY: 'auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20, alignItems: 'center' }}>
           <h3 style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{thesis.scholarId?.name}</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
+          <button 
+            onClick={onClose} 
+            style={{ 
+              background: 'var(--color-bg, #F1F5F9)', 
+              border: 'none', 
+              width: '36px', 
+              height: '36px', 
+              borderRadius: '50%', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              fontSize: '1rem', 
+              cursor: 'pointer', 
+              color: 'var(--color-text, #475569)', 
+              transition: 'all 0.2s',
+              flexShrink: 0,
+              marginLeft: 12
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--color-border, #E2E8F0)';
+              e.currentTarget.style.transform = 'rotate(90deg)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--color-bg, #F1F5F9)';
+              e.currentTarget.style.transform = 'none';
+            }}
+          >
+            ✕
+          </button>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
@@ -1114,14 +1142,603 @@ const ManageFaculty = () => {
   );
 };
 
+// ── HOD Document Evaluation Modal ──
+const HODDocumentEvaluationModal = ({ doc, onClose, onRefresh }) => {
+  const toast = useToast();
+  const [commentText, setCommentText] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleReviewAction = async (action) => {
+    if (!commentText.trim() && action === 'REVISION') {
+      return toast.warning('Remarks and requirements are required to request corrections/reject.');
+    }
+    setLoading(true);
+    try {
+      if (doc.docType === 'MILESTONE') {
+        await axios.put(`${API}/milestones/${doc._id}/review`, {
+          action: action === 'APPROVE' ? 'APPROVE' : 'REVISION',
+          comment: commentText.trim()
+        }, getAuthHeader());
+        toast.success(`Milestone marked: ${action === 'APPROVE' ? 'APPROVED' : 'REVISION REQUIRED'}`);
+      } else {
+        await axios.put(`${API}/publications/${doc._id}/verify`, {
+          status: action === 'APPROVE' ? 'VERIFIED' : 'REJECTED',
+          remarks: commentText.trim()
+        }, getAuthHeader());
+        toast.success(`Publication marked: ${action === 'APPROVE' ? 'VERIFIED' : 'REJECTED'}`);
+      }
+      onClose();
+      onRefresh();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Error processing review.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fileUrl = doc.documentUrl || doc.attachmentUrl;
+  const isDocx = fileUrl?.toLowerCase().endsWith('.docx') || fileUrl?.toLowerCase().endsWith('.doc');
+  const viewerUrl = fileUrl ? (isDocx ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(API_BASE_URL + fileUrl)}` : `${API_BASE_URL}${fileUrl}`) : '';
+
+  return (
+    <div style={{ 
+      position: 'fixed', 
+      inset: 0, 
+      background: 'rgba(0,0,0,0.6)', 
+      backdropFilter: 'blur(4px)', 
+      zIndex: 1100, 
+      display: 'flex', 
+      alignItems: 'center', 
+      justifyContent: 'center', 
+      overflow: 'hidden', 
+      padding: '20px',
+      pointerEvents: 'auto'
+    }}>
+      <div style={{
+        background: 'var(--color-surface, #ffffff)',
+        color: 'var(--color-text, #1f2937)',
+        borderRadius: 20,
+        padding: 24,
+        width: '95%',
+        maxWidth: 1100,
+        height: 'min(720px, 90vh)',
+        display: 'flex',
+        flexDirection: 'column',
+        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+        boxSizing: 'border-box',
+        overflow: 'hidden',
+        position: 'relative'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid var(--color-border, #E2E8F0)', paddingBottom: 12, flexShrink: 0 }}>
+          <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: 'var(--color-text, #0F172A)' }}>
+            Reviewing: {doc.scholarName}'s Submission
+          </h3>
+          <button 
+            onClick={onClose} 
+            style={{ 
+              background: 'var(--color-bg, #F1F5F9)', 
+              border: 'none', 
+              width: '36px', 
+              height: '36px', 
+              borderRadius: '50%', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              fontSize: '1rem', 
+              cursor: 'pointer', 
+              color: 'var(--color-text, #475569)', 
+              transition: 'all 0.2s',
+              flexShrink: 0,
+              marginLeft: 12
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--color-border, #E2E8F0)';
+              e.currentTarget.style.transform = 'rotate(90deg)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--color-bg, #F1F5F9)';
+              e.currentTarget.style.transform = 'none';
+            }}
+          >
+            ✕
+          </button>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 20, flex: 1, minHeight: 0 }}>
+          {/* Left Panel: Document Viewer */}
+          <div style={{ background: '#F8FAFC', borderRadius: 12, border: '1px solid var(--color-border, #E2E8F0)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ background: '#F1F5F9', padding: '8px 16px', borderBottom: '1px solid var(--color-border, #E2E8F0)', fontWeight: 600, fontSize: '0.8rem', color: '#475569', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>📄 Document Preview Window</span>
+              {fileUrl && <a href={`${API_BASE_URL}${fileUrl}`} target="_blank" rel="noreferrer" style={{ color: '#2563EB', fontWeight: 700 }}>Download Copy ⬇️</a>}
+            </div>
+            <div style={{ flex: 1, position: 'relative' }}>
+              {fileUrl ? (
+                <>
+                  <iframe 
+                    src={viewerUrl} 
+                    title="Document Previewer" 
+                    style={{ width: '100%', height: '100%', border: 'none' }}
+                  />
+                  {API_BASE_URL.includes('localhost') && (
+                    <div style={{ position: 'absolute', bottom: 10, left: 10, right: 10, background: 'rgba(254, 243, 199, 0.95)', border: '1px solid #F59E0B', padding: '8px 12px', borderRadius: 8, fontSize: '0.75rem', color: '#92400E' }}>
+                      ℹ️ <strong>Local Development Warning:</strong> External Word viewers cannot read local files. Use "Download Copy" above if preview does not load.
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: '#94A3B8', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '2.5rem' }}>⚠️</span>
+                  <p style={{ marginTop: 8, fontWeight: 700 }}>No document attachment found</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Panel: Feedback Form */}
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '4px 0', overflowY: 'auto' }} className="custom-scrollbar">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, background: 'var(--color-bg, #F8FAFC)', padding: 16, borderRadius: 12, border: '1px solid var(--color-border, #E2E8F0)', fontSize: '0.82rem' }}>
+                <div><strong>Scholar:</strong> {doc.scholarName} ({doc.enrollmentNumber})</div>
+                <div><strong>Deliverable:</strong> {doc.title}</div>
+                <div><strong>Type:</strong> {doc.type || doc.docType}</div>
+                {doc.thesisTitle && <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><strong>Thesis:</strong> {doc.thesisTitle}</div>}
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 6 }}>
+                  Review Remarks & Requirements
+                </label>
+                <textarea 
+                  className="form-input" 
+                  rows="8" 
+                  placeholder="Enter detailed feedback, comments, guidelines, or required corrections..." 
+                  value={commentText} 
+                  onChange={e => setCommentText(e.target.value)}
+                  style={{ width: '100%', resize: 'none' }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 12, borderTop: '1px solid var(--color-border, #E2E8F0)', paddingTop: 16 }}>
+              {doc.status === 'SUBMITTED' || doc.status === 'PENDING' ? (
+                <>
+                  <button 
+                    type="button" 
+                    onClick={() => handleReviewAction('REVISION')} 
+                    disabled={loading} 
+                    className="btn-outline" 
+                    style={{ flex: 1, padding: '12px', fontSize: '0.85rem', color: '#DC2626', borderColor: '#FCA5A5', fontWeight: 700 }}
+                  >
+                    ✗ Request Revision
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => handleReviewAction('APPROVE')} 
+                    disabled={loading} 
+                    className="btn-primary" 
+                    style={{ flex: 1, padding: '12px', fontSize: '0.85rem', background: '#059669', fontWeight: 700 }}
+                  >
+                    ✓ Approve Deliverable
+                  </button>
+                </>
+              ) : (
+                <div style={{ textAlign: 'center', width: '100%', padding: '10px', background: '#F1F5F9', borderRadius: 8, fontWeight: 700, color: '#475569', fontSize: '0.85rem' }}>
+                  Already Evaluated: <span style={{ color: doc.status === 'APPROVED' || doc.status === 'VERIFIED' ? '#059669' : '#DC2626' }}>{doc.status}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── HOD Document Review Manager ──
+const HODDocumentManager = ({ theses }) => {
+  const { user } = useContext(AuthContext);
+  const toast = useToast();
+  
+  const [activeTab, setActiveTab] = useState('chapters');
+  const [loading, setLoading] = useState(true);
+  const [selectedDoc, setSelectedDoc] = useState(null);
+  
+  const [chapterDrafts, setChapterDrafts] = useState([]);
+  const [publications, setPublications] = useState([]);
+  const [researchOutputs, setResearchOutputs] = useState([]);
+
+  const fetchAllDocs = async () => {
+    setLoading(true);
+    try {
+      const dept = user?.department;
+      if (!dept) return;
+
+      const deptTheses = theses.filter(t => t.department === dept && t.status !== 'REGISTRATION_PENDING');
+      
+      // Fetch department publications
+      let pubs = [];
+      try {
+        const pubRes = await axios.get(`${API}/publications/department/${dept}`, getAuthHeader());
+        pubs = pubRes.data || [];
+      } catch (err) {
+        console.error("Error fetching department publications", err);
+      }
+
+      // Fetch milestones for all department theses
+      const allChapterDrafts = [];
+      const allResearchOutputs = [];
+
+      await Promise.all(deptTheses.map(async (t) => {
+        try {
+          const mRes = await axios.get(`${API}/milestones/${t._id}`, getAuthHeader());
+          const milestones = mRes.data || [];
+          
+          milestones.forEach(m => {
+            const mWithInfo = {
+              ...m,
+              scholarName: t.scholarId?.name || 'Academic Scholar',
+              enrollmentNumber: t.scholarId?.username || '',
+              thesisTitle: t.title,
+              thesisId: t._id
+            };
+            
+            if (m.type === 'CHAPTER_DRAFT') {
+              allChapterDrafts.push(mWithInfo);
+            } else if (m.type === '6_MONTH_REPORT' || m.type === 'SYNOPSIS' || m.type === 'FINAL_SUBMISSION') {
+              allResearchOutputs.push(mWithInfo);
+            }
+          });
+        } catch (err) {
+          console.error(`Error fetching milestones for thesis ${t._id}`, err);
+        }
+      }));
+
+      // Map publications to include scholar details
+      const pubsWithInfo = pubs.map(p => {
+        const matchingThesis = deptTheses.find(t => t._id === p.thesisId);
+        return {
+          ...p,
+          scholarName: p.scholarId?.name || matchingThesis?.scholarId?.name || 'Academic Scholar',
+          enrollmentNumber: p.scholarId?.username || matchingThesis?.scholarId?.username || '',
+          thesisTitle: matchingThesis?.title || '',
+        };
+      });
+
+      // Sort outputs/documents by latest updates
+      setChapterDrafts(allChapterDrafts.sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0)));
+      setPublications(pubsWithInfo.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)));
+      setResearchOutputs(allResearchOutputs.sort((a, b) => new Date(b.dueDate || 0) - new Date(a.dueDate || 0)));
+    } catch (err) {
+      console.error("Error organizing HOD document listings", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user?.department) {
+      fetchAllDocs();
+    }
+  }, [theses, user]);
+
+  const handlePubVerify = async (pubId, status) => {
+    setActionLoading(true);
+    try {
+      await axios.put(`${API}/publications/${pubId}/verify`, { status }, getAuthHeader());
+      toast.success(`Publication record successfully ${status === 'VERIFIED' ? 'Verified' : 'Rejected'}!`);
+      fetchAllDocs();
+    } catch (err) {
+      toast.error('Failed to verify publication.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  return (
+    <div className="card" style={{ padding: 24, borderRadius: 16, border: '1px solid #E2E8F0', background: 'white' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#111827', margin: 0 }}>Document Review Manager</h3>
+          <p style={{ color: '#64748B', fontSize: '0.85rem', marginTop: 4 }}>
+            Directly review and manage all student uploaded documents, scientific publications, and progress reports in your department.
+          </p>
+        </div>
+        <button onClick={fetchAllDocs} className="btn-outline" style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '8px 16px', fontSize: '0.85rem' }}>
+          🔄 Refresh Documents
+        </button>
+      </div>
+
+      {/* Dynamic Segmented Pill Tabs switcher */}
+      <div style={{
+        display: 'flex',
+        background: 'var(--color-bg, #F1F5F9)',
+        padding: '4px',
+        borderRadius: '10px',
+        gap: '4px',
+        width: '100%',
+        maxWidth: 600,
+        boxSizing: 'border-box',
+        border: '1px solid var(--color-border, #E2E8F0)',
+        marginTop: 16,
+        marginBottom: 24,
+      }}>
+        <button
+          type="button"
+          onClick={() => setActiveTab('chapters')}
+          style={{
+            flex: 1,
+            background: activeTab === 'chapters' ? '#10b981' : 'transparent',
+            border: 'none',
+            padding: '10px 16px',
+            fontSize: '0.85rem',
+            fontWeight: 700,
+            cursor: 'pointer',
+            borderRadius: '8px',
+            color: activeTab === 'chapters' ? '#ffffff' : 'var(--color-text-secondary, #475569)',
+            boxShadow: activeTab === 'chapters' ? '0 2px 4px rgba(16, 185, 129, 0.2)' : 'none',
+            transition: 'all 0.2s ease-in-out'
+          }}
+        >
+          Chapter Drafts
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('publications')}
+          style={{
+            flex: 1,
+            background: activeTab === 'publications' ? '#10b981' : 'transparent',
+            border: 'none',
+            padding: '10px 16px',
+            fontSize: '0.85rem',
+            fontWeight: 700,
+            cursor: 'pointer',
+            borderRadius: '8px',
+            color: activeTab === 'publications' ? '#ffffff' : 'var(--color-text-secondary, #475569)',
+            boxShadow: activeTab === 'publications' ? '0 2px 4px rgba(16, 185, 129, 0.2)' : 'none',
+            transition: 'all 0.2s ease-in-out'
+          }}
+        >
+          Publications
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('reports')}
+          style={{
+            flex: 1,
+            background: activeTab === 'reports' ? '#10b981' : 'transparent',
+            border: 'none',
+            padding: '10px 16px',
+            fontSize: '0.85rem',
+            fontWeight: 700,
+            cursor: 'pointer',
+            borderRadius: '8px',
+            color: activeTab === 'reports' ? '#ffffff' : 'var(--color-text-secondary, #475569)',
+            boxShadow: activeTab === 'reports' ? '0 2px 4px rgba(16, 185, 129, 0.2)' : 'none',
+            transition: 'all 0.2s ease-in-out'
+          }}
+        >
+          Research Outputs
+        </button>
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 40, color: '#64748B', fontWeight: 600 }}>Loading department uploads...</div>
+      ) : (
+        <div style={{ overflowX: 'auto' }} className="custom-scrollbar">
+          {/* Chapter Drafts Tab */}
+          {activeTab === 'chapters' && (
+            <div>
+              {chapterDrafts.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 40, background: '#F8FAFC', borderRadius: 12, color: '#64748B', fontStyle: 'italic' }}>
+                  No chapter drafts uploaded by scholars in your department yet.
+                </div>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid #E2E8F0', background: '#F8FAFC' }}>
+                      <th style={{ padding: '14px 16px', fontWeight: 700, color: '#475569' }}>Scholar</th>
+                      <th style={{ padding: '14px 16px', fontWeight: 700, color: '#475569' }}>Chapter Draft Details</th>
+                      <th style={{ padding: '14px 16px', fontWeight: 700, color: '#475569' }}>Thesis Context</th>
+                      <th style={{ padding: '14px 16px', fontWeight: 700, color: '#475569' }}>Status</th>
+                      <th style={{ padding: '14px 16px', fontWeight: 700, color: '#475569' }}>Supervisor Comments</th>
+                      <th style={{ padding: '14px 16px', fontWeight: 700, color: '#475569', textAlign: 'center' }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {chapterDrafts.map(c => (
+                      <tr key={c._id} style={{ borderBottom: '1px solid #E2E8F0', transition: 'background-color 0.2s' }}>
+                        <td style={{ padding: '14px 16px' }}>
+                          <div style={{ fontWeight: 700, color: '#1E293B' }}>{c.scholarName}</div>
+                          <div style={{ fontSize: '0.75rem', color: '#64748B' }}>{c.enrollmentNumber}</div>
+                        </td>
+                        <td style={{ padding: '14px 16px', fontWeight: 600 }}>{c.title}</td>
+                        <td style={{ padding: '14px 16px', color: '#64748B', maxWidth: 220, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.thesisTitle}</td>
+                        <td style={{ padding: '14px 16px' }}>
+                          <span style={{ 
+                            padding: '3px 8px', borderRadius: 12, fontSize: '0.72rem', fontWeight: 700, 
+                            background: c.status === 'APPROVED' ? '#D1FAE5' : c.status === 'REVISION_REQUIRED' ? '#FEE2E2' : c.status === 'SUBMITTED' ? '#DBEAFE' : '#FEF3C7', 
+                            color: c.status === 'APPROVED' ? '#065F46' : c.status === 'REVISION_REQUIRED' ? '#991B1B' : c.status === 'SUBMITTED' ? '#1D4ED8' : '#D97706' 
+                          }}>
+                            {c.status}
+                          </span>
+                        </td>
+                        <td style={{ padding: '14px 16px', maxWidth: 240 }}>
+                          {c.comments && c.comments.length > 0 ? (
+                            <div style={{ fontSize: '0.8rem', color: '#B45309', background: '#FEF3C7', padding: '6px 10px', borderRadius: 6 }}>
+                              "{c.comments[c.comments.length - 1].text}"
+                            </div>
+                          ) : (
+                            <span style={{ color: '#94A3B8', fontStyle: 'italic', fontSize: '0.8rem' }}>No feedback logged</span>
+                          )}
+                        </td>
+                        <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                          <button 
+                            onClick={() => setSelectedDoc({ ...c, docType: 'MILESTONE' })}
+                            className="btn-action" 
+                            style={{ background: '#133A26', padding: '6px 14px', fontSize: '0.78rem' }}
+                          >
+                            Evaluate
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+
+          {/* Publications Tab */}
+          {activeTab === 'publications' && (
+            <div>
+              {publications.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 40, background: '#F8FAFC', borderRadius: 12, color: '#64748B', fontStyle: 'italic' }}>
+                  No scientific publications logged by scholars in your department yet.
+                </div>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid #E2E8F0', background: '#F8FAFC' }}>
+                      <th style={{ padding: '14px 16px', fontWeight: 700, color: '#475569' }}>Scholar</th>
+                      <th style={{ padding: '14px 16px', fontWeight: 700, color: '#475569' }}>Paper Title</th>
+                      <th style={{ padding: '14px 16px', fontWeight: 700, color: '#475569' }}>Journal & Publisher</th>
+                      <th style={{ padding: '14px 16px', fontWeight: 700, color: '#475569' }}>ISSN/DOI</th>
+                      <th style={{ padding: '14px 16px', fontWeight: 700, color: '#475569' }}>Status</th>
+                      <th style={{ padding: '14px 16px', fontWeight: 700, color: '#475569' }}>Proofs</th>
+                      <th style={{ padding: '14px 16px', fontWeight: 700, color: '#475569', textAlign: 'center' }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {publications.map(p => (
+                      <tr key={p._id} style={{ borderBottom: '1px solid #E2E8F0', transition: 'background-color 0.2s' }}>
+                        <td style={{ padding: '14px 16px' }}>
+                          <div style={{ fontWeight: 700, color: '#1E293B' }}>{p.scholarName}</div>
+                          <div style={{ fontSize: '0.75rem', color: '#64748B' }}>{p.enrollmentNumber}</div>
+                        </td>
+                        <td style={{ padding: '14px 16px', fontWeight: 600 }}>{p.title}</td>
+                        <td style={{ padding: '14px 16px', color: '#475569' }}>
+                          <div>{p.journalName}</div>
+                          <span style={{ fontSize: '0.72rem', background: '#EFF6FF', color: '#1D4ED8', padding: '2px 6px', borderRadius: 4, fontWeight: 700 }}>{p.type || 'JOURNAL'}</span>
+                        </td>
+                        <td style={{ padding: '14px 16px', color: '#475569' }}>
+                          <div><strong>ISSN:</strong> {p.issn || 'N/A'}</div>
+                          {p.doiUrl && <div style={{ fontSize: '0.75rem', marginTop: 4 }}><strong>DOI:</strong> <a href={p.paperLink || `https://doi.org/${p.doiUrl}`} target="_blank" rel="noreferrer" style={{ color: '#2563EB', textDecoration: 'underline' }}>{p.doiUrl}</a></div>}
+                        </td>
+                        <td style={{ padding: '14px 16px' }}>
+                          <span style={{ 
+                            padding: '3px 8px', borderRadius: 12, fontSize: '0.72rem', fontWeight: 700, 
+                            background: p.status === 'VERIFIED' ? '#D1FAE5' : p.status === 'REJECTED' ? '#FEE2E2' : '#FEF3C7', 
+                            color: p.status === 'VERIFIED' ? '#065F46' : p.status === 'REJECTED' ? '#991B1B' : '#92400E' 
+                          }}>
+                            {p.status}
+                          </span>
+                        </td>
+                        <td style={{ padding: '14px 16px' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {p.paperLink && <a href={p.paperLink} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: '#2563EB', fontWeight: 600 }}>🔗 View Article</a>}
+                            {p.documentUrl && <a href={`${API_BASE_URL}${p.documentUrl}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: '#059669', fontWeight: 600 }}>📄 View Uploaded Proof</a>}
+                          </div>
+                        </td>
+                        <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                          <button 
+                            onClick={() => setSelectedDoc({ ...p, docType: 'PUBLICATION' })}
+                            className="btn-action" 
+                            style={{ background: '#133A26', padding: '6px 14px', fontSize: '0.78rem' }}
+                          >
+                            Evaluate
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+
+          {/* Research Outputs Tab */}
+          {activeTab === 'reports' && (
+            <div>
+              {researchOutputs.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 40, background: '#F8FAFC', borderRadius: 12, color: '#64748B', fontStyle: 'italic' }}>
+                  No research outputs or progress reports logged by scholars in your department yet.
+                </div>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid #E2E8F0', background: '#F8FAFC' }}>
+                      <th style={{ padding: '14px 16px', fontWeight: 700, color: '#475569' }}>Scholar</th>
+                      <th style={{ padding: '14px 16px', fontWeight: 700, color: '#475569' }}>Milestone / Report Title</th>
+                      <th style={{ padding: '14px 16px', fontWeight: 700, color: '#475569' }}>Milestone Type</th>
+                      <th style={{ padding: '14px 16px', fontWeight: 700, color: '#475569' }}>Due Date</th>
+                      <th style={{ padding: '14px 16px', fontWeight: 700, color: '#475569' }}>Status</th>
+                      <th style={{ padding: '14px 16px', fontWeight: 700, color: '#475569' }}>Supervisor Comments</th>
+                      <th style={{ padding: '14px 16px', fontWeight: 700, color: '#475569', textAlign: 'center' }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {researchOutputs.map(r => (
+                      <tr key={r._id} style={{ borderBottom: '1px solid #E2E8F0', transition: 'background-color 0.2s' }}>
+                        <td style={{ padding: '14px 16px' }}>
+                          <div style={{ fontWeight: 700, color: '#1E293B' }}>{r.scholarName}</div>
+                          <div style={{ fontSize: '0.75rem', color: '#64748B' }}>{r.enrollmentNumber}</div>
+                        </td>
+                        <td style={{ padding: '14px 16px', fontWeight: 600 }}>{r.title}</td>
+                        <td style={{ padding: '14px 16px', color: '#1E3A8A', fontWeight: 700 }}>{r.type}</td>
+                        <td style={{ padding: '14px 16px', color: '#475569' }}>{r.dueDate ? new Date(r.dueDate).toLocaleDateString() : 'N/A'}</td>
+                        <td style={{ padding: '14px 16px' }}>
+                          <span style={{ 
+                            padding: '3px 8px', borderRadius: 12, fontSize: '0.72rem', fontWeight: 700, 
+                            background: r.status === 'APPROVED' ? '#D1FAE5' : r.status === 'REVISION_REQUIRED' ? '#FEE2E2' : r.status === 'SUBMITTED' ? '#DBEAFE' : '#FEF3C7', 
+                            color: r.status === 'APPROVED' ? '#065F46' : r.status === 'REVISION_REQUIRED' ? '#991B1B' : r.status === 'SUBMITTED' ? '#1D4ED8' : '#D97706' 
+                          }}>
+                            {r.status}
+                          </span>
+                        </td>
+                        <td style={{ padding: '14px 16px', maxWidth: 240 }}>
+                          {r.comments && r.comments.length > 0 ? (
+                            <div style={{ fontSize: '0.8rem', color: '#1E3A8A', background: '#EFF6FF', padding: '6px 10px', borderRadius: 6 }}>
+                              "{r.comments[r.comments.length - 1].text}"
+                            </div>
+                          ) : (
+                            <span style={{ color: '#94A3B8', fontStyle: 'italic', fontSize: '0.8rem' }}>No feedback logged</span>
+                          )}
+                        </td>
+                        <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                          <button 
+                            onClick={() => setSelectedDoc({ ...r, docType: 'MILESTONE' })}
+                            className="btn-action" 
+                            style={{ background: '#133A26', padding: '6px 14px', fontSize: '0.78rem' }}
+                          >
+                            Evaluate
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {selectedDoc && (
+        <HODDocumentEvaluationModal 
+          doc={selectedDoc} 
+          onClose={() => setSelectedDoc(null)} 
+          onRefresh={fetchAllDocs} 
+        />
+      )}
+    </div>
+  );
+};
+
 // ── PhD Lifecycle Administration console ──
 const PhDLifecycleConsole = ({ theses, fetchAllTheses }) => {
   const toast = useToast();
-  const [activeSubTab, setActiveSubTab] = useState('rac');
   const [scholars, setScholars] = useState([]);
   const [racs, setRacs] = useState([]);
-  const [requests, setRequests] = useState([]);
-  const [pubs, setPubs] = useState([]);
   const { user } = useContext(AuthContext);
 
   // Form states for scheduling
@@ -1146,14 +1763,6 @@ const PhDLifecycleConsole = ({ theses, fetchAllTheses }) => {
         allRacs.push(...rRes.data);
       }
       setRacs(allRacs);
-
-      // Fetch Change requests and publications
-      const [reqRes, pubRes] = await Promise.all([
-        axios.get(`${API}/lifecycle/change-requests/department/${dept}`, getAuthHeader()),
-        axios.get(`${API}/lifecycle/publications/department/${dept}`, getAuthHeader())
-      ]);
-      setRequests(reqRes.data);
-      setPubs(pubRes.data);
     } catch (err) {}
   };
 
@@ -1185,282 +1794,119 @@ const PhDLifecycleConsole = ({ theses, fetchAllTheses }) => {
     }
   };
 
-  const handleRequestReview = async (reqId, status, remarks) => {
-    try {
-      await axios.put(`${API}/lifecycle/change-requests/${reqId}/review`, { status, remarks }, getAuthHeader());
-      toast.success(`Modification request successfully ${status}!`);
-      fetchData();
-      fetchAllTheses();
-    } catch (err) {
-      toast.error('Failed to resolve request.');
-    }
-  };
-
-  const handlePubVerify = async (pubId, status) => {
-    try {
-      await axios.put(`${API}/lifecycle/publications/${pubId}/verify`, { status }, getAuthHeader());
-      toast.success(`Publication record successfully ${status === 'VERIFIED' ? 'Verified' : 'Rejected'}!`);
-      fetchData();
-    } catch (err) {
-      toast.error('Failed to verify publication.');
-    }
-  };
-
   return (
-    <div className="card">
-      <div style={{ display: 'flex', gap: 12, borderBottom: '2px solid #E5E7EB', paddingBottom: 12, marginBottom: 20 }}>
-        {[['rac', 'RAC Reviews'], ['requests', 'Guide / Title Changes'], ['publications', 'Publications']].map(([k, label]) => (
-          <button 
-            key={k} 
-            onClick={() => setActiveSubTab(k)} 
-            style={{
-              background: 'none', border: 'none', padding: '8px 16px', fontWeight: 600, cursor: 'pointer',
-              color: activeSubTab === k ? '#059669' : '#64748B',
-              borderBottom: activeSubTab === k ? '3px solid #059669' : 'none'
-            }}
-          >
-            {label}
-          </button>
-        ))}
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h4 style={{ margin: 0, color: 'var(--color-text, #0F172A)' }}>Doctoral Committee & Periodic RAC Reviews</h4>
+        <button onClick={() => setShowScheduleForm(!showScheduleForm)} className="btn-primary" style={{ background: '#059669', display: 'flex', gap: 6, alignItems: 'center' }}>
+          <Plus size={16} /> Schedule RAC Review
+        </button>
       </div>
 
-      {/* ── SUB TAB: RAC REVIEWS ── */}
-      {activeSubTab === 'rac' && (
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <h4 style={{ margin: 0, color: '#0F172A' }}>Doctoral Committee & Periodic RAC Reviews</h4>
-            <button onClick={() => setShowScheduleForm(!showScheduleForm)} className="btn-primary" style={{ background: '#059669', display: 'flex', gap: 6, alignItems: 'center' }}>
-              <Plus size={16} /> Schedule RAC Review
-            </button>
-          </div>
-
-          {showScheduleForm && (
-            <form onSubmit={handleScheduleSubmit} style={{ background: '#F8FAFC', padding: 20, borderRadius: 12, border: '1px solid #E2E8F0', marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <h4 style={{ margin: 0 }}>Schedule Research Advisory Committee (RAC) Session</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 12 }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Select Scholar</label>
-                  <select className="form-input" required value={schedForm.thesisId} onChange={e => setSchedForm({ ...schedForm, thesisId: e.target.value })}>
-                    <option value="">Choose scholar...</option>
-                    {scholars.map(s => <option key={s._id} value={s._id}>{s.scholarId?.name} — {s.title}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>RAC Session Number</label>
-                  <select className="form-input" value={schedForm.racNumber} onChange={e => setSchedForm({ ...schedForm, racNumber: parseInt(e.target.value) })}>
-                    {[1,2,3,4,5,6].map(n => <option key={n} value={n}>RAC - {n}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 12 }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Scheduled Date</label>
-                  <input type="date" className="form-input" required value={schedForm.scheduledDate} onChange={e => setSchedForm({ ...schedForm, scheduledDate: e.target.value })} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Committee Members (Separated by commas)</label>
-                  <input type="text" className="form-input" placeholder="e.g. Dr. Verma, Prof. Sen, Dr. Kapoor" value={schedForm.committeeMembers} onChange={e => setSchedForm({ ...schedForm, committeeMembers: e.target.value })} />
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                <button type="button" onClick={() => setShowScheduleForm(false)} className="btn-outline" style={{ padding: '8px 16px' }}>Cancel</button>
-                <button type="submit" className="btn-primary" style={{ background: '#133A26', padding: '8px 16px' }}>Save Schedule</button>
-              </div>
-            </form>
-          )}
-
-          <div className="file-list">
-            <div className="file-header">
-              <div style={{ flex: 1.8 }}>Scholar</div>
-              <div style={{ flex: 0.8 }}>Session</div>
-              <div style={{ flex: 1.2 }}>Date</div>
-              <div style={{ flex: 1.5 }}>Report</div>
-              <div style={{ flex: 1.2 }}>Status</div>
-              <div style={{ flex: 2.2, textAlign: 'center' }}>Grading Actions</div>
+      {showScheduleForm && (
+        <form onSubmit={handleScheduleSubmit} style={{ background: 'var(--color-bg, #F8FAFC)', padding: 20, borderRadius: 12, border: '1px solid var(--color-border, #E2E8F0)', marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <h4 style={{ margin: 0 }}>Schedule Research Advisory Committee (RAC) Session</h4>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Select Scholar</label>
+              <select className="form-input" required value={schedForm.thesisId} onChange={e => setSchedForm({ ...schedForm, thesisId: e.target.value })}>
+                <option value="">Choose scholar...</option>
+                {scholars.map(s => <option key={s._id} value={s._id}>{s.scholarId?.name} — {s.title}</option>)}
+              </select>
             </div>
-            {racs.map(r => (
-              <div key={r._id} className="file-item">
-                <div style={{ flex: 1.8 }}>
-                  <div style={{ fontWeight: 700 }}>{r.scholar?.name || 'Academic Scholar'}</div>
-                  <div style={{ fontSize: '0.75rem', color: '#64748B', maxWidth: 180, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.title}</div>
-                </div>
-                <div style={{ flex: 0.8, fontWeight: 600, color: '#1E3A8A' }}>RAC-{r.racNumber}</div>
-                <div style={{ flex: 1.2, fontSize: '0.85rem' }}>{new Date(r.scheduledDate).toLocaleDateString()}</div>
-                <div style={{ flex: 1.5 }}>
-                  {r.progressReportUrl ? (
-                    <a href={r.progressReportUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.85rem', color: '#2563EB', fontWeight: 600, textDecoration: 'underline' }}>
-                      📄 View Report
-                    </a>
-                  ) : (
-                    <span style={{ fontSize: '0.8rem', color: '#94A3B8', fontStyle: 'italic' }}>Pending submission</span>
-                  )}
-                </div>
-                <div style={{ flex: 1.2 }}>
-                  <span style={{ 
-                    padding: '4px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 600,
-                    background: r.status === 'SATISFACTORY' ? '#D1FAE5' : r.status === 'UNSATISFACTORY' ? '#FEE2E2' : '#FEF3C7',
-                    color: r.status === 'SATISFACTORY' ? '#065F46' : r.status === 'UNSATISFACTORY' ? '#991B1B' : '#D97706'
-                  }}>
-                    {r.status}
-                  </span>
-                </div>
-                <div style={{ flex: 2.2, display: 'flex', gap: 6, justifyContent: 'center' }}>
-                  {r.status === 'SCHEDULED' ? (
-                    <>
-                      <button 
-                        onClick={() => {
-                          const rem = prompt('Enter review remarks:');
-                          if (rem !== null) handleRACGrade(r._id, 'SATISFACTORY', rem);
-                        }}
-                        className="btn-primary" 
-                        style={{ padding: '4px 10px', fontSize: '0.75rem', background: '#059669' }}
-                      >
-                        Approve
-                      </button>
-                      <button 
-                        onClick={() => {
-                          const rem = prompt('Enter review remarks:');
-                          if (rem !== null) handleRACGrade(r._id, 'UNSATISFACTORY', rem);
-                        }}
-                        className="btn-outline" 
-                        style={{ padding: '4px 10px', fontSize: '0.75rem', color: '#DC2626', borderColor: '#DC2626' }}
-                      >
-                        Fail
-                      </button>
-                    </>
-                  ) : (
-                    <span style={{ fontSize: '0.8rem', color: '#64748B' }}>Remarks: {r.remarks || 'None'}</span>
-                  )}
-                </div>
-              </div>
-            ))}
-            {racs.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '36px', color: '#64748B' }}>No scheduled RAC review meetings found.</div>
-            )}
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>RAC Session Number</label>
+              <select className="form-input" value={schedForm.racNumber} onChange={e => setSchedForm({ ...schedForm, racNumber: parseInt(e.target.value) })}>
+                {[1,2,3,4,5,6].map(n => <option key={n} value={n}>RAC - {n}</option>)}
+              </select>
+            </div>
           </div>
-        </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 12 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Scheduled Date</label>
+              <input type="date" className="form-input" required value={schedForm.scheduledDate} onChange={e => setSchedForm({ ...schedForm, scheduledDate: e.target.value })} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Committee Members (Separated by commas)</label>
+              <input type="text" className="form-input" placeholder="e.g. Dr. Verma, Prof. Sen, Dr. Kapoor" value={schedForm.committeeMembers} onChange={e => setSchedForm({ ...schedForm, committeeMembers: e.target.value })} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+            <button type="button" onClick={() => setShowScheduleForm(false)} className="btn-outline" style={{ padding: '8px 16px' }}>Cancel</button>
+            <button type="submit" className="btn-primary" style={{ background: '#133A26', padding: '8px 16px' }}>Save Schedule</button>
+          </div>
+        </form>
       )}
 
-      {/* ── SUB TAB: CHANGE REQUESTS ── */}
-      {activeSubTab === 'requests' && (
-        <div className="file-list">
-          <div className="file-header">
-            <div style={{ flex: 1.8 }}>Scholar</div>
-            <div style={{ flex: 1.2 }}>Type</div>
-            <div style={{ flex: 1.8 }}>Current</div>
-            <div style={{ flex: 2 }}>Proposed</div>
-            <div style={{ flex: 1.8 }}>Reason</div>
-            <div style={{ flex: 2.2, textAlign: 'center' }}>Actions</div>
-          </div>
-          {requests.map(r => (
-            <div key={r._id} className="file-item" style={{ opacity: r.status === 'PENDING' ? 1 : 0.65 }}>
-              <div style={{ flex: 1.8, fontWeight: 700 }}>{r.scholarId?.name || 'Scholar'}</div>
-              <div style={{ flex: 1.2, fontSize: '0.85rem', fontWeight: 600, color: '#1E3A8A' }}>
-                {r.type === 'TITLE_CHANGE' ? '📝 Title Change' : '🤝 Guide Change'}
-              </div>
-              <div style={{ flex: 1.8, fontSize: '0.8rem', color: '#64748B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.currentValue}</div>
-              <div style={{ flex: 2, fontSize: '0.85rem', fontWeight: 600 }}>
-                {r.type === 'GUIDE_CHANGE' ? (r.proposedValue) : r.proposedValue}
-              </div>
-              <div style={{ flex: 1.8, fontSize: '0.8rem' }}>{r.reason}</div>
-              <div style={{ flex: 2.2, display: 'flex', gap: 6, justifyContent: 'center' }}>
-                {r.status === 'PENDING' ? (
-                  <>
-                    <button 
-                      onClick={() => {
-                        const rem = prompt('Enter approval comments:');
-                        if (rem !== null) handleRequestReview(r._id, 'APPROVED', rem);
-                      }}
-                      className="btn-primary" 
-                      style={{ padding: '4px 10px', fontSize: '0.75rem', background: '#059669' }}
-                    >
-                      Approve
-                    </button>
-                    <button 
-                      onClick={() => {
-                        const rem = prompt('Enter rejection comments:');
-                        if (rem !== null) handleRequestReview(r._id, 'REJECTED', rem);
-                      }}
-                      className="btn-outline" 
-                      style={{ padding: '4px 10px', fontSize: '0.75rem', color: '#DC2626', borderColor: '#DC2626' }}
-                    >
-                      Reject
-                    </button>
-                  </>
-                ) : (
-                  <span style={{ 
-                    padding: '4px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 600,
-                    background: r.status === 'APPROVED' ? '#D1FAE5' : '#FEE2E2',
-                    color: r.status === 'APPROVED' ? '#065F46' : '#991B1B'
-                  }}>
-                    {r.status}
-                  </span>
-                )}
-              </div>
-            </div>
-          ))}
-          {requests.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '36px', color: '#64748B' }}>No guide or title modification requests logged.</div>
-          )}
+      <div className="file-list">
+        <div className="file-header">
+          <div style={{ flex: 1.8 }}>Scholar</div>
+          <div style={{ flex: 0.8 }}>Session</div>
+          <div style={{ flex: 1.2 }}>Date</div>
+          <div style={{ flex: 1.5 }}>Report</div>
+          <div style={{ flex: 1.2 }}>Status</div>
+          <div style={{ flex: 2.2, textAlign: 'center' }}>Grading Actions</div>
         </div>
-      )}
-
-      {/* ── SUB TAB: PUBLICATIONS ── */}
-      {activeSubTab === 'publications' && (
-        <div className="file-list">
-          <div className="file-header">
-            <div style={{ flex: 1.8 }}>Scholar</div>
-            <div style={{ flex: 2.5 }}>Paper Title</div>
-            <div style={{ flex: 1.8 }}>Journal</div>
-            <div style={{ flex: 1 }}>ISSN</div>
-            <div style={{ flex: 1.2 }}>Links</div>
-            <div style={{ flex: 2.2, textAlign: 'center' }}>Verification Action</div>
-          </div>
-          {pubs.map(p => (
-            <div key={p._id} className="file-item" style={{ opacity: p.status === 'PENDING' ? 1 : 0.65 }}>
-              <div style={{ flex: 1.8, fontWeight: 700 }}>{p.scholarId?.name || 'Scholar'}</div>
-              <div style={{ flex: 2.5, fontSize: '0.85rem', fontWeight: 600 }}>{p.title}</div>
-              <div style={{ flex: 1.8, fontSize: '0.85rem' }}>{p.journalName}</div>
-              <div style={{ flex: 1, fontSize: '0.8rem', color: '#64748B' }}>{p.issn || '—'}</div>
-              <div style={{ flex: 1.2, display: 'flex', gap: 10 }}>
-                {p.paperLink && <a href={p.paperLink} target="_blank" rel="noreferrer" title="Article"><File size={16} /></a>}
-                {p.attachmentUrl && <a href={p.attachmentUrl} target="_blank" rel="noreferrer" title="Proof" style={{ color: '#059669' }}><Upload size={16} /></a>}
-              </div>
-              <div style={{ flex: 2.2, display: 'flex', gap: 6, justifyContent: 'center' }}>
-                {p.status === 'PENDING' ? (
-                  <>
-                    <button 
-                      onClick={() => handlePubVerify(p._id, 'VERIFIED')}
-                      className="btn-primary" 
-                      style={{ padding: '4px 10px', fontSize: '0.75rem', background: '#059669' }}
-                    >
-                      Verify Paper
-                    </button>
-                    <button 
-                      onClick={() => handlePubVerify(p._id, 'REJECTED')}
-                      className="btn-outline" 
-                      style={{ padding: '4px 10px', fontSize: '0.75rem', color: '#DC2626', borderColor: '#DC2626' }}
-                    >
-                      Reject
-                    </button>
-                  </>
-                ) : (
-                  <span style={{ 
-                    padding: '4px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 600,
-                    background: p.status === 'VERIFIED' ? '#D1FAE5' : '#FEE2E2',
-                    color: p.status === 'VERIFIED' ? '#065F46' : '#991B1B'
-                  }}>
-                    {p.status}
-                  </span>
-                )}
-              </div>
+        {racs.map(r => (
+          <div key={r._id} className="file-item">
+            <div style={{ flex: 1.8 }}>
+              <div style={{ fontWeight: 700 }}>{r.scholar?.name || 'Academic Scholar'}</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary, #64748B)', maxWidth: 180, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.title}</div>
             </div>
-          ))}
-          {pubs.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '36px', color: '#64748B' }}>No scientific papers pending verification.</div>
-          )}
-        </div>
-      )}
+            <div style={{ flex: 0.8, fontWeight: 600, color: '#1E3A8A' }}>RAC-{r.racNumber}</div>
+            <div style={{ flex: 1.2, fontSize: '0.85rem' }}>{new Date(r.scheduledDate).toLocaleDateString()}</div>
+            <div style={{ flex: 1.5 }}>
+              {r.progressReportUrl ? (
+                <a href={r.progressReportUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.85rem', color: '#2563EB', fontWeight: 600, textDecoration: 'underline' }}>
+                  📄 View Report
+                </a>
+              ) : (
+                <span style={{ fontSize: '0.8rem', color: '#94A3B8', fontStyle: 'italic' }}>Pending submission</span>
+              )}
+            </div>
+            <div style={{ flex: 1.2 }}>
+              <span style={{ 
+                padding: '4px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 600,
+                background: r.status === 'SATISFACTORY' ? '#D1FAE5' : r.status === 'UNSATISFACTORY' ? '#FEE2E2' : '#FEF3C7',
+                color: r.status === 'SATISFACTORY' ? '#065F46' : r.status === 'UNSATISFACTORY' ? '#991B1B' : '#D97706'
+              }}>
+                {r.status}
+              </span>
+            </div>
+            <div style={{ flex: 2.2, display: 'flex', gap: 6, justifyContent: 'center' }}>
+              {r.status === 'SCHEDULED' ? (
+                <>
+                  <button 
+                    onClick={() => {
+                      const rem = prompt('Enter review remarks:');
+                      if (rem !== null) handleRACGrade(r._id, 'SATISFACTORY', rem);
+                    }}
+                    className="btn-primary" 
+                    style={{ padding: '4px 10px', fontSize: '0.75rem', background: '#059669' }}
+                  >
+                    Approve
+                  </button>
+                  <button 
+                    onClick={() => {
+                      const rem = prompt('Enter review remarks:');
+                      if (rem !== null) handleRACGrade(r._id, 'UNSATISFACTORY', rem);
+                    }}
+                    className="btn-outline" 
+                    style={{ padding: '4px 10px', fontSize: '0.75rem', color: '#DC2626', borderColor: '#DC2626' }}
+                  >
+                    Fail
+                  </button>
+                </>
+              ) : (
+                <span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary, #64748B)' }}>Remarks: {r.remarks || 'None'}</span>
+              )}
+            </div>
+          </div>
+        ))}
+        {racs.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '36px', color: 'var(--color-text-secondary, #64748B)' }}>No scheduled RAC review meetings found.</div>
+        )}
+      </div>
     </div>
   );
 };
@@ -2110,7 +2556,8 @@ const Sidebar = ({ activeTab, setActiveTab, isVerified }) => {
     { key: 'overview', label: 'Department Overview', Icon: Home },
     { key: 'profile', label: 'My Profile', Icon: User },
     { key: 'scholars', label: 'Manage Scholars', Icon: GraduationCap },
-    { key: 'lifecycle', label: 'PhD Lifecycle', Icon: Layers },
+    { key: 'lifecycle', label: 'RAC Reviews', Icon: Layers },
+    { key: 'documents', label: 'Document Review Manager', Icon: FileText },
     { key: 'defaulters', label: 'Defaulter Tracking', Icon: Clock },
     { key: 'requests', label: 'Change Requests', Icon: Edit },
     { key: 'evaluation', label: 'External Evaluation', Icon: FileText },
@@ -2188,7 +2635,7 @@ const AdminDashboard = () => {
     await fetchAllTheses();
   };
 
-  const titles = { overview: 'Department Overview', scholars: 'Manage Scholars', requests: 'Student Change Requests Desk', lifecycle: 'PhD Lifecycle Admin', users: 'Manage Users', profile: 'My Profile', evaluation: 'External Evaluation', defaulters: 'Progress Report Defaulter Tracking' };
+  const titles = { overview: 'Department Overview', scholars: 'Manage Scholars', requests: 'Student Change Requests Desk', lifecycle: 'RAC Reviews', documents: 'Document Review Manager', users: 'Manage Users', profile: 'My Profile', evaluation: 'External Evaluation', defaulters: 'Progress Report Defaulter Tracking' };
 
   const renderContent = () => {
     if (!user?.isVerified) {
@@ -2226,6 +2673,7 @@ const AdminDashboard = () => {
       case 'overview': return <OverviewPage theses={allTheses} onSelectThesis={setSelectedThesisId} user={user} setActiveTab={setActiveTab} />;
       case 'scholars': return <ManageScholars theses={allTheses} onSelectThesis={setSelectedThesisId} onAction={handleAction} />;
       case 'lifecycle': return <PhDLifecycleConsole theses={allTheses} fetchAllTheses={fetchAllTheses} />;
+      case 'documents': return <HODDocumentManager theses={allTheses} />;
       case 'requests': return <HODChangeRequestsTab user={user} />;
       case 'users': return <ManageUsers />;
       case 'defaulters': return <DefaultersTab />;
