@@ -12,11 +12,40 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const publicationRoutes = require('./routes/publicationRoutes');
 const fs = require('fs');
 
+const User = require('./models/User');
+const Thesis = require('./models/Thesis');
+const Milestone = require('./models/Milestone');
+const Publication = require('./models/Publication');
+const RACReview = require('./models/RACReview');
+const ChangeRequest = require('./models/ChangeRequest');
+const DRCMeeting = require('./models/DRCMeeting');
+const Department = require('./models/Department');
+const Notification = require('./models/Notification');
+
 const app = express();
 
 // Connect to database
-connectDB().then(() => {
-  console.log('✅ Database connected. Startup auto-seeding is disabled.');
+connectDB().then(async () => {
+  console.log('✅ Database connected.');
+  try {
+    const adminExists = await User.findOne({ username: 'admin' });
+    if (!adminExists) {
+      await User.create({
+        name: 'Super Administrator',
+        username: 'admin',
+        password: 'admin',
+        role: 'SUPER_ADMIN',
+        isActive: true,
+        isVerified: true,
+        profileCompleted: true
+      });
+      console.log('👑 Super Admin user auto-seeded (admin/admin)');
+    } else {
+      console.log('👑 Super Admin user already exists.');
+    }
+  } catch (err) {
+    console.error('❌ Error during startup auto-seeding:', err);
+  }
 });
 
 // Ensure uploads directory exists
@@ -43,16 +72,6 @@ app.use('/api/publications', publicationRoutes);
 // SYSTEM UTILITY ROUTES (/clear-all & /seed)
 // -------------------------------------------------------------
 
-const User = require('./models/User');
-const Thesis = require('./models/Thesis');
-const Milestone = require('./models/Milestone');
-const Publication = require('./models/Publication');
-const RACReview = require('./models/RACReview');
-const ChangeRequest = require('./models/ChangeRequest');
-const DRCMeeting = require('./models/DRCMeeting');
-const Department = require('./models/Department');
-const Notification = require('./models/Notification');
-
 const UTILITY_PASSWORD = 'Ayush1994*';
 
 // HTML Template Helper for stunning Glassmorphic UI
@@ -68,7 +87,7 @@ const renderAdminPage = (type, error = '', successData = null) => {
     : 'rgba(16, 185, 129, 0.25)';
   const description = isClear
     ? 'Deletes all records from the database and removes all uploaded PDF/DOCX files. This action resets the portal to a fresh state and is irreversible.'
-    : 'Seeds the database with academic departments, default test developer accounts (Admin, Scholar, Faculty, HOD), and a test student thesis registration.';
+    : 'Seeds the database with academic departments.';
 
   let contentHtml = '';
 
@@ -578,55 +597,9 @@ const handleSeedPost = async (req, res) => {
       }
     }
 
-    // Seed Test Users
-    const defaultUsers = [
-      { name: 'Super Administrator', username: 'admin', password: 'admin', role: 'SUPER_ADMIN', isActive: true, isVerified: true, profileCompleted: true },
-      { name: 'Student User', username: 'student', password: 'student', role: 'STUDENT', department: 'Department of Computer Science', isVerified: true, profileCompleted: true },
-      { name: 'Dr. Faculty Supervisor', username: 'faculty', password: 'faculty', role: 'FACULTY', subRole: 'SUPERVISOR', department: 'Department of Computer Science', isVerified: true, profileCompleted: true },
-      { name: 'Prof. HOD Faculty', username: 'hod', password: 'hod', role: 'HOD', subRole: 'HOD', department: 'Department of Computer Science', isVerified: true, profileCompleted: true },
-    ];
-
-    let usersAdded = 0;
-    for (const u of defaultUsers) {
-      const exists = await User.findOne({ username: u.username });
-      if (!exists) {
-        await User.create(u);
-        usersAdded++;
-      }
-    }
-
-    // Seed Default Student Thesis Assignment
-    let thesisStatus = 'Not Seeded (Scholar missing)';
-    const studentUser = await User.findOne({ username: 'student' });
-    const supervisorUser = await User.findOne({ username: 'faculty' });
-    if (studentUser) {
-      const thesisExists = await Thesis.findOne({ scholarId: studentUser._id });
-      if (!thesisExists) {
-        await Thesis.create({
-          scholarId: studentUser._id,
-          supervisorId: supervisorUser ? supervisorUser._id : null,
-          department: 'Department of Computer Science',
-          title: 'Automated Ph.D. Lifecycle Tracker',
-          enrollmentNumber: 'PHD/CS/2026/007',
-          abstract: 'An automated full-stack workflow automation framework for managing Ph.D research milestones and administrative processes.',
-          status: 'REGISTRATION_PENDING',
-          enrollmentVerified: false,
-          courseworkCompleted: false,
-          auditLog: [
-            { action: 'REGISTRATION_SUBMITTED', note: 'Thesis registration details submitted by scholar.' }
-          ]
-        });
-        thesisStatus = 'Created & Assigned to Supervisor';
-      } else {
-        thesisStatus = 'Already Existed';
-      }
-    }
-
     const successData = {
       seeded: [
-        { name: 'Departments Seeded', status: `Seeded ${deptsAdded} new departments.` },
-        { name: 'Developer Users Seeded', status: `Created ${usersAdded} new accounts.` },
-        { name: 'Student Thesis Record', status: thesisStatus }
+        { name: 'Departments Seeded', status: `Seeded ${deptsAdded} new departments.` }
       ]
     };
 
