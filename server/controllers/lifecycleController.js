@@ -14,6 +14,11 @@ const scheduleRAC = async (req, res) => {
     const thesis = await Thesis.findById(thesisId);
     if (!thesis) return res.status(404).json({ message: 'Thesis not found' });
 
+    const existingRAC = await RACReview.findOne({ thesisId, racNumber, milestoneId: null });
+    if (existingRAC) {
+      return res.status(400).json({ message: `RAC-${racNumber} has already been scheduled or recorded for this candidate.` });
+    }
+
     const newRAC = new RACReview({
       scholarId: thesis.scholarId,
       thesisId,

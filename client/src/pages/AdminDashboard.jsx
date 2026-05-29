@@ -1171,7 +1171,7 @@ const PhDLifecycleConsole = ({ theses, fetchAllTheses }) => {
       setSchedForm({ thesisId: '', racNumber: 1, scheduledDate: '', committeeMembers: '' });
       fetchData();
     } catch (err) {
-      toast.error('Failed to schedule RAC.');
+      toast.error(err.response?.data?.message || 'Failed to schedule RAC.');
     }
   };
 

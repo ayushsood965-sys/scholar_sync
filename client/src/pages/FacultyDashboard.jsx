@@ -509,11 +509,24 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
-      <div style={{ background: 'var(--color-surface, #ffffff)', color: 'var(--color-text, #1f2937)', borderRadius: 16, padding: 32, width: '100%', maxWidth: 700, maxHeight: '85vh', overflowY: 'auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h3 style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--color-text, #1f2937)' }}>{thesis.scholarId?.name} — {thesis.title?.substring(0, 50)}</h3>
+      <div style={{
+        background: 'var(--color-surface, #ffffff)',
+        color: 'var(--color-text, #1f2937)',
+        borderRadius: 16,
+        padding: '32px 32px 24px 32px',
+        width: '100%',
+        maxWidth: 800,
+        height: '680px',
+        maxHeight: '90vh',
+        display: 'flex',
+        flexDirection: 'column',
+        boxSizing: 'border-box'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20, flexShrink: 0 }}>
+          <h3 style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--color-text, #1f2937)', margin: 0 }}>{thesis.scholarId?.name} — {thesis.title?.substring(0, 50)}</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--color-text, #1f2937)' }}>✕</button>
         </div>
+        <div style={{ flex: 1, overflowY: 'auto', paddingRight: '8px' }} className="custom-scrollbar">
 
         {isSynopsisPendingUpload && (
           <div style={{
@@ -835,16 +848,33 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
         </div>
 
         {thesis.status === 'ACTIVE_RESEARCH' ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, borderTop: '1px solid #E2E8F0', paddingTop: 20, marginTop: 12 }}>
-            <div style={{ display: 'flex', borderBottom: '2px solid #E2E8F0', gap: 16, paddingBottom: 4 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, borderTop: '1px solid var(--color-border, #E2E8F0)', paddingTop: 20, marginTop: 12 }}>
+            <div style={{
+              display: 'flex',
+              background: 'var(--color-bg, #F1F5F9)',
+              padding: '4px',
+              borderRadius: '10px',
+              gap: '4px',
+              width: '100%',
+              boxSizing: 'border-box',
+              border: '1px solid var(--color-border, #E2E8F0)',
+              marginBottom: 10
+            }}>
               <button
                 type="button"
                 onClick={() => setActiveResearchTab('reports')}
                 style={{
-                  background: 'none', border: 'none', padding: '6px 12px', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer',
-                  color: activeResearchTab === 'reports' ? '#10b981' : '#64748B',
-                  borderBottom: activeResearchTab === 'reports' ? '3px solid #10b981' : 'none',
-                  marginBottom: -6
+                  flex: 1,
+                  background: activeResearchTab === 'reports' ? '#10b981' : 'transparent',
+                  border: 'none',
+                  padding: '8px 12px',
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  borderRadius: '8px',
+                  color: activeResearchTab === 'reports' ? '#ffffff' : 'var(--color-text-secondary, #475569)',
+                  boxShadow: activeResearchTab === 'reports' ? '0 2px 4px rgba(16, 185, 129, 0.2)' : 'none',
+                  transition: 'all 0.2s ease-in-out'
                 }}
               >
                 Reports Timeline
@@ -853,10 +883,17 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
                 type="button"
                 onClick={() => setActiveResearchTab('chapters')}
                 style={{
-                  background: 'none', border: 'none', padding: '6px 12px', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer',
-                  color: activeResearchTab === 'chapters' ? '#10b981' : '#64748B',
-                  borderBottom: activeResearchTab === 'chapters' ? '3px solid #10b981' : 'none',
-                  marginBottom: -6
+                  flex: 1,
+                  background: activeResearchTab === 'chapters' ? '#10b981' : 'transparent',
+                  border: 'none',
+                  padding: '8px 12px',
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  borderRadius: '8px',
+                  color: activeResearchTab === 'chapters' ? '#ffffff' : 'var(--color-text-secondary, #475569)',
+                  boxShadow: activeResearchTab === 'chapters' ? '0 2px 4px rgba(16, 185, 129, 0.2)' : 'none',
+                  transition: 'all 0.2s ease-in-out'
                 }}
               >
                 Chapter Drafts Workspace
@@ -865,10 +902,17 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
                 type="button"
                 onClick={() => setActiveResearchTab('outputs')}
                 style={{
-                  background: 'none', border: 'none', padding: '6px 12px', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer',
-                  color: activeResearchTab === 'outputs' ? '#10b981' : '#64748B',
-                  borderBottom: activeResearchTab === 'outputs' ? '3px solid #10b981' : 'none',
-                  marginBottom: -6
+                  flex: 1,
+                  background: activeResearchTab === 'outputs' ? '#10b981' : 'transparent',
+                  border: 'none',
+                  padding: '8px 12px',
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  borderRadius: '8px',
+                  color: activeResearchTab === 'outputs' ? '#ffffff' : 'var(--color-text-secondary, #475569)',
+                  boxShadow: activeResearchTab === 'outputs' ? '0 2px 4px rgba(16, 185, 129, 0.2)' : 'none',
+                  transition: 'all 0.2s ease-in-out'
                 }}
               >
                 Research Outputs Vault
@@ -877,10 +921,17 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
                 type="button"
                 onClick={() => setActiveResearchTab('history')}
                 style={{
-                  background: 'none', border: 'none', padding: '6px 12px', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer',
-                  color: activeResearchTab === 'history' ? '#10b981' : '#64748B',
-                  borderBottom: activeResearchTab === 'history' ? '3px solid #10b981' : 'none',
-                  marginBottom: -6
+                  flex: 1,
+                  background: activeResearchTab === 'history' ? '#10b981' : 'transparent',
+                  border: 'none',
+                  padding: '8px 12px',
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  borderRadius: '8px',
+                  color: activeResearchTab === 'history' ? '#ffffff' : 'var(--color-text-secondary, #475569)',
+                  boxShadow: activeResearchTab === 'history' ? '0 2px 4px rgba(16, 185, 129, 0.2)' : 'none',
+                  transition: 'all 0.2s ease-in-out'
                 }}
               >
                 History
@@ -1225,6 +1276,7 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
             )}
           </>
         )}
+        </div>
       </div>
     </div>
   );
