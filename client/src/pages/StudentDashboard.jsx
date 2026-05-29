@@ -338,7 +338,7 @@ const MilestoneTimeline = ({ thesis, milestones = [] }) => {
   );
 };
 
-const Sidebar = ({ activeTab, setActiveTab }) => {
+const Sidebar = ({ activeTab, setActiveTab, isVerified }) => {
   const { logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const items = [
@@ -370,12 +370,27 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
         <h2>ScholarHub</h2>
       </div>
       <div className="sidebar-nav" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 160px)' }}>
-        {items.map(({ key, label, Icon }) => (
-          <button key={key} className={`nav-item ${activeTab === key ? 'active' : ''}`} onClick={() => { setActiveTab(key); document.body.classList.remove('sidebar-mobile-open'); }}
-            style={{ background: 'none', border: 'none', width: '100%', cursor: 'pointer', textAlign: 'left' }}>
-            <Icon className="nav-icon" /> {label}
-          </button>
-        ))}
+        {items.map(({ key, label, Icon }) => {
+          const disabled = !isVerified && key !== 'profile' && key !== 'registration';
+          return (
+            <button 
+              key={key} 
+              className={`nav-item ${activeTab === key ? 'active' : ''}`} 
+              onClick={() => { if (!disabled) { setActiveTab(key); document.body.classList.remove('sidebar-mobile-open'); } }}
+              disabled={disabled}
+              style={{ 
+                background: 'none', 
+                border: 'none', 
+                width: '100%', 
+                cursor: disabled ? 'not-allowed' : 'pointer', 
+                textAlign: 'left',
+                opacity: disabled ? 0.45 : 1
+              }}
+            >
+              <Icon className="nav-icon" /> {label} {disabled && '🔒'}
+            </button>
+          );
+        })}
       </div>
       <div className="sidebar-bottom">
         <button className="nav-item" onClick={() => { logout(); navigate('/'); }}
@@ -2496,7 +2511,7 @@ const StudentDashboard = () => {
   return (
     <div className="app-container">
       <div className="mobile-overlay" onClick={() => document.body.classList.remove('sidebar-mobile-open')} />
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} isVerified={thesis && thesis.status !== 'REGISTRATION_PENDING'} />
       <div className="main-content" style={{ display: 'flex', flexDirection: 'column' }}>
         {/* Floating warning banner */}
         {user && !user.profileCompleted && (
