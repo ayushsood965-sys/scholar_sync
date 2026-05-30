@@ -655,9 +655,26 @@ const handleSeedPost = async (req, res) => {
       }
     }
 
+    // Ensure Super Admin exists
+    const adminExists = await User.findOne({ username: 'admin' });
+    let adminStatus = 'Super Admin already exists.';
+    if (!adminExists) {
+      await User.create({
+        name: 'Super Administrator',
+        username: 'admin',
+        password: 'admin',
+        role: 'SUPER_ADMIN',
+        isActive: true,
+        isVerified: true,
+        profileCompleted: true
+      });
+      adminStatus = 'Super Admin user auto-seeded (admin/admin).';
+    }
+
     const successData = {
       seeded: [
-        { name: 'Departments Seeded', status: `Seeded ${deptsAdded} new departments.` }
+        { name: 'Departments Seeded', status: `Seeded ${deptsAdded} new departments.` },
+        { name: 'Super Administrator', status: adminStatus }
       ]
     };
 
