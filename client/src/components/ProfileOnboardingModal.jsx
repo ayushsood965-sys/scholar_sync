@@ -148,25 +148,6 @@ const ProfileOnboardingModal = ({ isOpen, onClose }) => {
             <>
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
-                  Academic Background
-                </label>
-                <select 
-                  className="form-input" 
-                  value={academicBackground} 
-                  onChange={(e) => setAcademicBackground(e.target.value)}
-                  required
-                >
-                  <option value="">Select Background...</option>
-                  <option value="M.Tech Computer Science">M.Tech Computer Science</option>
-                  <option value="M.Sc Information Technology">M.Sc Information Technology</option>
-                  <option value="B.Tech Honours">B.Tech Honours</option>
-                  <option value="M.Phil">M.Phil</option>
-                  <option value="Other">Other Equivalent</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
                   Primary Area of Research Interest
                 </label>
                 <input 

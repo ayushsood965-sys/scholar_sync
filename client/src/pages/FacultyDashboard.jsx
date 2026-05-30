@@ -495,6 +495,7 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
   const toast = useToast();
   const [remarks, setRemarks] = useState({});
   const [loading, setLoading] = useState(false);
+  const [showProfileDossier, setShowProfileDossier] = useState(false);
 
   // Active Research panel variables
   const [activeResearchTab, setActiveResearchTab] = useState('reports');
@@ -749,6 +750,179 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
           </button>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', paddingRight: '8px' }} className="custom-scrollbar">
+
+          {/* Collapsible Scholar Profile & Academic Dossier */}
+          <div style={{
+            background: 'var(--color-surface, #ffffff)',
+            border: '1px solid var(--color-border, #E2E8F0)',
+            borderRadius: '12px',
+            padding: '16px',
+            marginBottom: '20px',
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+          }}>
+            <div 
+              onClick={() => setShowProfileDossier(!showProfileDossier)}
+              style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                cursor: 'pointer',
+                fontWeight: 700,
+                color: '#1E293B',
+                fontSize: '0.95rem'
+              }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                📁 Scholar Registration & Academic Dossier
+                {thesis.scholarId?.profileCompleted ? (
+                  <span style={{ fontSize: '0.72rem', background: '#D1FAE5', color: '#065F46', padding: '2px 8px', borderRadius: 12, fontWeight: 700 }}>Profile Completed</span>
+                ) : (
+                  <span style={{ fontSize: '0.72rem', background: '#FEE2E2', color: '#991B1B', padding: '2px 8px', borderRadius: 12, fontWeight: 700 }}>Profile Incomplete</span>
+                )}
+              </span>
+              <span style={{ fontSize: '0.9rem', color: '#64748B' }}>
+                {showProfileDossier ? '▲ Collapse' : '▼ Expand Profile Details'}
+              </span>
+            </div>
+
+            {showProfileDossier && (
+              <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '16px', borderTop: '1px solid #F1F5F9', paddingTop: '16px' }}>
+                {/* General & ERP Grid */}
+                <div>
+                  <h4 style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0F172A', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>Personal & Institutional ERP Info</h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 20px', fontSize: '0.8rem' }}>
+                    <div><strong>Email/Username:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.username || 'N/A'}</span></div>
+                    <div><strong>Mobile:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.phoneNumber || 'N/A'}</span></div>
+                    <div><strong>University Enrollment No:</strong> <span style={{ color: '#475569', fontWeight: 600 }}>{thesis.scholarId?.profile?.enrollmentNumber || 'N/A'}</span></div>
+                    <div><strong>Department:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.department || thesis.department || 'N/A'}</span></div>
+                    <div><strong>Date of Birth:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.dob ? new Date(thesis.scholarId.profile.dob).toLocaleDateString() : 'N/A'}</span></div>
+                    <div><strong>Gender:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.gender || 'N/A'}</span></div>
+                    <div><strong>Social Category:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.category || 'N/A'}</span></div>
+                    <div><strong>Nationality:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.nationality || 'N/A'}</span></div>
+                    <div><strong>Father's Name:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.fatherName || 'N/A'}</span></div>
+                    <div><strong>Mother's Name:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.motherName || 'N/A'}</span></div>
+                    <div><strong>Admission Date:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.admissionDate ? new Date(thesis.scholarId.profile.admissionDate).toLocaleDateString() : 'N/A'}</span></div>
+                    <div><strong>Mode of Ph.D.:</strong> <span style={{ color: '#475569', fontWeight: 600 }}>{thesis.scholarId?.profile?.phdMode || 'N/A'}</span></div>
+                    <div><strong>Specialization:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.specialization || 'N/A'}</span></div>
+                    <div style={{ gridColumn: 'span 2' }}><strong>Research Interest:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.areaOfInterest || 'N/A'}</span></div>
+                    <div style={{ gridColumn: 'span 2' }}><strong>Address:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.address || 'N/A'}</span></div>
+                  </div>
+                </div>
+
+                {/* Qualifications */}
+                <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: '12px' }}>
+                  <h4 style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0F172A', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>Educational Background & Certifications</h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {/* Class 10 */}
+                    {thesis.scholarId?.profile?.qualifications?.class10 && (
+                      <div style={{ background: '#F8FAFC', padding: '10px', borderRadius: '8px', border: '1px solid #E2E8F0', fontSize: '0.78rem' }}>
+                        <div style={{ fontWeight: 700, color: '#1E293B', marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
+                          <span>Class 10th Standard</span>
+                          {thesis.scholarId.profile.qualifications.class10.certificateUrl ? (
+                            <a href={`${API_BASE_URL}${thesis.scholarId.profile.qualifications.class10.certificateUrl}`} target="_blank" rel="noreferrer" style={{ color: '#10B981', fontWeight: 600 }}>📄 View Certificate</a>
+                          ) : (
+                            <span style={{ color: '#94A3B8' }}>Pending Upload</span>
+                          )}
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px' }}>
+                          <div><strong>Roll No:</strong> {thesis.scholarId.profile.qualifications.class10.rollNo || 'N/A'}</div>
+                          <div><strong>Board:</strong> {thesis.scholarId.profile.qualifications.class10.board || 'N/A'}</div>
+                          <div><strong>School:</strong> {thesis.scholarId.profile.qualifications.class10.school || 'N/A'}</div>
+                          <div><strong>Marks:</strong> {thesis.scholarId.profile.qualifications.class10.marksObtained}/{thesis.scholarId.profile.qualifications.class10.totalMarks || 'N/A'}</div>
+                          <div><strong>Percentage:</strong> {thesis.scholarId.profile.qualifications.class10.percentage}%</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Class 12 */}
+                    {thesis.scholarId?.profile?.qualifications?.class12 && (
+                      <div style={{ background: '#F8FAFC', padding: '10px', borderRadius: '8px', border: '1px solid #E2E8F0', fontSize: '0.78rem' }}>
+                        <div style={{ fontWeight: 700, color: '#1E293B', marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
+                          <span>Class 12th Standard</span>
+                          {thesis.scholarId.profile.qualifications.class12.certificateUrl ? (
+                            <a href={`${API_BASE_URL}${thesis.scholarId.profile.qualifications.class12.certificateUrl}`} target="_blank" rel="noreferrer" style={{ color: '#10B981', fontWeight: 600 }}>📄 View Certificate</a>
+                          ) : (
+                            <span style={{ color: '#94A3B8' }}>Pending Upload</span>
+                          )}
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px' }}>
+                          <div><strong>Roll No:</strong> {thesis.scholarId.profile.qualifications.class12.rollNo || 'N/A'}</div>
+                          <div><strong>Board:</strong> {thesis.scholarId.profile.qualifications.class12.board || 'N/A'}</div>
+                          <div><strong>School:</strong> {thesis.scholarId.profile.qualifications.class12.school || 'N/A'}</div>
+                          <div><strong>Marks:</strong> {thesis.scholarId.profile.qualifications.class12.marksObtained}/{thesis.scholarId.profile.qualifications.class12.totalMarks || 'N/A'}</div>
+                          <div><strong>Percentage:</strong> {thesis.scholarId.profile.qualifications.class12.percentage}%</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Graduation */}
+                    {thesis.scholarId?.profile?.qualifications?.graduation && (
+                      <div style={{ background: '#F8FAFC', padding: '10px', borderRadius: '8px', border: '1px solid #E2E8F0', fontSize: '0.78rem' }}>
+                        <div style={{ fontWeight: 700, color: '#1E293B', marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
+                          <span>Graduation Details</span>
+                          {thesis.scholarId.profile.qualifications.graduation.certificateUrl ? (
+                            <a href={`${API_BASE_URL}${thesis.scholarId.profile.qualifications.graduation.certificateUrl}`} target="_blank" rel="noreferrer" style={{ color: '#10B981', fontWeight: 600 }}>📄 View Certificate</a>
+                          ) : (
+                            <span style={{ color: '#94A3B8' }}>Pending Upload</span>
+                          )}
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px' }}>
+                          <div><strong>Roll No:</strong> {thesis.scholarId.profile.qualifications.graduation.rollNo || 'N/A'}</div>
+                          <div><strong>University:</strong> {thesis.scholarId.profile.qualifications.graduation.board || 'N/A'}</div>
+                          <div><strong>College:</strong> {thesis.scholarId.profile.qualifications.graduation.school || 'N/A'}</div>
+                          <div><strong>Marks:</strong> {thesis.scholarId.profile.qualifications.graduation.marksObtained}/{thesis.scholarId.profile.qualifications.graduation.totalMarks || 'N/A'}</div>
+                          <div><strong>Percentage:</strong> {thesis.scholarId.profile.qualifications.graduation.percentage}%</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Post Graduation */}
+                    {thesis.scholarId?.profile?.qualifications?.postGraduation && (
+                      <div style={{ background: '#F8FAFC', padding: '10px', borderRadius: '8px', border: '1px solid #E2E8F0', fontSize: '0.78rem' }}>
+                        <div style={{ fontWeight: 700, color: '#1E293B', marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
+                          <span>Post Graduation Details</span>
+                          {thesis.scholarId.profile.qualifications.postGraduation.certificateUrl ? (
+                            <a href={`${API_BASE_URL}${thesis.scholarId.profile.qualifications.postGraduation.certificateUrl}`} target="_blank" rel="noreferrer" style={{ color: '#10B981', fontWeight: 600 }}>📄 View Certificate</a>
+                          ) : (
+                            <span style={{ color: '#94A3B8' }}>Pending Upload</span>
+                          )}
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px' }}>
+                          <div><strong>Roll No:</strong> {thesis.scholarId.profile.qualifications.postGraduation.rollNo || 'N/A'}</div>
+                          <div><strong>University:</strong> {thesis.scholarId.profile.qualifications.postGraduation.board || 'N/A'}</div>
+                          <div><strong>College:</strong> {thesis.scholarId.profile.qualifications.postGraduation.school || 'N/A'}</div>
+                          <div><strong>Marks:</strong> {thesis.scholarId.profile.qualifications.postGraduation.marksObtained}/{thesis.scholarId.profile.qualifications.postGraduation.totalMarks || 'N/A'}</div>
+                          <div><strong>Percentage:</strong> {thesis.scholarId.profile.qualifications.postGraduation.percentage}%</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* NET JRF */}
+                    {thesis.scholarId?.profile?.qualifications?.netJrf && thesis.scholarId.profile.qualifications.netJrf.qualified !== 'No' && (
+                      <div style={{ background: '#ECFDF5', padding: '10px', borderRadius: '8px', border: '1px solid #A7F3D0', fontSize: '0.78rem' }}>
+                        <div style={{ fontWeight: 700, color: '#065F46', marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
+                          <span>NET / JRF Qualified</span>
+                          {thesis.scholarId.profile.qualifications.netJrf.certificateUrl ? (
+                            <a href={`${API_BASE_URL}${thesis.scholarId.profile.qualifications.netJrf.certificateUrl}`} target="_blank" rel="noreferrer" style={{ color: '#059669', fontWeight: 600 }}>📄 View NET-JRF Certificate</a>
+                          ) : (
+                            <span style={{ color: '#047857', opacity: 0.6 }}>Pending Certificate Upload</span>
+                          )}
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px' }}>
+                          <div><strong>Qualified Status:</strong> {thesis.scholarId.profile.qualifications.netJrf.qualified || 'N/A'}</div>
+                          <div><strong>Cert No:</strong> {thesis.scholarId.profile.qualifications.netJrf.certificateNo || 'N/A'}</div>
+                          <div><strong>Roll No:</strong> {thesis.scholarId.profile.qualifications.netJrf.rollNo || 'N/A'}</div>
+                          <div><strong>Rank:</strong> {thesis.scholarId.profile.qualifications.netJrf.rank || 'N/A'}</div>
+                          <div><strong>Score:</strong> {thesis.scholarId.profile.qualifications.netJrf.score || 'N/A'}</div>
+                          <div><strong>Issue Date:</strong> {thesis.scholarId.profile.qualifications.netJrf.issueDate ? new Date(thesis.scholarId.profile.qualifications.netJrf.issueDate).toLocaleDateString() : 'N/A'}</div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
         {isSynopsisPendingUpload && (
           <div style={{

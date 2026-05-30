@@ -344,7 +344,6 @@ const Sidebar = ({ activeTab, setActiveTab, isVerified }) => {
   const items = [
     { key: 'overview', label: 'Dashboard', Icon: Home },
     { key: 'profile', label: 'Profile', Icon: User },
-    { key: 'registration', label: 'Registration', Icon: ClipboardList },
     { key: 'thesis', label: 'My Thesis', Icon: Book },
     { key: 'milestones', label: 'Milestones', Icon: Flag },
     { key: 'rac', label: 'RAC Progress', Icon: Layers },
@@ -371,7 +370,7 @@ const Sidebar = ({ activeTab, setActiveTab, isVerified }) => {
       </div>
       <div className="sidebar-nav" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 160px)' }}>
         {items.map(({ key, label, Icon }) => {
-          const disabled = !isVerified && key !== 'profile' && key !== 'registration';
+          const disabled = !isVerified && key !== 'profile';
           return (
             <button 
               key={key} 
@@ -2252,139 +2251,1086 @@ const ResearchOutputsTab = ({ thesis }) => {
 };
 
 const ProfileTab = () => {
-  const { user, updateProfile, uploadAvatar } = useContext(AuthContext);
+  const { user, updateProfile, uploadAvatar, uploadProfileDocument } = useContext(AuthContext);
+  const { thesis, createThesis, fetchMyThesis } = useContext(ThesisContext);
+  const toast = useToast();
+  const [subTab, setSubTab] = useState('general'); // general | academic | guide
+  const [loading, setLoading] = useState(false);
+  const [registering, setRegistering] = useState(false);
+  const [avatarLoading, setAvatarLoading] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState('');
+  const [selectedFileNames, setSelectedFileNames] = useState({});
+
+  // Common ERP fields
+  const [dob, setDob] = useState(user?.profile?.dob ? user.profile.dob.split('T')[0] : '');
+  const [gender, setGender] = useState(user?.profile?.gender || '');
+  const [category, setCategory] = useState(user?.profile?.category || '');
+  const [fatherName, setFatherName] = useState(user?.profile?.fatherName || '');
+  const [motherName, setMotherName] = useState(user?.profile?.motherName || '');
+  const [nationality, setNationality] = useState(user?.profile?.nationality || 'Indian');
+  const [admissionDate, setAdmissionDate] = useState(user?.profile?.admissionDate ? user.profile.admissionDate.split('T')[0] : '');
+  const [enrollmentNumber, setEnrollmentNumber] = useState(user?.profile?.enrollmentNumber || '');
+  const [phdMode, setPhdMode] = useState(user?.profile?.phdMode || '');
+  const [specialization, setSpecialization] = useState(user?.profile?.specialization || '');
   const [phoneNumber, setPhoneNumber] = useState(user?.profile?.phoneNumber || '');
   const [address, setAddress] = useState(user?.profile?.address || '');
-  const [academicBackground, setAcademicBackground] = useState(user?.profile?.academicBackground || '');
   const [areaOfInterest, setAreaOfInterest] = useState(user?.profile?.areaOfInterest || '');
-  const [loading, setLoading] = useState(false);
-  const [avatarLoading, setAvatarLoading] = useState(false);
-  const [msg, setMsg] = useState('');
+  const [academicBackground, setAcademicBackground] = useState(user?.profile?.academicBackground || '');
+
+  // Class 10
+  const [class10Roll, setClass10Roll] = useState(user?.profile?.qualifications?.class10?.rollNo || '');
+  const [class10Board, setClass10Board] = useState(user?.profile?.qualifications?.class10?.board || '');
+  const [class10School, setClass10School] = useState(user?.profile?.qualifications?.class10?.school || '');
+  const [class10Marks, setClass10Marks] = useState(user?.profile?.qualifications?.class10?.marksObtained || '');
+  const [class10Total, setClass10Total] = useState(user?.profile?.qualifications?.class10?.totalMarks || '');
+  const [class10Percentage, setClass10Percentage] = useState(user?.profile?.qualifications?.class10?.percentage || '');
+
+  // Class 12
+  const [class12Roll, setClass12Roll] = useState(user?.profile?.qualifications?.class12?.rollNo || '');
+  const [class12Board, setClass12Board] = useState(user?.profile?.qualifications?.class12?.board || '');
+  const [class12School, setClass12School] = useState(user?.profile?.qualifications?.class12?.school || '');
+  const [class12Marks, setClass12Marks] = useState(user?.profile?.qualifications?.class12?.marksObtained || '');
+  const [class12Total, setClass12Total] = useState(user?.profile?.qualifications?.class12?.totalMarks || '');
+  const [class12Percentage, setClass12Percentage] = useState(user?.profile?.qualifications?.class12?.percentage || '');
+
+  // Graduation
+  const [gradRoll, setGradRoll] = useState(user?.profile?.qualifications?.graduation?.rollNo || '');
+  const [gradDegree, setGradDegree] = useState(user?.profile?.qualifications?.graduation?.degree || '');
+  const [gradCollege, setGradCollege] = useState(user?.profile?.qualifications?.graduation?.college || '');
+  const [gradUniversity, setGradUniversity] = useState(user?.profile?.qualifications?.graduation?.university || '');
+  const [gradMarks, setGradMarks] = useState(user?.profile?.qualifications?.graduation?.marksObtained || '');
+  const [gradTotal, setGradTotal] = useState(user?.profile?.qualifications?.graduation?.totalMarks || '');
+  const [gradPercentage, setGradPercentage] = useState(user?.profile?.qualifications?.graduation?.percentage || '');
+
+  // Post Graduation
+  const [pgRoll, setPgRoll] = useState(user?.profile?.qualifications?.postGraduation?.rollNo || '');
+  const [pgDegree, setPgDegree] = useState(user?.profile?.qualifications?.postGraduation?.degree || '');
+  const [pgCollege, setPgCollege] = useState(user?.profile?.qualifications?.postGraduation?.college || '');
+  const [pgUniversity, setPgUniversity] = useState(user?.profile?.qualifications?.postGraduation?.university || '');
+  const [pgMarks, setPgMarks] = useState(user?.profile?.qualifications?.postGraduation?.marksObtained || '');
+  const [pgTotal, setPgTotal] = useState(user?.profile?.qualifications?.postGraduation?.totalMarks || '');
+  const [pgPercentage, setPgPercentage] = useState(user?.profile?.qualifications?.postGraduation?.percentage || '');
+
+  // NET JRF
+  const [netJrfQualified, setNetJrfQualified] = useState(user?.profile?.qualifications?.netJrf?.qualified ? 'YES' : 'NO');
+  const [netJrfCertNumber, setNetJrfCertNumber] = useState(user?.profile?.qualifications?.netJrf?.certNumber || '');
+  const [netJrfRoll, setNetJrfRoll] = useState(user?.profile?.qualifications?.netJrf?.rollNo || '');
+  const [netJrfRank, setNetJrfRank] = useState(user?.profile?.qualifications?.netJrf?.rank || '');
+  const [netJrfScore, setNetJrfScore] = useState(user?.profile?.qualifications?.netJrf?.score || '');
+  const [netJrfIssueDate, setNetJrfIssueDate] = useState(user?.profile?.qualifications?.netJrf?.issueDate ? user.profile.qualifications.netJrf.issueDate.split('T')[0] : '');
+
+  // Other Exam
+  const [otherDetails, setOtherDetails] = useState(user?.profile?.qualifications?.other?.details || '');
+
+  // Guide Selection
+  const [preferredGuideId, setPreferredGuideId] = useState(user?.profile?.preferredGuideId || '');
+  const [faculties, setFaculties] = useState([]);
+
+  useEffect(() => {
+    if (user?.profile) {
+      setDob(user.profile.dob ? user.profile.dob.split('T')[0] : '');
+      setGender(user.profile.gender || '');
+      setCategory(user.profile.category || '');
+      setFatherName(user.profile.fatherName || '');
+      setMotherName(user.profile.motherName || '');
+      setNationality(user.profile.nationality || 'Indian');
+      setAdmissionDate(user.profile.admissionDate ? user.profile.admissionDate.split('T')[0] : '');
+      setEnrollmentNumber(user.profile.enrollmentNumber || '');
+      setPhdMode(user.profile.phdMode || '');
+      setSpecialization(user.profile.specialization || '');
+      setPhoneNumber(user.profile.phoneNumber || '');
+      setAddress(user.profile.address || '');
+      setAreaOfInterest(user.profile.areaOfInterest || '');
+      setAcademicBackground(user.profile.academicBackground || '');
+      setPreferredGuideId(user.profile.preferredGuideId || '');
+
+      // Class 10
+      const q = user.profile.qualifications;
+      setClass10Roll(q?.class10?.rollNo || '');
+      setClass10Board(q?.class10?.board || '');
+      setClass10School(q?.class10?.school || '');
+      setClass10Marks(q?.class10?.marksObtained || '');
+      setClass10Total(q?.class10?.totalMarks || '');
+      setClass10Percentage(q?.class10?.percentage || '');
+
+      // Class 12
+      setClass12Roll(q?.class12?.rollNo || '');
+      setClass12Board(q?.class12?.board || '');
+      setClass12School(q?.class12?.school || '');
+      setClass12Marks(q?.class12?.marksObtained || '');
+      setClass12Total(q?.class12?.totalMarks || '');
+      setClass12Percentage(q?.class12?.percentage || '');
+
+      // Graduation
+      setGradRoll(q?.graduation?.rollNo || '');
+      setGradDegree(q?.graduation?.degree || '');
+      setGradCollege(q?.graduation?.college || '');
+      setGradUniversity(q?.graduation?.university || '');
+      setGradMarks(q?.graduation?.marksObtained || '');
+      setGradTotal(q?.graduation?.totalMarks || '');
+      setGradPercentage(q?.graduation?.percentage || '');
+
+      // Post Graduation
+      setPgRoll(q?.postGraduation?.rollNo || '');
+      setPgDegree(q?.postGraduation?.degree || '');
+      setPgCollege(q?.postGraduation?.college || '');
+      setPgUniversity(q?.postGraduation?.university || '');
+      setPgMarks(q?.postGraduation?.marksObtained || '');
+      setPgTotal(q?.postGraduation?.totalMarks || '');
+      setPgPercentage(q?.postGraduation?.percentage || '');
+
+      // NET JRF
+      setNetJrfQualified(q?.netJrf?.qualified ? 'YES' : 'NO');
+      setNetJrfCertNumber(q?.netJrf?.certNumber || '');
+      setNetJrfRoll(q?.netJrf?.rollNo || '');
+      setNetJrfRank(q?.netJrf?.rank || '');
+      setNetJrfScore(q?.netJrf?.score || '');
+      setNetJrfIssueDate(q?.netJrf?.issueDate ? q.netJrf.issueDate.split('T')[0] : '');
+
+      // Other
+      setOtherDetails(q?.other?.details || '');
+    }
+  }, [user]);
+
+  useEffect(() => {
+    axios.get(`${API_URL}/auth/faculty`, getAuthHeader())
+      .then(res => {
+        if (Array.isArray(res.data)) {
+          // Only show faculties registered in scholar's department
+          const deptFac = res.data.filter(f => f.department === user?.department);
+          setFaculties(deptFac);
+        }
+      })
+      .catch(err => console.error('Error fetching department faculty:', err));
+  }, [user?.department]);
 
   const handleAvatarChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     setAvatarLoading(true);
-    setMsg('');
     const res = await uploadAvatar(file);
     setAvatarLoading(false);
     if (res.success) {
-      setMsg('Profile picture uploaded successfully!');
+      toast.success('Profile picture updated successfully!');
     } else {
-      setMsg('Failed to upload profile picture: ' + res.message);
+      toast.error('Failed to upload profile picture: ' + res.message);
+    }
+  };
+
+  const handleDocUpload = async (e, docType) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setSelectedFileNames(prev => ({ ...prev, [docType]: file.name }));
+    setUploadingDoc(docType);
+    const res = await uploadProfileDocument(file, docType);
+    setUploadingDoc('');
+    if (res.success) {
+      toast.success(`${docType.replace(/([A-Z])/g, ' $1').toUpperCase()} Certificate uploaded successfully!`);
+    } else {
+      toast.error(`Upload failed: ${res.message}`);
     }
   };
 
   const handleUpdate = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setMsg('');
 
     const cleanedPhone = phoneNumber.trim().replace(/[\s\-()]/g, '');
     const indianPhoneRegex = /^(\+91|91|0)?[6-9]\d{9}$/;
     if (!indianPhoneRegex.test(cleanedPhone)) {
-      setMsg('Failed to update profile: Please enter a valid 10-digit Indian phone number (starts with 6-9).');
+      toast.error('Please enter a valid 10-digit Indian phone number (starts with 6-9).');
       setLoading(false);
       return;
     }
 
     const payload = {
+      dob,
+      gender,
+      category,
+      fatherName,
+      motherName,
+      nationality,
+      admissionDate,
+      enrollmentNumber,
+      phdMode,
+      specialization,
       phoneNumber,
       address,
-      academicBackground: user.role === 'STUDENT' ? academicBackground : undefined,
-      areaOfInterest: user.role === 'STUDENT' ? areaOfInterest : undefined,
+      areaOfInterest,
+      academicBackground,
+      preferredGuideId,
+      qualifications: {
+        class10: {
+          rollNo: class10Roll,
+          board: class10Board,
+          school: class10School,
+          marksObtained: class10Marks,
+          totalMarks: class10Total,
+          percentage: class10Percentage,
+          certificateUrl: user?.profile?.qualifications?.class10?.certificateUrl
+        },
+        class12: {
+          rollNo: class12Roll,
+          board: class12Board,
+          school: class12School,
+          marksObtained: class12Marks,
+          totalMarks: class12Total,
+          percentage: class12Percentage,
+          certificateUrl: user?.profile?.qualifications?.class12?.certificateUrl
+        },
+        graduation: {
+          rollNo: gradRoll,
+          degree: gradDegree,
+          college: gradCollege,
+          university: gradUniversity,
+          marksObtained: gradMarks,
+          totalMarks: gradTotal,
+          percentage: gradPercentage,
+          certificateUrl: user?.profile?.qualifications?.graduation?.certificateUrl
+        },
+        postGraduation: {
+          rollNo: pgRoll,
+          degree: pgDegree,
+          college: pgCollege,
+          university: pgUniversity,
+          marksObtained: pgMarks,
+          totalMarks: pgTotal,
+          percentage: pgPercentage,
+          certificateUrl: user?.profile?.qualifications?.postGraduation?.certificateUrl
+        },
+        netJrf: {
+          qualified: netJrfQualified === 'YES',
+          certNumber: netJrfCertNumber,
+          rollNo: netJrfRoll,
+          rank: netJrfRank,
+          score: netJrfScore,
+          issueDate: netJrfIssueDate,
+          certificateUrl: user?.profile?.qualifications?.netJrf?.certificateUrl
+        },
+        other: {
+          details: otherDetails,
+          certificateUrl: user?.profile?.qualifications?.other?.certificateUrl
+        }
+      }
     };
+
     const res = await updateProfile(payload);
     setLoading(false);
     if (res.success) {
-      setMsg('Profile updated successfully!');
+      let msg = 'PhD Scholar profile details updated successfully!';
+      if (subTab === 'general') msg = 'General Information saved successfully!';
+      else if (subTab === 'academic') msg = 'Academic details saved successfully!';
+      else if (subTab === 'guide') msg = 'Preferred guide details saved successfully!';
+      toast.success(msg);
     } else {
-      setMsg('Failed to update profile: ' + res.message);
+      toast.error('Failed to update profile: ' + res.message);
+    }
+  };
+
+  const saveSection = async (sectionKey) => {
+    setLoading(true);
+    let sectionData = {};
+    
+    if (sectionKey === 'class10') {
+      sectionData = {
+        rollNo: class10Roll,
+        board: class10Board,
+        school: class10School,
+        marksObtained: class10Marks,
+        totalMarks: class10Total,
+        percentage: class10Percentage,
+        certificateUrl: user?.profile?.qualifications?.class10?.certificateUrl
+      };
+    } else if (sectionKey === 'class12') {
+      sectionData = {
+        rollNo: class12Roll,
+        board: class12Board,
+        school: class12School,
+        marksObtained: class12Marks,
+        totalMarks: class12Total,
+        percentage: class12Percentage,
+        certificateUrl: user?.profile?.qualifications?.class12?.certificateUrl
+      };
+    } else if (sectionKey === 'graduation') {
+      sectionData = {
+        rollNo: gradRoll,
+        degree: gradDegree,
+        college: gradCollege,
+        university: gradUniversity,
+        marksObtained: gradMarks,
+        totalMarks: gradTotal,
+        percentage: gradPercentage,
+        certificateUrl: user?.profile?.qualifications?.graduation?.certificateUrl
+      };
+    } else if (sectionKey === 'postGraduation') {
+      sectionData = {
+        rollNo: pgRoll,
+        degree: pgDegree,
+        college: pgCollege,
+        university: pgUniversity,
+        marksObtained: pgMarks,
+        totalMarks: pgTotal,
+        percentage: pgPercentage,
+        certificateUrl: user?.profile?.qualifications?.postGraduation?.certificateUrl
+      };
+    } else if (sectionKey === 'netJrf') {
+      sectionData = {
+        qualified: netJrfQualified === 'YES',
+        certNumber: netJrfCertNumber,
+        rollNo: netJrfRoll,
+        rank: netJrfRank,
+        score: netJrfScore,
+        issueDate: netJrfIssueDate,
+        certificateUrl: user?.profile?.qualifications?.netJrf?.certificateUrl
+      };
+    } else if (sectionKey === 'other') {
+      sectionData = {
+        details: otherDetails,
+        certificateUrl: user?.profile?.qualifications?.other?.certificateUrl
+      };
+    }
+
+    const payload = {
+      ...user?.profile,
+      qualifications: {
+        ...user?.profile?.qualifications,
+        [sectionKey]: sectionData
+      }
+    };
+
+    const res = await updateProfile(payload);
+    setLoading(false);
+    if (res.success) {
+      const prettyName = sectionKey === 'netJrf' ? 'NET JRF' : sectionKey.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+      toast.success(`${prettyName} details saved successfully!`);
+    } else {
+      toast.error(`Failed to save details: ${res.message}`);
+    }
+  };
+
+  const getDocBadge = (docType, certUrl) => {
+    if (uploadingDoc === docType) {
+      return <span style={{ fontSize: '0.75rem', padding: '4px 8px', borderRadius: '12px', background: '#FEF3C7', color: '#D97706', fontWeight: 600 }}>Uploading...</span>;
+    }
+    if (certUrl) {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '0.75rem', padding: '4px 8px', borderRadius: '12px', background: '#D1FAE5', color: '#059669', fontWeight: 600 }}>✓ Uploaded</span>
+          <a 
+            href={`${API_BASE_URL}${certUrl}`} 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            style={{ 
+              fontSize: '0.75rem', 
+              color: '#2563EB', 
+              fontWeight: 600, 
+              textDecoration: 'none', 
+              display: 'inline-flex', 
+              alignItems: 'center', 
+              gap: '4px',
+              background: '#EFF6FF',
+              padding: '4px 8px',
+              borderRadius: '6px',
+              border: '1px solid #BFDBFE'
+            }}
+          >
+            <FileText size={12} /> View File
+          </a>
+        </div>
+      );
+    }
+    return <span style={{ fontSize: '0.75rem', padding: '4px 8px', borderRadius: '12px', background: '#F3F4F6', color: '#6B7280', fontWeight: 600 }}>Pending Upload</span>;
+  };
+
+  const getUploadButton = (docType, certUrl) => {
+    const isUploaded = !!certUrl;
+    const currentSelectedName = selectedFileNames[docType];
+    let displayFileName = '';
+    if (currentSelectedName) {
+      displayFileName = currentSelectedName;
+    } else if (certUrl) {
+      const parts = certUrl.split('/');
+      displayFileName = parts[parts.length - 1];
+    }
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+        <label style={{ 
+          display: 'inline-flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          gap: '6px', 
+          background: isUploaded ? '#D97706' : '#4B5563', 
+          color: 'white', 
+          padding: '8px 12px', 
+          borderRadius: '6px', 
+          fontSize: '0.75rem', 
+          fontWeight: 600, 
+          cursor: 'pointer', 
+          display: 'block', 
+          textAlign: 'center',
+          transition: 'all 0.2s',
+          boxShadow: isUploaded ? '0 2px 4px rgba(217, 119, 6, 0.2)' : 'none'
+        }}>
+          {isUploaded ? '🔄 Reupload Certificate (PDF)' : '📤 Upload Certificate (PDF)'}
+          <input type="file" accept=".pdf,image/*" onChange={e => handleDocUpload(e, docType)} style={{ display: 'none' }} />
+        </label>
+        {displayFileName && (
+          <div style={{ fontSize: '0.7rem', color: '#4B5563', fontStyle: 'italic', wordBreak: 'break-all', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span>📄 File:</span>
+            <span style={{ fontWeight: 600 }}>{displayFileName}</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const handleProfileRegistrationSubmit = async () => {
+    // 1. General & ERP Details check
+    if (
+      !dob || !gender || !category || !fatherName || !motherName || !nationality || 
+      !admissionDate || !enrollmentNumber || !phdMode || !specialization || 
+      !phoneNumber || !address || !areaOfInterest
+    ) {
+      toast.error('please fill in all the details before submitting the form.');
+      return;
+    }
+
+    // 2. Qualifications check (Class 10, 12, Graduation, Post-Graduation details and certificates)
+    const q = user?.profile?.qualifications;
+    if (
+      !class10Roll || !class10Board || !class10School || !class10Marks || !class10Total || !class10Percentage || !q?.class10?.certificateUrl ||
+      !class12Roll || !class12Board || !class12School || !class12Marks || !class12Total || !class12Percentage || !q?.class12?.certificateUrl ||
+      !gradRoll || !gradDegree || !gradCollege || !gradUniversity || !gradMarks || !gradTotal || !gradPercentage || !q?.graduation?.certificateUrl ||
+      !pgRoll || !pgDegree || !pgCollege || !pgUniversity || !pgMarks || !pgTotal || !pgPercentage || !q?.postGraduation?.certificateUrl
+    ) {
+      toast.error('please fill in all the details before submitting the form.');
+      return;
+    }
+
+    // 3. NET JRF details & certificate check if qualified
+    if (netJrfQualified === 'YES') {
+      if (!netJrfCertNumber || !netJrfRoll || !netJrfRank || !netJrfScore || !netJrfIssueDate || !q?.netJrf?.certificateUrl) {
+        toast.error('please fill in all the details before submitting the form.');
+        return;
+      }
+    }
+
+    // 4. Preferred Guide preference check
+    if (!preferredGuideId) {
+      toast.error('please fill in all the details before submitting the form.');
+      return;
+    }
+
+    try {
+      setRegistering(true);
+      await createThesis({});
+      await fetchMyThesis();
+      toast.success('Your PhD Profile Dossier has been successfully submitted to the HOD for verification and supervisor assignment!');
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to submit registration.');
+    } finally {
+      setRegistering(false);
     }
   };
 
   return (
-    <div className="card" style={{ maxWidth: 600, margin: '0 auto' }}>
-      <h3 className="card-title" style={{ fontSize: '1.2rem', marginBottom: 16 }}>My Profile & Credentials</h3>
-      
-      {/* Profile Picture Upload */}
+    <div className="card" style={{ maxWidth: 850, margin: '0 auto', padding: '24px' }}>
+      {/* Dynamic Profile Registration Status Banner */}
+      {!thesis ? (
+        <div style={{
+          background: '#EFF6FF',
+          border: '1px solid #BFDBFE',
+          borderLeft: '4px solid #3B82F6',
+          padding: '16px',
+          borderRadius: '8px',
+          marginBottom: '20px',
+          fontSize: '0.85rem',
+          color: '#1E3A8A',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px'
+        }}>
+          <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>ℹ️ Ph.D. Profile Verification Pending Submission</div>
+          <div>Please fill out your complete profile information: <strong>General Info</strong>, <strong>Qualifications (with certificates)</strong>, and <strong>Preferred Guide Selection</strong>. Once completed, click the green <strong>🚀 Submit PhD Profile for HOD Registration Approval</strong> button at the very bottom!</div>
+        </div>
+      ) : thesis.status === 'REGISTRATION_PENDING' ? (
+        <div style={{
+          background: '#FFFBEB',
+          border: '1px solid #FDE68A',
+          borderLeft: '4px solid #D97706',
+          padding: '16px',
+          borderRadius: '8px',
+          marginBottom: '20px',
+          fontSize: '0.85rem',
+          color: '#78350F',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '4px'
+        }}>
+          <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>⏳ Ph.D. Profile Submitted & Awaiting Approval</div>
+          <div>Your academic dossier has been forwarded to the HOD of {thesis.department} for verification and supervisor assignment. You will be notified once verified!</div>
+        </div>
+      ) : (
+        <div style={{
+          background: '#ECFDF5',
+          border: '1px solid #A7F3D0',
+          borderLeft: '4px solid #059669',
+          padding: '16px',
+          borderRadius: '8px',
+          marginBottom: '20px',
+          fontSize: '0.85rem',
+          color: '#065F46',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '4px'
+        }}>
+          <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>✅ Ph.D. Profile Registration Verified & Approved</div>
+          <div>Your academic background, certificates, and enrollment parameters are officially approved and locked. Your supervisor assignment is complete!</div>
+        </div>
+      )}
+
       <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '24px', paddingBottom: '20px', borderBottom: '1px solid #E5E7EB' }}>
         {user?.avatarUrl ? (
           <img 
             src={`${API_BASE_URL}${user.avatarUrl}`} 
             alt="Avatar Preview" 
-            style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #E2E8F0', background: '#F8FAFC' }} 
+            style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #133A26', background: '#F8FAFC' }} 
           />
         ) : (
-          <svg viewBox="0 0 100 100" style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#e2e8f0', display: 'block', border: '3px solid #E2E8F0' }}>
-            <circle cx="50" cy="35" r="20" fill="#94a3b8" />
-            <path d="M15 85c0-13.8 11.2-25 25-25h20c13.8 0 25 11.2 25 25z" fill="#94a3b8" />
+          <svg viewBox="0 0 100 100" style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#e2e8f0', display: 'block', border: '3px solid #133A26' }}>
+            <circle cx="50" cy="35" r="20" fill="#133A26" />
+            <path d="M15 85c0-13.8 11.2-25 25-25h20c13.8 0 25 11.2 25 25z" fill="#133A26" />
           </svg>
         )}
         <div>
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#133A26', color: 'white', padding: '8px 14px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}>
+          <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: '#111827', margin: 0 }}>{user?.name}</h2>
+          <p style={{ fontSize: '0.85rem', color: '#6B7280', margin: '4px 0 12px' }}>Ph.D. Scholar • {user?.department}</p>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#133A26', color: 'white', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}>
             {avatarLoading ? 'Uploading...' : '📷 Change Profile Picture'}
             <input type="file" accept="image/*" onChange={handleAvatarChange} style={{ display: 'none' }} disabled={avatarLoading} />
           </label>
-          <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748B', marginTop: '6px' }}>JPG, PNG or GIF. Max 5MB.</span>
         </div>
       </div>
 
-      {msg && (
-        <div style={{ padding: 12, borderRadius: 8, background: msg.includes('successfully') ? '#E8F5E9' : '#FFEBEE', color: msg.includes('successfully') ? '#2E7D32' : '#C62828', marginBottom: 16, fontSize: '0.85rem', fontWeight: 600 }}>
-          {msg}
-        </div>
-      )}
-      <form onSubmit={handleUpdate} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Full Name</label>
-            <input type="text" className="form-input" value={user?.name} disabled style={{ background: '#F1F5F9', color: '#64748B' }} />
+      {/* Internal Navigation Tabs */}
+      <div style={{ display: 'flex', borderBottom: '2px solid #F3F4F6', gap: '16px', marginBottom: '24px' }}>
+        <button 
+          onClick={() => setSubTab('general')}
+          style={{ 
+            padding: '10px 16px', 
+            fontSize: '0.9rem', 
+            fontWeight: 600, 
+            background: 'none', 
+            border: 'none', 
+            borderBottom: subTab === 'general' ? '3px solid #133A26' : '3px solid transparent', 
+            color: subTab === 'general' ? '#133A26' : '#6B7280', 
+            cursor: 'pointer', 
+            transition: 'all 0.2s' 
+          }}
+        >
+          👤 General Information
+        </button>
+        <button 
+          onClick={() => setSubTab('academic')}
+          style={{ 
+            padding: '10px 16px', 
+            fontSize: '0.9rem', 
+            fontWeight: 600, 
+            background: 'none', 
+            border: 'none', 
+            borderBottom: subTab === 'academic' ? '3px solid #133A26' : '3px solid transparent', 
+            color: subTab === 'academic' ? '#133A26' : '#6B7280', 
+            cursor: 'pointer', 
+            transition: 'all 0.2s' 
+          }}
+        >
+          🎓 Academic Qualifications
+        </button>
+        <button 
+          onClick={() => setSubTab('guide')}
+          style={{ 
+            padding: '10px 16px', 
+            fontSize: '0.9rem', 
+            fontWeight: 600, 
+            background: 'none', 
+            border: 'none', 
+            borderBottom: subTab === 'guide' ? '3px solid #133A26' : '3px solid transparent', 
+            color: subTab === 'guide' ? '#133A26' : '#6B7280', 
+            cursor: 'pointer', 
+            transition: 'all 0.2s' 
+          }}
+        >
+          🤝 Preferred Guide Preference
+        </button>
+      </div>
+
+      <form onSubmit={handleUpdate} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        {/* --- Tab 1: General Information --- */}
+        {subTab === 'general' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#133A26', margin: '0 0 8px 0' }}>Personal & Institutional ERP Details</h3>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Full Name</label>
+                <input type="text" className="form-input" value={user?.name} disabled style={{ background: '#F1F5F9', color: '#64748B' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>University Email (ID)</label>
+                <input type="text" className="form-input" value={user?.username} disabled style={{ background: '#F1F5F9', color: '#64748B' }} />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Date of Birth <span style={{ color: '#EF4444' }}>*</span></label>
+                <input type="date" className="form-input" value={dob} onChange={e => setDob(e.target.value)} required />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>University Enrollment Number <span style={{ color: '#EF4444' }}>*</span></label>
+                <input type="text" className="form-input" placeholder="Enter enrollment number" value={enrollmentNumber} onChange={e => setEnrollmentNumber(e.target.value)} required />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Gender <span style={{ color: '#EF4444' }}>*</span></label>
+                <select className="form-input" value={gender} onChange={e => setGender(e.target.value)} required>
+                  <option value="">Select...</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Social Category <span style={{ color: '#EF4444' }}>*</span></label>
+                <select className="form-input" value={category} onChange={e => setCategory(e.target.value)} required>
+                  <option value="">Select Category...</option>
+                  <option value="General">General / Unreserved</option>
+                  <option value="OBC">OBC (Other Backward Classes)</option>
+                  <option value="SC">SC (Scheduled Caste)</option>
+                  <option value="ST">ST (Scheduled Tribe)</option>
+                  <option value="EWS">EWS (Economically Weaker Section)</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Father's Name <span style={{ color: '#EF4444' }}>*</span></label>
+                <input type="text" className="form-input" placeholder="Father's full name" value={fatherName} onChange={e => setFatherName(e.target.value)} required />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Mother's Name <span style={{ color: '#EF4444' }}>*</span></label>
+                <input type="text" className="form-input" placeholder="Mother's full name" value={motherName} onChange={e => setMotherName(e.target.value)} required />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Nationality <span style={{ color: '#EF4444' }}>*</span></label>
+                <input type="text" className="form-input" placeholder="e.g. Indian" value={nationality} onChange={e => setNationality(e.target.value)} required />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Date of Admission <span style={{ color: '#EF4444' }}>*</span></label>
+                <input type="date" className="form-input" value={admissionDate} onChange={e => setAdmissionDate(e.target.value)} required />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Mode of Ph.D. <span style={{ color: '#EF4444' }}>*</span></label>
+                <select className="form-input" value={phdMode} onChange={e => setPhdMode(e.target.value)} required>
+                  <option value="">Select Mode...</option>
+                  <option value="Full-time">Full-time Regular</option>
+                  <option value="Part-time">Part-time / Sponsored</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Area of Specialization <span style={{ color: '#EF4444' }}>*</span></label>
+                <input type="text" className="form-input" placeholder="e.g. Machine Learning, Structural Bio" value={specialization} onChange={e => setSpecialization(e.target.value)} required />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Area of Research Interest <span style={{ color: '#EF4444' }}>*</span></label>
+                <input type="text" className="form-input" placeholder="Specific research title domain" value={areaOfInterest} onChange={e => setAreaOfInterest(e.target.value)} required />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Phone Number (Indian Format) <span style={{ color: '#EF4444' }}>*</span></label>
+                <input type="text" className="form-input" placeholder="Enter 10-digit mobile number" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} required />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Full Residential Address <span style={{ color: '#EF4444' }}>*</span></label>
+                <input type="text" className="form-input" placeholder="Street, City, State, ZIP" value={address} onChange={e => setAddress(e.target.value)} required />
+              </div>
+            </div>
           </div>
-          <div>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Username / Email</label>
-            <input type="text" className="form-input" value={user?.username} disabled style={{ background: '#F1F5F9', color: '#64748B' }} />
+        )}
+
+        {/* --- Tab 2: Academic Qualifications --- */}
+        {subTab === 'academic' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            
+            {/* Class 10 Card */}
+            <div style={{ border: '1px solid #E5E7EB', borderRadius: '12px', padding: '16px', background: '#F9FAFB' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#133A26', margin: 0 }}>Class 10 (Secondary) Details</h4>
+                {getDocBadge('class10', user?.profile?.qualifications?.class10?.certificateUrl)}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Roll Number</label>
+                  <input type="text" className="form-input" placeholder="Roll No" value={class10Roll} onChange={e => setClass10Roll(e.target.value)} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Board of Examination</label>
+                  <input type="text" className="form-input" placeholder="e.g. CBSE, ICSE" value={class10Board} onChange={e => setClass10Board(e.target.value)} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>School Name</label>
+                  <input type="text" className="form-input" placeholder="School Name" value={class10School} onChange={e => setClass10School(e.target.value)} />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', alignItems: 'flex-end' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Marks Obtained</label>
+                  <input type="number" step="0.01" className="form-input" placeholder="Marks" value={class10Marks} onChange={e => setClass10Marks(e.target.value)} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Total Marks</label>
+                  <input type="number" step="0.01" className="form-input" placeholder="Total" value={class10Total} onChange={e => setClass10Total(e.target.value)} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Percentage (%)</label>
+                  <input type="text" className="form-input" placeholder="e.g. 92.5%" value={class10Percentage} onChange={e => setClass10Percentage(e.target.value)} />
+                </div>
+                <div>
+                  {getUploadButton('class10', user?.profile?.qualifications?.class10?.certificateUrl)}
+                </div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E5E7EB' }}>
+                <button
+                  type="button"
+                  onClick={() => saveSection('class10')}
+                  disabled={loading}
+                  style={{ background: '#059669', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)', transition: 'all 0.2s' }}
+                >
+                  💾 Save Class 10 Details
+                </button>
+              </div>
+            </div>
+
+            {/* Class 12 Card */}
+            <div style={{ border: '1px solid #E5E7EB', borderRadius: '12px', padding: '16px', background: '#F9FAFB' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#133A26', margin: 0 }}>Class 12 (Higher Secondary) Details</h4>
+                {getDocBadge('class12', user?.profile?.qualifications?.class12?.certificateUrl)}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Roll Number</label>
+                  <input type="text" className="form-input" placeholder="Roll No" value={class12Roll} onChange={e => setClass12Roll(e.target.value)} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Board of Examination</label>
+                  <input type="text" className="form-input" placeholder="e.g. CBSE, State Board" value={class12Board} onChange={e => setClass12Board(e.target.value)} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>School/College Name</label>
+                  <input type="text" className="form-input" placeholder="School/College Name" value={class12School} onChange={e => setClass12School(e.target.value)} />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', alignItems: 'flex-end' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Marks Obtained</label>
+                  <input type="number" step="0.01" className="form-input" placeholder="Marks" value={class12Marks} onChange={e => setClass12Marks(e.target.value)} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Total Marks</label>
+                  <input type="number" step="0.01" className="form-input" placeholder="Total" value={class12Total} onChange={e => setClass12Total(e.target.value)} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Percentage (%)</label>
+                  <input type="text" className="form-input" placeholder="e.g. 88.2%" value={class12Percentage} onChange={e => setClass12Percentage(e.target.value)} />
+                </div>
+                <div>
+                  {getUploadButton('class12', user?.profile?.qualifications?.class12?.certificateUrl)}
+                </div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E5E7EB' }}>
+                <button
+                  type="button"
+                  onClick={() => saveSection('class12')}
+                  disabled={loading}
+                  style={{ background: '#059669', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)', transition: 'all 0.2s' }}
+                >
+                  💾 Save Class 12 Details
+                </button>
+              </div>
+            </div>
+
+            {/* Graduation Card */}
+            <div style={{ border: '1px solid #E5E7EB', borderRadius: '12px', padding: '16px', background: '#F9FAFB' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#133A26', margin: 0 }}>Graduation Details</h4>
+                {getDocBadge('graduation', user?.profile?.qualifications?.graduation?.certificateUrl)}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Roll No / Enroll No</label>
+                  <input type="text" className="form-input" placeholder="Roll No" value={gradRoll} onChange={e => setGradRoll(e.target.value)} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Degree (e.g. B.Tech, B.Sc)</label>
+                  <input type="text" className="form-input" placeholder="e.g. B.Tech CSE" value={gradDegree} onChange={e => setGradDegree(e.target.value)} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>College Name</label>
+                  <input type="text" className="form-input" placeholder="College Name" value={gradCollege} onChange={e => setGradCollege(e.target.value)} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>University Name</label>
+                  <input type="text" className="form-input" placeholder="University" value={gradUniversity} onChange={e => setGradUniversity(e.target.value)} />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', alignItems: 'flex-end' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>CGPA / Marks Obtained</label>
+                  <input type="number" step="0.01" className="form-input" placeholder="Marks" value={gradMarks} onChange={e => setGradMarks(e.target.value)} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Total Max Marks / Scale</label>
+                  <input type="number" step="0.01" className="form-input" placeholder="Total scale" value={gradTotal} onChange={e => setGradTotal(e.target.value)} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Percentage / CGPA (%)</label>
+                  <input type="text" className="form-input" placeholder="e.g. 8.4 CGPA" value={gradPercentage} onChange={e => setGradPercentage(e.target.value)} />
+                </div>
+                <div>
+                  {getUploadButton('graduation', user?.profile?.qualifications?.graduation?.certificateUrl)}
+                </div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E5E7EB' }}>
+                <button
+                  type="button"
+                  onClick={() => saveSection('graduation')}
+                  disabled={loading}
+                  style={{ background: '#059669', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)', transition: 'all 0.2s' }}
+                >
+                  💾 Save Graduation Details
+                </button>
+              </div>
+            </div>
+
+            {/* Post Graduation Card */}
+            <div style={{ border: '1px solid #E5E7EB', borderRadius: '12px', padding: '16px', background: '#F9FAFB' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#133A26', margin: 0 }}>Post-Graduation Details</h4>
+                {getDocBadge('postGraduation', user?.profile?.qualifications?.postGraduation?.certificateUrl)}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Roll No / Enroll No</label>
+                  <input type="text" className="form-input" placeholder="Roll No" value={pgRoll} onChange={e => setPgRoll(e.target.value)} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>PG Degree (e.g. M.Tech, M.Sc)</label>
+                  <input type="text" className="form-input" placeholder="e.g. M.Tech CSE" value={pgDegree} onChange={e => setPgDegree(e.target.value)} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>College Name</label>
+                  <input type="text" className="form-input" placeholder="College Name" value={pgCollege} onChange={e => setPgCollege(e.target.value)} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>University Name</label>
+                  <input type="text" className="form-input" placeholder="University" value={pgUniversity} onChange={e => setPgUniversity(e.target.value)} />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', alignItems: 'flex-end' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>CGPA / Marks Obtained</label>
+                  <input type="number" step="0.01" className="form-input" placeholder="Marks" value={pgMarks} onChange={e => setPgMarks(e.target.value)} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Total Max Marks / Scale</label>
+                  <input type="number" step="0.01" className="form-input" placeholder="Total scale" value={pgTotal} onChange={e => setPgTotal(e.target.value)} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Percentage / CGPA (%)</label>
+                  <input type="text" className="form-input" placeholder="e.g. 9.1 CGPA" value={pgPercentage} onChange={e => setPgPercentage(e.target.value)} />
+                </div>
+                <div>
+                  {getUploadButton('postGraduation', user?.profile?.qualifications?.postGraduation?.certificateUrl)}
+                </div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E5E7EB' }}>
+                <button
+                  type="button"
+                  onClick={() => saveSection('postGraduation')}
+                  disabled={loading}
+                  style={{ background: '#059669', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)', transition: 'all 0.2s' }}
+                >
+                  💾 Save Post-Graduation Details
+                </button>
+              </div>
+            </div>
+
+            {/* NET JRF Qualifications */}
+            <div style={{ border: '1px solid #E5E7EB', borderRadius: '12px', padding: '16px', background: '#F9FAFB' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#133A26', margin: 0 }}>National Entrance Examinations (NET / JRF / GATE)</h4>
+                {getDocBadge('netJrf', user?.profile?.qualifications?.netJrf?.certificateUrl)}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Have you qualified NET JRF?</label>
+                  <select className="form-input" value={netJrfQualified} onChange={e => setNetJrfQualified(e.target.value)}>
+                    <option value="NO">No</option>
+                    <option value="YES">Yes</option>
+                  </select>
+                </div>
+                {netJrfQualified === 'YES' && (
+                  <>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Certification / Award Letter Number</label>
+                      <input type="text" className="form-input" placeholder="Cert Number" value={netJrfCertNumber} onChange={e => setNetJrfCertNumber(e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Roll Number / Reg Number</label>
+                      <input type="text" className="form-input" placeholder="Roll No" value={netJrfRoll} onChange={e => setNetJrfRoll(e.target.value)} />
+                    </div>
+                  </>
+                )}
+              </div>
+              {netJrfQualified === 'YES' && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', alignItems: 'flex-end' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>All India Rank (AIR)</label>
+                    <input type="text" className="form-input" placeholder="AIR Rank" value={netJrfRank} onChange={e => setNetJrfRank(e.target.value)} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Normalized Score / Percentile</label>
+                    <input type="text" className="form-input" placeholder="Score" value={netJrfScore} onChange={e => setNetJrfScore(e.target.value)} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Date of Certificate Issue</label>
+                    <input type="date" className="form-input" value={netJrfIssueDate} onChange={e => setNetJrfIssueDate(e.target.value)} />
+                  </div>
+                  <div>
+                    {getUploadButton('netJrf', user?.profile?.qualifications?.netJrf?.certificateUrl)}
+                  </div>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E5E7EB' }}>
+                <button
+                  type="button"
+                  onClick={() => saveSection('netJrf')}
+                  disabled={loading}
+                  style={{ background: '#059669', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)', transition: 'all 0.2s' }}
+                >
+                  💾 Save NET JRF Details
+                </button>
+              </div>
+            </div>
+
+            {/* Other Achievements Card */}
+            <div style={{ border: '1px solid #E5E7EB', borderRadius: '12px', padding: '16px', background: '#F9FAFB' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#133A26', margin: 0 }}>Other Qualifications / Fellowships (DST INSPIRE, NFSC, RGNF, etc.)</h4>
+                {getDocBadge('other', user?.profile?.qualifications?.other?.certificateUrl)}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '12px', alignItems: 'flex-end' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Academic/Fellowship Details</label>
+                  <input type="text" className="form-input" placeholder="Describe fellowship/awards or additional exams cleared" value={otherDetails} onChange={e => setOtherDetails(e.target.value)} />
+                </div>
+                <div>
+                  {getUploadButton('other', user?.profile?.qualifications?.other?.certificateUrl)}
+                </div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E5E7EB' }}>
+                <button
+                  type="button"
+                  onClick={() => saveSection('other')}
+                  disabled={loading}
+                  style={{ background: '#059669', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)', transition: 'all 0.2s' }}
+                >
+                  💾 Save Other Details
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Role</label>
-            <input type="text" className="form-input" value={user?.role} disabled style={{ background: '#F1F5F9', color: '#64748B' }} />
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Department</label>
-            <input type="text" className="form-input" value={user?.department || 'N/A'} disabled style={{ background: '#F1F5F9', color: '#64748B' }} />
-          </div>
-        </div>
-        <div>
-          <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Phone Number (Indian Format)</label>
-          <input type="text" className="form-input" placeholder="Enter 10-digit mobile number e.g. 9876543210" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} required />
-        </div>
-        <div>
-          <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Address</label>
-          <input type="text" className="form-input" value={address} onChange={e => setAddress(e.target.value)} required />
-        </div>
-        {user?.role === 'STUDENT' && (
-          <>
+        )}
+
+        {/* --- Tab 3: Preferred Guide Selection --- */}
+        {subTab === 'guide' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#133A26', margin: '0 0 8px 0' }}>Advisor & Guide Preference of {user?.department}</h3>
+            <p style={{ fontSize: '0.85rem', color: '#4B5563', margin: '0 0 12px 0' }}>
+              Please select your preferred guide for Ph.D. supervision from the list of registered faculty members in your department. 
+              This selection acts as your institutional preference for thesis allotment.
+            </p>
+
             <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Academic Background</label>
-              <select className="form-input" value={academicBackground} onChange={e => setAcademicBackground(e.target.value)} required>
-                <option value="">Select...</option>
-                <option value="M.Tech Computer Science">M.Tech Computer Science</option>
-                <option value="M.Sc Information Technology">M.Sc Information Technology</option>
-                <option value="B.Tech Honours">B.Tech Honours</option>
-                <option value="M.Phil">M.Phil</option>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 6 }}>Preferred supervisor / Guide</label>
+              <select 
+                className="form-input" 
+                value={preferredGuideId} 
+                onChange={e => setPreferredGuideId(e.target.value)}
+              >
+                <option value="">Select Preferred Guide...</option>
+                {faculties.map(fac => (
+                  <option key={fac._id} value={fac._id}>
+                    {fac.name} ({fac.subRole === 'HOD' ? 'HOD / ' : ''}Faculty)
+                  </option>
+                ))}
               </select>
             </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Area of Research Interest</label>
-              <input type="text" className="form-input" value={areaOfInterest} onChange={e => setAreaOfInterest(e.target.value)} required />
-            </div>
-          </>
+
+            {preferredGuideId && (
+              <div style={{ padding: '16px', background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: '8px', marginTop: '12px' }}>
+                <span style={{ fontSize: '0.85rem', color: '#065F46', fontWeight: 600 }}>
+                  ✓ You have selected <strong>{faculties.find(f => f._id === preferredGuideId)?.name}</strong> as your preferred guide. 
+                  This preference will be recorded and audited during your DRC enrollment clearance.
+                </span>
+              </div>
+            )}
+          </div>
         )}
-        <button type="submit" disabled={loading} className="btn-primary" style={{ marginTop: 8, background: '#059669' }}>
-          {loading ? 'Saving...' : 'Update Details'}
-        </button>
+        <div style={{ display: 'flex', gap: '16px', marginTop: '24px', paddingTop: '16px', borderTop: '1px solid #E5E7EB' }}>
+          <button 
+            type="submit" 
+            disabled={loading || (thesis && thesis.status !== 'REGISTRATION_PENDING')} 
+            className="btn-primary" 
+            style={{ flex: 1, background: '#1F2937', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+          >
+            {loading ? 'Saving Changes...' : '💾 Save PhD Profile Details'}
+          </button>
+
+          {!thesis && (
+            <button 
+              type="button"
+              disabled={registering}
+              onClick={handleProfileRegistrationSubmit}
+              className="btn-primary" 
+              style={{ flex: 1.2, background: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(16, 185, 129, 0.2)' }}
+            >
+              {registering ? 'Submitting...' : '🚀 Submit PhD Profile for HOD Approval'}
+            </button>
+          )}
+
+          {thesis && thesis.status === 'REGISTRATION_PENDING' && (
+            <div style={{ flex: 1.2, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FEF3C7', border: '1px solid #FDE68A', borderRadius: '8px', color: '#D97706', fontSize: '0.85rem', fontWeight: 700, padding: '10px 16px' }}>
+              ⏳ Awaiting HOD Verification & Supervisor
+            </div>
+          )}
+        </div>
       </form>
     </div>
   );
@@ -2392,9 +3338,9 @@ const ProfileTab = () => {
 
 // ── Main Dashboard ──
 const StudentDashboard = () => {
-  const [activeTab, setActiveTab] = useState('registration');
+  const [activeTab, setActiveTab] = useState('profile');
   const { user } = useContext(AuthContext);
-  const { thesis, milestones, loading, fetchMyThesis, createThesis, submitMilestone } = useContext(ThesisContext);
+  const { thesis, milestones, loading, fetchMyThesis, submitMilestone } = useContext(ThesisContext);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(user && !user.profileCompleted);
 
   useEffect(() => { 
@@ -2407,14 +3353,8 @@ const StudentDashboard = () => {
     }
   }, [thesis]);
 
-  const handleEnrollment = async (formData) => {
-    await createThesis(formData);
-    await fetchMyThesis();
-  };
-
   const titles = { 
     overview: 'Student Dashboard', 
-    registration: 'Thesis Registration', 
     thesis: 'My Thesis', 
     rac: 'RAC Progress', 
     publications: 'Publications', 
@@ -2433,42 +3373,24 @@ const StudentDashboard = () => {
     if (loading) return <div style={{ textAlign: 'center', padding: 48, color: '#6b7280' }}>Loading...</div>;
 
     if (!thesis) {
-      if (activeTab === 'registration') return <EnrollmentForm onSubmit={handleEnrollment} />;
       if (activeTab === 'profile') return <ProfileTab />;
       return (
         <div className="card" style={{ maxWidth: 600, margin: '0 auto', textAlign: 'center', padding: 48 }}>
           <ClipboardList size={64} color="#9CA3AF" style={{ margin: '0 auto 16px' }} />
-          <h3 style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#111827', marginBottom: 8 }}>Registration Required</h3>
-          <p style={{ color: '#6b7280', marginBottom: 24 }}>Please complete and submit your Thesis Registration details under the **Registration** tab first to unlock the student portal features.</p>
-          <button className="btn-primary" onClick={() => setActiveTab('registration')}>Complete Thesis Registration</button>
+          <h3 style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#111827', marginBottom: 8 }}>Ph.D. Profile Dossier Required</h3>
+          <p style={{ color: '#6b7280', marginBottom: 24 }}>Please complete all required details in the **Profile** tab and click **Submit PhD Profile for HOD Approval** to register and unlock the student portal features.</p>
+          <button className="btn-primary" onClick={() => setActiveTab('profile')}>Go to Profile Tab</button>
         </div>
       );
     }
 
     if (thesis.status === 'REGISTRATION_PENDING') {
-      if (activeTab === 'registration') {
-        return (
-          <div className="card" style={{ textAlign: 'center', padding: 32, color: '#D97706' }}>
-            <CheckCircle2 size={48} style={{ margin: '0 auto 12px' }} />
-            <h3>Registration Submitted</h3>
-            <p style={{ color: '#6b7280', marginTop: 8 }}>Your registration details have been submitted and are currently awaiting HOD/admin verification.</p>
-          </div>
-        );
-      }
       if (activeTab === 'profile') return <ProfileTab />;
       return <WaitingRoom thesis={thesis} />;
     }
 
     switch (activeTab) {
       case 'overview': return <OverviewPage thesis={thesis} milestones={milestones} setActiveTab={setActiveTab} user={user} />;
-      case 'registration':
-        return (
-          <div className="card" style={{ textAlign: 'center', padding: 32, color: '#059669' }}>
-            <CheckCircle2 size={48} style={{ margin: '0 auto 12px' }} />
-            <h3>Registration Verified & Approved</h3>
-            <p style={{ color: '#6b7280', marginTop: 8 }}>Your Ph.D. registration is officially approved and locked.</p>
-          </div>
-        );
       case 'rac': return <RACProgressTab thesis={thesis} />;
       case 'publications': return <PublicationsTab thesis={thesis} />;
       case 'sixMonthReports': return <SixMonthReportsTab thesis={thesis} milestones={milestones} onSubmit={submitMilestone} />;

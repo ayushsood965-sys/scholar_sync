@@ -94,6 +94,28 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const uploadProfileDocument = async (file, docType) => {
+    try {
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('docType', docType);
+      const { data } = await axios.put(`${API_URL}/auth/profile/document`, formData, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      const updatedUser = { ...user, ...data };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+      addNotification('Document uploaded successfully!');
+      return { success: true };
+    } catch (error) {
+      return { success: false, message: error.response?.data?.message || 'Document upload failed' };
+    }
+  };
+
   const fetchMe = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -118,7 +140,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading, updateProfile, uploadAvatar, fetchMe }}>
+    <AuthContext.Provider value={{ user, login, register, logout, loading, updateProfile, uploadAvatar, uploadProfileDocument, fetchMe }}>
       {children}
     </AuthContext.Provider>
   );
