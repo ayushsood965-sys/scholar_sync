@@ -1,4 +1,5 @@
 import React, { useState, useContext, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { Home, Users, FileText, BarChart2, Settings, LogOut, Bell, CheckCircle2, User, GraduationCap, ShieldCheck, Clock, XCircle, Layers, Award, Edit, File, Plus, Calendar } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
@@ -1739,7 +1740,7 @@ const HODDocumentEvaluationModal = ({ doc, onClose, onRefresh }) => {
       inset: 0, 
       background: 'rgba(0,0,0,0.6)', 
       backdropFilter: 'blur(4px)', 
-      zIndex: 99999, 
+      zIndex: 200000, 
       display: 'flex', 
       alignItems: 'center', 
       justifyContent: 'center', 
@@ -1987,6 +1988,10 @@ const HODDocumentManager = ({ theses }) => {
     }
   };
 
+  const pendingChaptersCount = chapterDrafts.filter(c => c.status === 'SUBMITTED').length;
+  const pendingPublicationsCount = publications.filter(p => p.status === 'PENDING').length;
+  const pendingReportsCount = researchOutputs.filter(r => r.status === 'SUBMITTED').length;
+
   return (
     <div className="card" style={{ padding: 24, borderRadius: 16, border: '1px solid #E2E8F0', background: 'white' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, flexWrap: 'wrap', gap: 12 }}>
@@ -2029,10 +2034,33 @@ const HODDocumentManager = ({ theses }) => {
             borderRadius: '8px',
             color: activeTab === 'chapters' ? '#ffffff' : 'var(--color-text-secondary, #475569)',
             boxShadow: activeTab === 'chapters' ? '0 2px 4px rgba(16, 185, 129, 0.2)' : 'none',
-            transition: 'all 0.2s ease-in-out'
+            transition: 'all 0.2s ease-in-out',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px'
           }}
         >
-          Chapter Drafts
+          <span>Chapter Drafts</span>
+          {pendingChaptersCount > 0 && (
+            <span style={{
+              background: '#EF4444',
+              color: 'white',
+              fontSize: '0.72rem',
+              fontWeight: 'bold',
+              borderRadius: '50%',
+              minWidth: '18px',
+              height: '18px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '0 4px',
+              boxShadow: '0 1px 3px rgba(239, 68, 68, 0.4)',
+              border: activeTab === 'chapters' ? '1.5px solid #10b981' : '1.5px solid var(--color-bg, #F1F5F9)'
+            }}>
+              {pendingChaptersCount}
+            </span>
+          )}
         </button>
         <button
           type="button"
@@ -2048,10 +2076,33 @@ const HODDocumentManager = ({ theses }) => {
             borderRadius: '8px',
             color: activeTab === 'publications' ? '#ffffff' : 'var(--color-text-secondary, #475569)',
             boxShadow: activeTab === 'publications' ? '0 2px 4px rgba(16, 185, 129, 0.2)' : 'none',
-            transition: 'all 0.2s ease-in-out'
+            transition: 'all 0.2s ease-in-out',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px'
           }}
         >
-          Publications
+          <span>Publications</span>
+          {pendingPublicationsCount > 0 && (
+            <span style={{
+              background: '#EF4444',
+              color: 'white',
+              fontSize: '0.72rem',
+              fontWeight: 'bold',
+              borderRadius: '50%',
+              minWidth: '18px',
+              height: '18px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '0 4px',
+              boxShadow: '0 1px 3px rgba(239, 68, 68, 0.4)',
+              border: activeTab === 'publications' ? '1.5px solid #10b981' : '1.5px solid var(--color-bg, #F1F5F9)'
+            }}>
+              {pendingPublicationsCount}
+            </span>
+          )}
         </button>
         <button
           type="button"
@@ -2067,10 +2118,33 @@ const HODDocumentManager = ({ theses }) => {
             borderRadius: '8px',
             color: activeTab === 'reports' ? '#ffffff' : 'var(--color-text-secondary, #475569)',
             boxShadow: activeTab === 'reports' ? '0 2px 4px rgba(16, 185, 129, 0.2)' : 'none',
-            transition: 'all 0.2s ease-in-out'
+            transition: 'all 0.2s ease-in-out',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px'
           }}
         >
-          Research Outputs
+          <span>Research Outputs</span>
+          {pendingReportsCount > 0 && (
+            <span style={{
+              background: '#EF4444',
+              color: 'white',
+              fontSize: '0.72rem',
+              fontWeight: 'bold',
+              borderRadius: '50%',
+              minWidth: '18px',
+              height: '18px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '0 4px',
+              boxShadow: '0 1px 3px rgba(239, 68, 68, 0.4)',
+              border: activeTab === 'reports' ? '1.5px solid #10b981' : '1.5px solid var(--color-bg, #F1F5F9)'
+            }}>
+              {pendingReportsCount}
+            </span>
+          )}
         </button>
       </div>
 
@@ -2276,12 +2350,13 @@ const HODDocumentManager = ({ theses }) => {
         </div>
       )}
 
-      {selectedDoc && (
+      {selectedDoc && createPortal(
         <HODDocumentEvaluationModal 
           doc={selectedDoc} 
           onClose={() => setSelectedDoc(null)} 
           onRefresh={fetchAllDocs} 
-        />
+        />,
+        document.body
       )}
     </div>
   );
@@ -3120,7 +3195,7 @@ const Sidebar = ({ activeTab, setActiveTab, isVerified }) => {
     <div className="sidebar">
       <div className="sidebar-logo">
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#A5D6A7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/>
             <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/>
             <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>
