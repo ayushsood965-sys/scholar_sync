@@ -342,7 +342,7 @@ const FacultyDocumentEvaluationModal = ({ doc, onClose, onRefresh }) => {
       inset: 0, 
       background: 'rgba(0,0,0,0.6)', 
       backdropFilter: 'blur(4px)', 
-      zIndex: 1100, 
+      zIndex: 99999, 
       display: 'flex', 
       alignItems: 'center', 
       justifyContent: 'center', 
@@ -495,7 +495,7 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
   const toast = useToast();
   const [remarks, setRemarks] = useState({});
   const [loading, setLoading] = useState(false);
-  const [showProfileDossier, setShowProfileDossier] = useState(false);
+  const [showProfileDetails, setShowProfileDetails] = useState(false);
 
   // Active Research panel variables
   const [activeResearchTab, setActiveResearchTab] = useState('reports');
@@ -703,7 +703,7 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
   const corePendingMilestones = milestones.filter(m => (m.type === 'SYNOPSIS' || m.type === 'FINAL_SUBMISSION') && (m.status === 'SUBMITTED' || m.status === 'REVISION_REQUIRED'));
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: 20 }}>
       <div style={{
         background: 'var(--color-surface, #ffffff)',
         color: 'var(--color-text, #1f2937)',
@@ -751,7 +751,7 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
         </div>
         <div style={{ flex: 1, overflowY: 'auto', paddingRight: '8px' }} className="custom-scrollbar">
 
-          {/* Collapsible Scholar Profile & Academic Dossier */}
+          {/* Collapsible Scholar Profile & Academic Profile */}
           <div style={{
             background: 'var(--color-surface, #ffffff)',
             border: '1px solid var(--color-border, #E2E8F0)',
@@ -761,7 +761,7 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
           }}>
             <div 
-              onClick={() => setShowProfileDossier(!showProfileDossier)}
+              onClick={() => setShowProfileDetails(!showProfileDetails)}
               style={{ 
                 display: 'flex', 
                 justifyContent: 'space-between', 
@@ -773,7 +773,7 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
               }}
             >
               <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                📁 Scholar Registration & Academic Dossier
+                📁 Scholar Registration & Academic Profile
                 {thesis.scholarId?.profileCompleted ? (
                   <span style={{ fontSize: '0.72rem', background: '#D1FAE5', color: '#065F46', padding: '2px 8px', borderRadius: 12, fontWeight: 700 }}>Profile Completed</span>
                 ) : (
@@ -781,11 +781,11 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
                 )}
               </span>
               <span style={{ fontSize: '0.9rem', color: '#64748B' }}>
-                {showProfileDossier ? '▲ Collapse' : '▼ Expand Profile Details'}
+                {showProfileDetails ? '▲ Collapse' : '▼ Expand Profile Details'}
               </span>
             </div>
 
-            {showProfileDossier && (
+            {showProfileDetails && (
               <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '16px', borderTop: '1px solid #F1F5F9', paddingTop: '16px' }}>
                 {/* General & ERP Grid */}
                 <div>

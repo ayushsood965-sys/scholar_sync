@@ -2831,7 +2831,7 @@ const ProfileTab = () => {
       setRegistering(true);
       await createThesis({});
       await fetchMyThesis();
-      toast.success('Your PhD Profile Dossier has been successfully submitted to the HOD for verification and supervisor assignment!');
+      toast.success('Your PhD Profile and registration details have been successfully submitted to the HOD for verification and supervisor assignment!');
     } catch (err) {
       toast.error(err.response?.data?.message || err.message || 'Failed to submit registration.');
     } finally {
@@ -2874,7 +2874,7 @@ const ProfileTab = () => {
           gap: '4px'
         }}>
           <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>⏳ Ph.D. Profile Submitted & Awaiting Approval</div>
-          <div>Your academic dossier has been forwarded to the HOD of {thesis.department} for verification and supervisor assignment. You will be notified once verified!</div>
+          <div>Your academic profile has been forwarded to the HOD of {thesis.department} for verification and supervisor assignment. You will be notified once verified!</div>
         </div>
       ) : (
         <div style={{
@@ -3891,7 +3891,7 @@ const StudentDashboard = () => {
       return (
         <div className="card" style={{ maxWidth: 600, margin: '0 auto', textAlign: 'center', padding: 48 }}>
           <ClipboardList size={64} color="#9CA3AF" style={{ margin: '0 auto 16px' }} />
-          <h3 style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#111827', marginBottom: 8 }}>Ph.D. Profile Dossier Required</h3>
+          <h3 style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#111827', marginBottom: 8 }}>Ph.D. Profile Registration Required</h3>
           <p style={{ color: '#6b7280', marginBottom: 24 }}>Please complete all required details in the **Profile** tab and click **Submit PhD Profile for HOD Approval** to register and unlock the student portal features.</p>
           <button className="btn-primary" onClick={() => setActiveTab('profile')}>Go to Profile Tab</button>
         </div>

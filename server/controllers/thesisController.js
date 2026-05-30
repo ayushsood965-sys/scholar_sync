@@ -41,7 +41,7 @@ const createThesis = async (req, res) => {
       department: user.department,
       title: user.profile.areaOfInterest || "Ph.D. Research Candidate",
       enrollmentNumber: user.profile.enrollmentNumber,
-      abstract: `Specialization: ${user.profile.specialization || "N/A"}. Mode: ${user.profile.phdMode || "N/A"}. Candidate has completed and submitted their academic dossier for HOD registration review.`,
+      abstract: `Specialization: ${user.profile.specialization || "N/A"}. Mode: ${user.profile.phdMode || "N/A"}. Candidate has completed and submitted their academic profile details for HOD registration review.`,
       status: 'REGISTRATION_PENDING',
     });
 
@@ -49,7 +49,7 @@ const createThesis = async (req, res) => {
       roleScope: 'HOD',
       department: thesis.department,
       title: '⏳ New Scholar Profile Verification',
-      message: `Scholar ${user.name} has submitted their academic dossier & profile details for HOD registration approval.`,
+      message: `Scholar ${user.name} has submitted their academic registration details and profile for HOD registration approval.`,
       type: 'PENDING_ACTION',
       link: 'registration'
     });

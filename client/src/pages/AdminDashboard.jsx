@@ -253,6 +253,19 @@ const ScholarDetail = ({ thesisId, onClose, onAction }) => {
   const [auditNote, setAuditNote] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Accordion open-close states
+  const [accordionOpen, setAccordionOpen] = useState({
+    general: true,
+    academic: false,
+    guide: false,
+    timeline: false,
+    milestones: false
+  });
+
+  const toggleSection = (section) => {
+    setAccordionOpen(prev => ({ ...prev, [section]: !prev[section] }));
+  };
+
   // DRC variables
   const [drcMeetings, setDrcMeetings] = useState([]);
   const [showDrcSchedule, setShowDrcSchedule] = useState(false);
@@ -283,12 +296,11 @@ const ScholarDetail = ({ thesisId, onClose, onAction }) => {
     setLoading(true);
     try {
       await onAction(thesisId, action, payload);
-      await axios.get(`${API}/thesis/${thesisId}`, getAuthHeader()).then(r => {
-        setData(r.data);
-        if (r.data?.thesis?.supervisorId) {
-          setSelSupervisor(r.data.thesis.supervisorId._id || r.data.thesis.supervisorId);
-        }
-      });
+      const r = await axios.get(`${API}/thesis/${thesisId}`, getAuthHeader());
+      setData(r.data);
+      if (r.data?.thesis?.supervisorId) {
+        setSelSupervisor(r.data.thesis.supervisorId._id || r.data.thesis.supervisorId);
+      }
       fetchDrcMeetings();
     }
     catch (e) { toast.error(e.response?.data?.message || 'Error'); }
@@ -338,21 +350,83 @@ const ScholarDetail = ({ thesisId, onClose, onAction }) => {
     }
   };
 
-  if (!data) return <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}><div style={{ background: 'white', padding: 32, borderRadius: 16 }}>Loading...</div></div>;
+  const ChevronIcon = ({ isOpen }) => (
+    <svg 
+      width="16" 
+      height="16" 
+      viewBox="0 0 24 24" 
+      fill="none" 
+      stroke="currentColor" 
+      strokeWidth="2.5" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+      style={{ transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease', color: 'var(--color-text-secondary, #64748B)' }}
+    >
+      <polyline points="6 9 12 15 18 9"></polyline>
+    </svg>
+  );
+
+  if (!data) {
+    return (
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999 }}>
+        <div style={{ background: 'var(--color-surface, #ffffff)', padding: 32, borderRadius: 16, color: 'var(--color-text, #1f2937)', fontWeight: 600 }}>Loading Candidate Profile...</div>
+      </div>
+    );
+  }
 
   const { thesis, milestones } = data;
+  const profile = thesis.scholarId?.profile || {};
+  const qualifications = profile.qualifications || {};
+
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
-      <div style={{ background: 'white', borderRadius: 16, padding: 32, width: '100%', maxWidth: 680, maxHeight: '85vh', overflowY: 'auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20, alignItems: 'center' }}>
-          <h3 style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{thesis.scholarId?.name}</h3>
+    <div style={{ 
+      position: 'fixed', 
+      inset: 0, 
+      background: 'rgba(0,0,0,0.6)', 
+      backdropFilter: 'blur(4px)', 
+      zIndex: 99999, 
+      display: 'flex', 
+      alignItems: 'center', 
+      justifyContent: 'center', 
+      overflow: 'hidden', 
+      padding: '20px',
+      pointerEvents: 'auto'
+    }}>
+      <div style={{ 
+        background: 'var(--color-surface, #ffffff)', 
+        color: 'var(--color-text, #1f2937)',
+        borderRadius: 24, 
+        padding: '28px 32px', 
+        width: '95%', 
+        maxWidth: 850, 
+        height: 'min(820px, 92vh)', 
+        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.35)',
+        display: 'flex',
+        flexDirection: 'column',
+        boxSizing: 'border-box',
+        overflow: 'hidden',
+        position: 'relative'
+      }}>
+        {/* Header Section */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, alignItems: 'center', borderBottom: '1px solid var(--color-border, #E2E8F0)', paddingBottom: 16, flexShrink: 0 }}>
+          <div>
+            <h3 style={{ fontSize: '1.35rem', fontWeight: 800, margin: 0, color: 'var(--color-text, #0F172A)', display: 'flex', alignItems: 'center', gap: 10 }}>
+              🎓 Scholar Profile: {thesis.scholarId?.name || 'Academic Scholar'}
+              <span style={{ fontSize: '0.75rem', padding: '4px 10px', borderRadius: 20, background: 'var(--color-bg, #F1F5F9)', color: 'var(--color-text-secondary, #475569)', fontWeight: 700 }}>
+                {thesis.enrollmentNumber}
+              </span>
+            </h3>
+            <p style={{ margin: '4px 0 0 0', fontSize: '0.82rem', color: 'var(--color-text-secondary, #64748B)', fontWeight: 500 }}>
+              Department of {thesis.department} | Specialized Specialization: {profile.specialization || 'General'}
+            </p>
+          </div>
           <button 
             onClick={onClose} 
             style={{ 
               background: 'var(--color-bg, #F1F5F9)', 
               border: 'none', 
-              width: '36px', 
-              height: '36px', 
+              width: '38px', 
+              height: '38px', 
               borderRadius: '50%', 
               display: 'flex', 
               alignItems: 'center', 
@@ -377,197 +451,676 @@ const ScholarDetail = ({ thesisId, onClose, onAction }) => {
           </button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-          {[['Department', thesis.department],['Enrollment No.', thesis.enrollmentNumber],['Title', thesis.title],['Supervisor', thesis.supervisorId?.name || 'Unassigned']].map(([k, v]) => (
-            <div key={k} style={{ background: '#F9FAFB', padding: 10, borderRadius: 8 }}>
-              <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{k}</div>
-              <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{v}</div>
-            </div>
-          ))}
-        </div>
-
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-          {(!thesis.enrollmentVerified || thesis.status === 'REGISTRATION_PENDING') && (
-            <button className="btn-primary" onClick={() => act('verify')} disabled={loading} style={{ padding: '6px 16px', fontSize: '0.85rem', background: '#059669', color: 'white' }}>✓ Verify Enrollment → COURSEWORK</button>
-          )}
-          {thesis.status !== 'AWARDED' && (
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <select className="form-input" style={{ padding: '5px 10px', height: 'auto' }} value={selSupervisor} onChange={e => setSelSupervisor(e.target.value)} disabled={!!thesis.supervisorId}>
-                <option value="">Assign Supervisor...</option>
-                {faculty.filter(f => f.department === thesis.department).map(f => <option key={f._id} value={f._id}>{f.name} ({f.subRole})</option>)}
-              </select>
-              <button className="btn-primary" onClick={() => act('assign', { supervisorId: selSupervisor })} disabled={!selSupervisor || !!thesis.supervisorId || loading} style={{ padding: '6px 16px', fontSize: '0.85rem', opacity: thesis.supervisorId ? 0.6 : 1, cursor: thesis.supervisorId ? 'not-allowed' : 'pointer' }}>
-                {thesis.supervisorId ? '✓ Supervisor Assigned' : 'Assign'}
-              </button>
-            </div>
-          )}
-          {thesis.status === 'COURSEWORK' && (
-            <button className="btn-primary" onClick={() => act('coursework')} disabled={loading} style={{ padding: '6px 16px', fontSize: '0.85rem', background: '#3B82F6' }}>✓ Clear Coursework → SYNOPSIS</button>
-          )}
-          {thesis.status === 'SYNOPSIS_PENDING' && (() => {
-            const synopsisMilestone = milestones.find(m => m.type === 'SYNOPSIS');
-            return (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', marginTop: 8 }}>
-                {synopsisMilestone?.status !== 'APPROVED' ? (
-                  <div style={{ background: '#FFF5F5', border: '1px solid #FEB2B2', color: '#C53030', padding: '10px 14px', borderRadius: 8, fontSize: '0.85rem', fontWeight: 600 }}>
-                    ⚠️ Supervisor has not approved the Synopsis yet (Current Status: {synopsisMilestone?.status || 'PENDING'}). DRC Scheduling is locked until supervisor approval is complete.
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
-                    <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', color: '#15803D', padding: '10px 14px', borderRadius: 8, fontSize: '0.85rem', fontWeight: 600 }}>
-                      ✅ Synopsis Approved by Supervisor! Ready for DRC Meeting Scheduling & Review.
+        {/* Scrollable Profile Body */}
+        <div style={{ flex: 1, overflowY: 'auto', paddingRight: '8px', display: 'flex', flexDirection: 'column', gap: 16 }} className="custom-scrollbar">
+          
+          {/* ACCORDION 1: General & Personal Information */}
+          <div style={{ border: '1px solid var(--color-border, #E2E8F0)', borderRadius: 12, overflow: 'hidden', background: 'var(--color-surface, #ffffff)', flexShrink: 0 }}>
+            <button 
+              type="button"
+              onClick={() => toggleSection('general')}
+              style={{
+                width: '100%',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '14px 20px',
+                background: 'var(--color-bg, #F8FAFC)',
+                border: 'none',
+                cursor: 'pointer',
+                textAlign: 'left',
+                color: 'var(--color-text, #1E293B)',
+                fontWeight: 700,
+                fontSize: '0.9rem',
+                outline: 'none',
+                transition: 'background 0.2s'
+              }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                📂 1. General & Personal Information
+              </span>
+              <ChevronIcon isOpen={accordionOpen.general} />
+            </button>
+            {accordionOpen.general && (
+              <div style={{ padding: '20px 24px', borderTop: '1px solid var(--color-border, #E2E8F0)', background: 'var(--color-surface, #ffffff)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+                  {[
+                    ['Date of Birth', profile.dob ? new Date(profile.dob).toLocaleDateString() : '—'],
+                    ['Gender', profile.gender || '—'],
+                    ['Category', profile.category || '—'],
+                    ['Nationality', profile.nationality || 'Indian'],
+                    ['Admission Date', profile.admissionDate ? new Date(profile.admissionDate).toLocaleDateString() : '—'],
+                    ['Enrollment Roll No.', profile.enrollmentNumber || thesis.enrollmentNumber || '—'],
+                    ['Ph.D. Study Mode', profile.phdMode || '—'],
+                    ['Contact Phone', profile.phoneNumber || '—'],
+                    ['Academic Email', thesis.scholarId?.email || '—'],
+                    ["Father's Name", profile.fatherName || '—'],
+                    ["Mother's Name", profile.motherName || '—'],
+                    ['Residential Address', profile.address || '—', true]
+                  ].map(([k, v, isSpan]) => (
+                    <div key={k} style={{ gridColumn: isSpan ? 'span 2' : 'auto', background: 'var(--color-bg, #F8FAFC)', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--color-border, #E2E8F0)' }}>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary, #64748B)', fontWeight: 600, marginBottom: 2 }}>{k}</div>
+                      <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--color-text, #1F2937)' }}>{v}</div>
                     </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
-                    {/* DRC Meetings List */}
-                    <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 14, borderRadius: 10, width: '100%' }}>
-                      <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#334155', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>📆 Departmental Research Committee (DRC) Status</span>
-                        {drcMeetings.length === 0 && !showDrcSchedule && (
-                          <button type="button" className="btn-primary" onClick={() => setShowDrcSchedule(true)} style={{ padding: '4px 10px', fontSize: '0.75rem', background: '#3B82F6' }}>+ Schedule Meeting</button>
-                        )}
-                      </div>
-
-                      {drcMeetings.length === 0 ? (
-                        <div style={{ fontSize: '0.8rem', color: '#64748b', fontStyle: 'italic' }}>No DRC meeting scheduled yet.</div>
+          {/* ACCORDION 2: Academic Profile & Credentials */}
+          <div style={{ border: '1px solid var(--color-border, #E2E8F0)', borderRadius: 12, overflow: 'hidden', background: 'var(--color-surface, #ffffff)', flexShrink: 0 }}>
+            <button 
+              type="button"
+              onClick={() => toggleSection('academic')}
+              style={{
+                width: '100%',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '14px 20px',
+                background: 'var(--color-bg, #F8FAFC)',
+                border: 'none',
+                cursor: 'pointer',
+                textAlign: 'left',
+                color: 'var(--color-text, #1E293B)',
+                fontWeight: 700,
+                fontSize: '0.9rem',
+                outline: 'none',
+                transition: 'background 0.2s'
+              }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                🎓 2. Academic Credentials & Board Qualifications
+              </span>
+              <ChevronIcon isOpen={accordionOpen.academic} />
+            </button>
+            {accordionOpen.academic && (
+              <div style={{ padding: '20px 24px', borderTop: '1px solid var(--color-border, #E2E8F0)', background: 'var(--color-surface, #ffffff)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                  
+                  {/* Left Column: Post-Graduation and Graduation */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    {/* Post-Graduation Card */}
+                    <div style={{ border: '1px solid var(--color-border, #E2E8F0)', borderRadius: 12, padding: 16, background: '#F8FAFC' }}>
+                      <div style={{ fontWeight: 800, fontSize: '0.82rem', color: '#1E3A8A', borderBottom: '1px solid #E2E8F0', paddingBottom: 6, marginBottom: 10 }}>🎓 Post Graduation (PG) Details</div>
+                      {qualifications.postGraduation?.degree ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: '0.8rem' }}>
+                          <div><strong>Degree:</strong> {qualifications.postGraduation.degree}</div>
+                          <div><strong>Institution:</strong> {qualifications.postGraduation.college}</div>
+                          <div><strong>University:</strong> {qualifications.postGraduation.university}</div>
+                          <div><strong>Roll Number:</strong> {qualifications.postGraduation.rollNo || '—'}</div>
+                          <div><strong>Score obtained:</strong> {qualifications.postGraduation.marksObtained} / {qualifications.postGraduation.totalMarks} ({qualifications.postGraduation.percentage}%)</div>
+                          {qualifications.postGraduation.certificateUrl && (
+                            <div style={{ marginTop: 8, borderTop: '1px dashed #CBD5E1', paddingTop: 8 }}>
+                              <a 
+                                href={`${API_BASE_URL}${qualifications.postGraduation.certificateUrl}`} 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#1E3A8A', fontWeight: 700, textDecoration: 'none', fontSize: '0.78rem' }}
+                              >
+                                📄 View PG Degree Certificate
+                              </a>
+                            </div>
+                          )}
+                        </div>
                       ) : (
-                        drcMeetings.map((drc, idx) => (
-                          <div key={drc._id} style={{ borderBottom: idx < drcMeetings.length - 1 ? '1px solid #E2E8F0' : 'none', paddingBottom: idx < drcMeetings.length - 1 ? 10 : 0, paddingTop: idx > 0 ? 10 : 0 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0F172A' }}>DRC Session</span>
-                              <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: '0.7rem', fontWeight: 700, background: drc.status === 'APPROVED' ? '#D1FAE5' : drc.status === 'REVISION_REQUIRED' ? '#FEE2E2' : '#FEF3C7', color: drc.status === 'APPROVED' ? '#065F46' : drc.status === 'REVISION_REQUIRED' ? '#991B1B' : '#92400E' }}>
-                                {drc.status}
-                              </span>
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px', fontSize: '0.78rem', color: '#475569' }}>
-                              <div><strong>Date:</strong> {new Date(drc.scheduledDate).toLocaleDateString()}</div>
-                              <div><strong>Time:</strong> {drc.scheduledTime}</div>
-                              <div style={{ gridColumn: 'span 2' }}><strong>Venue:</strong> {drc.venue}</div>
-                              {drc.committeeMembers && <div style={{ gridColumn: 'span 2' }}><strong>Committee:</strong> {drc.committeeMembers}</div>}
-                              {drc.agenda && <div style={{ gridColumn: 'span 2' }}><strong>Agenda:</strong> {drc.agenda}</div>}
-                              {drc.remarks && <div style={{ gridColumn: 'span 2', background: '#FFFBEB', padding: 6, borderRadius: 6, color: '#92400E', borderLeft: '3px solid #F59E0B', marginTop: 4 }}><strong>Remarks:</strong> {drc.remarks}</div>}
-                            </div>
-
-                            {drc.status === 'SCHEDULED' && !showDrcResult && (
-                              <button type="button" className="btn-primary" onClick={() => { setSelectedDrc(drc); setShowDrcResult(true); }} style={{ marginTop: 10, padding: '5px 12px', fontSize: '0.75rem', background: '#059669' }}>📝 Record DRC Outcome</button>
-                            )}
-                          </div>
-                        ))
+                        <div style={{ fontSize: '0.78rem', color: '#64748B', fontStyle: 'italic' }}>No Post-Graduation details uploaded.</div>
                       )}
                     </div>
 
-                    {/* DRC Schedule Form */}
-                    {showDrcSchedule && (
-                      <form onSubmit={handleDrcScheduleSubmit} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 16, borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
-                        <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#1E293B' }}>Schedule DRC Meeting</div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                          <div>
-                            <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>Meeting Date</label>
-                            <input type="date" className="form-input" style={{ width: '100%', padding: '6px' }} value={drcForm.scheduledDate} onChange={e => setDrcForm({...drcForm, scheduledDate: e.target.value})} required />
-                          </div>
-                          <div>
-                            <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>Meeting Time</label>
-                            <input type="text" className="form-input" style={{ width: '100%', padding: '6px' }} placeholder="e.g. 11:00 AM" value={drcForm.scheduledTime} onChange={e => setDrcForm({...drcForm, scheduledTime: e.target.value})} required />
-                          </div>
+                    {/* Graduation Card */}
+                    <div style={{ border: '1px solid var(--color-border, #E2E8F0)', borderRadius: 12, padding: 16, background: '#F8FAFC' }}>
+                      <div style={{ fontWeight: 800, fontSize: '0.82rem', color: '#1E3A8A', borderBottom: '1px solid #E2E8F0', paddingBottom: 6, marginBottom: 10 }}>🎓 Graduation (UG) Details</div>
+                      {qualifications.graduation?.degree ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: '0.8rem' }}>
+                          <div><strong>Degree:</strong> {qualifications.graduation.degree}</div>
+                          <div><strong>Institution:</strong> {qualifications.graduation.college}</div>
+                          <div><strong>University:</strong> {qualifications.graduation.university}</div>
+                          <div><strong>Roll Number:</strong> {qualifications.graduation.rollNo || '—'}</div>
+                          <div><strong>Score obtained:</strong> {qualifications.graduation.marksObtained} / {qualifications.graduation.totalMarks} ({qualifications.graduation.percentage}%)</div>
+                          {qualifications.graduation.certificateUrl && (
+                            <div style={{ marginTop: 8, borderTop: '1px dashed #CBD5E1', paddingTop: 8 }}>
+                              <a 
+                                href={`${API_BASE_URL}${qualifications.graduation.certificateUrl}`} 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#1E3A8A', fontWeight: 700, textDecoration: 'none', fontSize: '0.78rem' }}
+                              >
+                                📄 View UG Degree Certificate
+                              </a>
+                            </div>
+                          )}
                         </div>
-                        <div>
-                          <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>Venue</label>
-                          <input type="text" className="form-input" style={{ width: '100%', padding: '6px' }} placeholder="e.g. Committee Room 1" value={drcForm.venue} onChange={e => setDrcForm({...drcForm, venue: e.target.value})} required />
-                        </div>
-                        <div>
-                          <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>Committee Panel Members</label>
-                          <input type="text" className="form-input" style={{ width: '100%', padding: '6px' }} placeholder="e.g. Dr. A. Sen (HOD), Prof. M. Roy" value={drcForm.committeeMembers} onChange={e => setDrcForm({...drcForm, committeeMembers: e.target.value})} />
-                        </div>
-                        <div>
-                          <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>Agenda / Focus Areas</label>
-                          <textarea className="form-input" style={{ width: '100%', padding: '6px', resize: 'vertical' }} rows="2" placeholder="e.g. Synopsis evaluation and research feasibility review." value={drcForm.agenda} onChange={e => setDrcForm({...drcForm, agenda: e.target.value})} />
-                        </div>
-                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                          <button type="button" className="btn-outline" onClick={() => setShowDrcSchedule(false)} style={{ padding: '4px 10px', fontSize: '0.75rem' }}>Cancel</button>
-                          <button type="submit" className="btn-primary" disabled={loading} style={{ padding: '4px 14px', fontSize: '0.75rem', background: '#3B82F6' }}>Schedule Event</button>
-                        </div>
-                      </form>
-                    )}
-
-                    {/* DRC Result Grading Form */}
-                    {showDrcResult && selectedDrc && (
-                      <form onSubmit={handleDrcResultSubmit} style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', padding: 16, borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
-                        <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#065F46' }}>Record DRC Meeting Outcome</div>
-                        <div>
-                          <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#047857', display: 'block', marginBottom: 4 }}>Committee Decision</label>
-                          <select className="form-input" style={{ width: '100%', padding: '6px' }} value={drcResultForm.status} onChange={e => setDrcResultForm({...drcResultForm, status: e.target.value})} required>
-                            <option value="APPROVED">APPROVED (Move Candidate to ACTIVE_RESEARCH)</option>
-                            <option value="REVISION_REQUIRED">REVISION REQUIRED (Revert Synopsis to Candidate)</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#047857', display: 'block', marginBottom: 4 }}>Minutes of Meeting / Remarks</label>
-                          <textarea className="form-input" style={{ width: '100%', padding: '6px', resize: 'vertical' }} rows="3" placeholder="Enter comments or required modifications..." value={drcResultForm.remarks} onChange={e => setDrcResultForm({...drcResultForm, remarks: e.target.value})} required />
-                        </div>
-                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                          <button type="button" className="btn-outline" onClick={() => { setShowDrcResult(false); setSelectedDrc(null); }} style={{ padding: '4px 10px', fontSize: '0.75rem' }}>Cancel</button>
-                          <button type="submit" className="btn-primary" disabled={loading} style={{ padding: '4px 14px', fontSize: '0.75rem', background: '#059669' }}>Submit Decision</button>
-                        </div>
-                      </form>
-                    )}
+                      ) : (
+                        <div style={{ fontSize: '0.78rem', color: '#64748B', fontStyle: 'italic' }}>No Graduation details uploaded.</div>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
-            );
-          })()}
-          {thesis.status === 'ACTIVE_RESEARCH' && (
-            <button className="btn-primary" onClick={() => act('seminar')} disabled={loading} style={{ padding: '6px 16px', fontSize: '0.85rem', background: '#EA580C' }}>✓ Clear Seminar → PRE_SUBMISSION</button>
-          )}
-          {thesis.status === 'SUBMITTED' && (
-            <button className="btn-primary" onClick={() => act('award')} disabled={loading} style={{ padding: '6px 16px', fontSize: '0.85rem', background: '#059669' }}>🎓 Award Degree</button>
-          )}
-        </div>
 
-        {/* Audit Log */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontWeight: 700, marginBottom: 8 }}>Audit Log</div>
-          <div style={{ maxHeight: 120, overflowY: 'auto', background: '#F9FAFB', borderRadius: 8, padding: 10 }}>
-            {thesis.auditLog?.length ? thesis.auditLog.map((l, i) => (
-              <div key={i} style={{ fontSize: '0.8rem', padding: '4px 0', borderBottom: '1px solid #E5E7EB' }}>
-                <strong>{l.action}</strong> — {l.note} <span style={{ color: '#9CA3AF' }}>({new Date(l.date).toLocaleDateString()})</span>
-              </div>
-            )) : <div style={{ fontSize: '0.85rem', color: '#9CA3AF' }}>No audit entries yet.</div>}
-          </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <input className="form-input" style={{ flex: 1, padding: '5px 10px' }} placeholder="Add audit note (e.g. thesis dispatched to examiner)" value={auditNote} onChange={e => setAuditNote(e.target.value)} />
-            <button className="btn-outline" onClick={() => act('audit', { action: 'MANUAL_NOTE', note: auditNote })} disabled={!auditNote || loading} style={{ padding: '5px 14px', fontSize: '0.85rem' }}>Add</button>
-          </div>
-        </div>
-
-        {milestones?.length > 0 && (
-          <div style={{ marginTop: 20 }}>
-            <div style={{ fontWeight: 700, marginBottom: 12, borderBottom: '2px solid #E5E7EB', paddingBottom: 6 }}>Academic Milestones History</div>
-            {milestones.map(m => (
-              <div key={m._id} style={{ border: '1px solid #E5E7EB', borderRadius: 10, padding: 12, marginBottom: 10, background: '#FAFAFA' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#1F2937' }}>{m.title}</div>
-                  <span style={{ padding: '3px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 600, background: m.status === 'APPROVED' ? '#D1FAE5' : m.status === 'SUBMITTED' ? '#DBEAFE' : m.status === 'REVISION_REQUIRED' ? '#FEE2E2' : '#FEF3C7', color: m.status === 'APPROVED' ? '#059669' : m.status === 'SUBMITTED' ? '#2563EB' : m.status === 'REVISION_REQUIRED' ? '#DC2626' : '#D97706' }}>
-                    {m.status}
-                  </span>
-                </div>
-                {m.documentUrl && (
-                  <a href={`${API_BASE_URL}${m.documentUrl}`} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', color: '#0284C7', fontSize: '0.82rem', fontWeight: 600, marginTop: 4, textDecoration: 'none' }}>
-                    📄 View Submitted Document
-                  </a>
-                )}
-                {m.comments?.length > 0 && (
-                  <div style={{ background: '#FFFBEB', borderRadius: 6, padding: 8, marginTop: 8, borderLeft: '3px solid #F59E0B' }}>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#B45309' }}>Supervisor Reviews & Remarks:</div>
-                    {m.comments.map((c, i) => (
-                      <div key={i} style={{ fontSize: '0.8rem', color: '#78350F', marginTop: 2 }}>
-                        "{c.text}" — <span style={{ fontWeight: 600 }}>{c.authorName}</span>
+                  {/* Right Column: Schooling and NET-JRF Exams */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    {/* Class 12th & 10th Card */}
+                    <div style={{ border: '1px solid var(--color-border, #E2E8F0)', borderRadius: 12, padding: 16, background: '#F8FAFC' }}>
+                      <div style={{ fontWeight: 800, fontSize: '0.82rem', color: '#065F46', borderBottom: '1px solid #E2E8F0', paddingBottom: 6, marginBottom: 10 }}>🏫 Board Schooling Details</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: '0.8rem' }}>
+                        {qualifications.class12?.rollNo ? (
+                          <div style={{ borderBottom: '1px dashed #CBD5E1', paddingBottom: 8 }}>
+                            <div style={{ fontWeight: 700, color: '#0F172A', marginBottom: 2 }}>Class 12th / Higher Secondary</div>
+                            <div>Board: {qualifications.class12.board} | School: {qualifications.class12.school}</div>
+                            <div>Roll No: {qualifications.class12.rollNo} | Score: {qualifications.class12.marksObtained}/{qualifications.class12.totalMarks} ({qualifications.class12.percentage}%)</div>
+                            {qualifications.class12.certificateUrl && (
+                              <div style={{ marginTop: 6 }}>
+                                <a 
+                                  href={`${API_BASE_URL}${qualifications.class12.certificateUrl}`} 
+                                  target="_blank" 
+                                  rel="noreferrer" 
+                                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#065F46', fontWeight: 700, textDecoration: 'none', fontSize: '0.78rem' }}
+                                >
+                                  📄 View Class 12 Certificate
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: '0.78rem', color: '#64748B', fontStyle: 'italic' }}>No Class 12th data uploaded.</div>
+                        )}
+                        {qualifications.class10?.rollNo ? (
+                          <div>
+                            <div style={{ fontWeight: 700, color: '#0F172A', marginBottom: 2 }}>Class 10th / Secondary</div>
+                            <div>Board: {qualifications.class10.board} | School: {qualifications.class10.school}</div>
+                            <div>Roll No: {qualifications.class10.rollNo} | Score: {qualifications.class10.marksObtained}/{qualifications.class10.totalMarks} ({qualifications.class10.percentage}%)</div>
+                            {qualifications.class10.certificateUrl && (
+                              <div style={{ marginTop: 6 }}>
+                                <a 
+                                  href={`${API_BASE_URL}${qualifications.class10.certificateUrl}`} 
+                                  target="_blank" 
+                                  rel="noreferrer" 
+                                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#065F46', fontWeight: 700, textDecoration: 'none', fontSize: '0.78rem' }}
+                                >
+                                  📄 View Class 10 Certificate
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: '0.78rem', color: '#64748B', fontStyle: 'italic' }}>No Class 10th data uploaded.</div>
+                        )}
                       </div>
-                    ))}
+                    </div>
+
+                    {/* NET-JRF details Card */}
+                    <div style={{ border: '1px solid var(--color-border, #E2E8F0)', borderRadius: 12, padding: 16, background: '#F8FAFC' }}>
+                      <div style={{ fontWeight: 800, fontSize: '0.82rem', color: '#B45309', borderBottom: '1px solid #E2E8F0', paddingBottom: 6, marginBottom: 10 }}>📝 National Level Exams (NET / JRF)</div>
+                      {qualifications.netJrf?.qualified ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: '0.8rem' }}>
+                          <div><strong>NET/JRF Qualified:</strong> <span style={{ color: '#D97706', fontWeight: 800 }}>YES</span></div>
+                          <div><strong>Certificate Number:</strong> {qualifications.netJrf.certNumber || '—'}</div>
+                          <div><strong>Roll Number:</strong> {qualifications.netJrf.rollNo || '—'}</div>
+                          <div><strong>Rank / Score:</strong> Rank {qualifications.netJrf.rank || 'N/A'} | Score {qualifications.netJrf.score || 'N/A'}</div>
+                          {qualifications.netJrf.issueDate && <div><strong>Certificate Issue Date:</strong> {new Date(qualifications.netJrf.issueDate).toLocaleDateString()}</div>}
+                          {qualifications.netJrf.certificateUrl && (
+                            <div style={{ marginTop: 8, borderTop: '1px dashed #CBD5E1', paddingTop: 8 }}>
+                              <a 
+                                href={`${API_BASE_URL}${qualifications.netJrf.certificateUrl}`} 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#B45309', fontWeight: 700, textDecoration: 'none', fontSize: '0.78rem' }}
+                              >
+                                📄 View NET-JRF Certificate
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <span style={{ fontSize: '0.78rem', color: '#64748B', fontStyle: 'italic' }}>No NET/JRF qualification reported by student.</span>
+                          {qualifications.other?.details && <div style={{ fontSize: '0.8rem', background: '#F1F5F9', padding: '6px 10px', borderRadius: 6, marginTop: 4 }}><strong>Other details:</strong> {qualifications.other.details}</div>}
+                          {qualifications.other?.certificateUrl && (
+                            <div style={{ marginTop: 8, borderTop: '1px dashed #CBD5E1', paddingTop: 8 }}>
+                              <a 
+                                href={`${API_BASE_URL}${qualifications.other.certificateUrl}`} 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#475569', fontWeight: 700, textDecoration: 'none', fontSize: '0.78rem' }}
+                              >
+                                📄 View Uploaded Certificate
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ACCORDION 3: Preferred Research Guide Selection */}
+          <div style={{ border: '1px solid var(--color-border, #E2E8F0)', borderRadius: 12, overflow: 'hidden', background: 'var(--color-surface, #ffffff)', flexShrink: 0 }}>
+            <button 
+              type="button"
+              onClick={() => toggleSection('guide')}
+              style={{
+                width: '100%',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '14px 20px',
+                background: 'var(--color-bg, #F8FAFC)',
+                border: 'none',
+                cursor: 'pointer',
+                textAlign: 'left',
+                color: 'var(--color-text, #1E293B)',
+                fontWeight: 700,
+                fontSize: '0.9rem',
+                outline: 'none',
+                transition: 'background 0.2s'
+              }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                👨‍🏫 3. Preferred Supervisor & Research Area
+              </span>
+              <ChevronIcon isOpen={accordionOpen.guide} />
+            </button>
+            {accordionOpen.guide && (
+              <div style={{ padding: '20px 24px', borderTop: '1px solid var(--color-border, #E2E8F0)', background: 'var(--color-surface, #ffffff)', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                
+                {/* Preferred Guide Profile */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-secondary, #64748B)', marginBottom: 6 }}>Scholar Preferred Supervisor Choice</label>
+                  {(() => {
+                    const prefId = profile.preferredGuideId;
+                    const guide = faculty.find(f => f._id === prefId);
+                    if (guide) {
+                      return (
+                        <div style={{ display: 'flex', gap: 12, alignItems: 'center', background: '#EFF6FF', border: '1px solid #BFDBFE', padding: '12px 18px', borderRadius: 12, color: '#1E40AF' }}>
+                          <span style={{ fontSize: '1.5rem' }}>👨‍🏫</span>
+                          <div>
+                            <div style={{ fontWeight: 800, fontSize: '0.9rem' }}>Prof. {guide.name} ({guide.subRole || 'FACULTY'})</div>
+                            <div style={{ fontSize: '0.78rem', opacity: 0.9 }}>Department of {guide.department} | Research Lead. Contact: {guide.username}</div>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div style={{ padding: '10px 14px', background: '#FEF3C7', border: '1px solid #FDE68A', color: '#B45309', borderRadius: 10, fontSize: '0.8rem', fontWeight: 600 }}>
+                        ⚠️ Scholar has not logged an official preferred supervisor choice during profile registration.
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Tentative Area of Research */}
+                <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 14, borderRadius: 12 }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: 4 }}>Tentative PhD Research Topic / Focus Area</div>
+                  <div style={{ fontWeight: 800, fontSize: '0.9rem', color: '#0F172A' }}>{profile.areaOfInterest || thesis.title || 'N/A'}</div>
+                </div>
+
+                {/* Research Statement Proposal */}
+                <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 14, borderRadius: 12 }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: 4 }}>Research Proposal / Academic Profile Statement</div>
+                  <div style={{ fontSize: '0.82rem', color: '#334155', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{profile.academicBackground || thesis.abstract || 'N/A'}</div>
+                </div>
+
+              </div>
+            )}
+          </div>
+
+          {/* DYNAMIC LIFECYCLE TRANSITIONS PANEL */}
+          <div style={{ background: 'linear-gradient(180deg, #F8FAFC 0%, #FFFFFF 100%)', border: '1px solid var(--color-border, #E2E8F0)', borderRadius: 16, padding: '20px 24px', flexShrink: 0 }}>
+            <h4 style={{ margin: '0 0 12px 0', fontSize: '0.92rem', fontWeight: 800, color: '#111827', borderBottom: '1px solid #E2E8F0', paddingBottom: 8 }}>
+              ⚙️ PhD Candidate Workspace & Verification Desk
+            </h4>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              
+              {/* Row 1: Registration Approval & Supervisor Allocation */}
+              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+                {/* 1. Registration Approval */}
+                {(!thesis.enrollmentVerified || thesis.status === 'REGISTRATION_PENDING') ? (
+                  <div style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', padding: 14, borderRadius: 12, flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: '0.85rem', color: '#065F46' }}>Registration Verification Pending</div>
+                      <div style={{ fontSize: '0.75rem', color: '#047857', marginTop: 2 }}>Verify student qualifications and register them to Coursework.</div>
+                    </div>
+                    <button 
+                      onClick={() => act('verify')} 
+                      disabled={loading} 
+                      className="btn-primary" 
+                      style={{ padding: '8px 18px', fontSize: '0.82rem', background: '#059669', color: 'white', fontWeight: 700, border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+                    >
+                      ✓ Approve Registration → COURSEWORK
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', padding: '8px 14px', borderRadius: 10, color: '#15803D', fontSize: '0.8rem', fontWeight: 700, display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                    <span>✅</span> Scholar Registration Approved & Verified
+                  </div>
+                )}
+
+                {/* 2. Allocate Supervisor */}
+                {thesis.status !== 'AWARDED' && (
+                  <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 12, borderRadius: 12, flex: 1, display: 'flex', gap: 10, alignItems: 'center' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: 4 }}>Supervisor Allocation Desk</div>
+                      <select 
+                        className="form-input" 
+                        style={{ padding: '6px 10px', height: 'auto', fontSize: '0.8rem', width: '100%' }} 
+                        value={selSupervisor} 
+                        onChange={e => setSelSupervisor(e.target.value)} 
+                        disabled={!!thesis.supervisorId}
+                      >
+                        <option value="">Choose department supervisor...</option>
+                        {faculty.filter(f => f.department === thesis.department).map(f => <option key={f._id} value={f._id}>Prof. {f.name} ({f.subRole || 'Supervisor'})</option>)}
+                      </select>
+                    </div>
+                    <button 
+                      className="btn-primary" 
+                      onClick={() => act('assign', { supervisorId: selSupervisor })} 
+                      disabled={!selSupervisor || !!thesis.supervisorId || loading} 
+                      style={{ padding: '8px 14px', fontSize: '0.8rem', alignSelf: 'flex-end', background: thesis.supervisorId ? '#059669' : '#3B82F6', fontWeight: 700, opacity: (thesis.supervisorId || !selSupervisor) ? 0.75 : 1 }}
+                    >
+                      {thesis.supervisorId ? '✓ Allocated' : 'Assign Guide'}
+                    </button>
                   </div>
                 )}
               </div>
-            ))}
+
+              {/* Row 2: Secondary phase triggers (Coursework Clear, Seminar Clear, Award Degree) */}
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                {thesis.status === 'COURSEWORK' && (
+                  <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', padding: 14, borderRadius: 12, width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: '0.85rem', color: '#1E40AF' }}>Exams & Coursework Phase</div>
+                      <div style={{ fontSize: '0.75rem', color: '#1D4ED8', marginTop: 2 }}>Scholar is completing coursework credits. Click below to confirm exams cleared.</div>
+                    </div>
+                    <button 
+                      onClick={() => act('coursework')} 
+                      disabled={loading} 
+                      className="btn-primary" 
+                      style={{ padding: '8px 18px', fontSize: '0.82rem', background: '#2563EB', fontWeight: 700, borderRadius: '8px' }}
+                    >
+                      ✓ Clear Coursework → SYNOPSIS
+                    </button>
+                  </div>
+                )}
+
+                {thesis.status === 'ACTIVE_RESEARCH' && (
+                  <div style={{ background: '#FFF7ED', border: '1px solid #FFEDD5', padding: 14, borderRadius: 12, width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: '0.85rem', color: '#C2410C' }}>Pre-Submission Colloquium</div>
+                      <div style={{ fontSize: '0.75rem', color: '#EA580C', marginTop: 2 }}>Log seminar defense sign-off to move scholar to Pre-Submission.</div>
+                    </div>
+                    <button 
+                      onClick={() => act('seminar')} 
+                      disabled={loading} 
+                      className="btn-primary" 
+                      style={{ padding: '8px 18px', fontSize: '0.82rem', background: '#EA580C', fontWeight: 700, borderRadius: '8px' }}
+                    >
+                      ✓ Clear Pre-Submission Seminar
+                    </button>
+                  </div>
+                )}
+
+                {thesis.status === 'SUBMITTED' && (
+                  <div style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', padding: 14, borderRadius: 12, width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: '0.85rem', color: '#065F46' }}>Ph.D. Defense & External Reports Approved</div>
+                      <div style={{ fontSize: '0.75rem', color: '#047857', marginTop: 2 }}>Thesis evaluated and defense cleared. Click to award doctoral degree.</div>
+                    </div>
+                    <button 
+                      onClick={() => act('award')} 
+                      disabled={loading} 
+                      className="btn-primary" 
+                      style={{ padding: '8px 18px', fontSize: '0.82rem', background: '#059669', fontWeight: 700, borderRadius: '8px' }}
+                    >
+                      🎓 Award Doctoral Degree
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Row 3: Department Research Committee (DRC) controls for Synopsis phase */}
+              {thesis.status === 'SYNOPSIS_PENDING' && (() => {
+                const synopsisMilestone = milestones.find(m => m.type === 'SYNOPSIS');
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', marginTop: 4 }}>
+                    {synopsisMilestone?.status !== 'APPROVED' ? (
+                      <div style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#991B1B', padding: '12px 16px', borderRadius: 10, fontSize: '0.8rem', fontWeight: 700 }}>
+                        ⚠️ <strong>DRC Scheduling Locked:</strong> Scholar's supervisor must review and digitally approve the Research Synopsis document copy before HOD committee scheduling is enabled.
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
+                        <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', color: '#15803D', padding: '10px 14px', borderRadius: 10, fontSize: '0.82rem', fontWeight: 700 }}>
+                          ✅ Synopsis Approved by Supervisor! Departmental Research Committee (DRC) review is unlocked.
+                        </div>
+
+                        {/* DRC Meetings Table */}
+                        <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 16, borderRadius: 12 }}>
+                          <div style={{ fontWeight: 800, fontSize: '0.85rem', color: '#334155', marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span>📆 DRC Meetings Status Desk</span>
+                            {drcMeetings.length === 0 && !showDrcSchedule && (
+                              <button type="button" className="btn-primary" onClick={() => setShowDrcSchedule(true)} style={{ padding: '5px 12px', fontSize: '0.75rem', background: '#3B82F6' }}>+ Schedule Meeting</button>
+                            )}
+                          </div>
+
+                          {drcMeetings.length === 0 ? (
+                            <div style={{ fontSize: '0.8rem', color: '#64748B', fontStyle: 'italic' }}>No Departmental Research Committee scheduled for synopsis yet.</div>
+                          ) : (
+                            drcMeetings.map((drc, idx) => (
+                              <div key={drc._id} style={{ borderBottom: idx < drcMeetings.length - 1 ? '1px solid #E2E8F0' : 'none', paddingBottom: idx < drcMeetings.length - 1 ? 12 : 0, paddingTop: idx > 0 ? 12 : 0 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                  <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#0F172A' }}>DRC Assessment Panel</span>
+                                  <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: '0.7rem', fontWeight: 700, background: drc.status === 'APPROVED' ? '#D1FAE5' : drc.status === 'REVISION_REQUIRED' ? '#FEE2E2' : '#FEF3C7', color: drc.status === 'APPROVED' ? '#065F46' : drc.status === 'REVISION_REQUIRED' ? '#991B1B' : '#D97706' }}>
+                                    {drc.status}
+                                  </span>
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px', fontSize: '0.78rem', color: '#475569', margin: '6px 0' }}>
+                                  <div><strong>Meeting Date:</strong> {new Date(drc.scheduledDate).toLocaleDateString()}</div>
+                                  <div><strong>Time:</strong> {drc.scheduledTime}</div>
+                                  <div style={{ gridColumn: 'span 2' }}><strong>Venue Location:</strong> {drc.venue}</div>
+                                  {drc.committeeMembers && <div style={{ gridColumn: 'span 2' }}><strong>Committee Panel:</strong> {drc.committeeMembers}</div>}
+                                  {drc.agenda && <div style={{ gridColumn: 'span 2' }}><strong>Review Agenda:</strong> {drc.agenda}</div>}
+                                  {drc.remarks && <div style={{ gridColumn: 'span 2', background: '#FFFBEB', padding: 8, borderRadius: 8, color: '#92400E', borderLeft: '3px solid #F59E0B', marginTop: 6, fontSize: '0.78rem' }}><strong>MoM Remarks:</strong> {drc.remarks}</div>}
+                                </div>
+
+                                {drc.status === 'SCHEDULED' && !showDrcResult && (
+                                  <button type="button" className="btn-primary" onClick={() => { setSelectedDrc(drc); setShowDrcResult(true); }} style={{ marginTop: 10, padding: '5px 12px', fontSize: '0.75rem', background: '#059669' }}>📝 Record DRC Outcome</button>
+                                )}
+                              </div>
+                            ))
+                          )}
+                        </div>
+
+                        {/* DRC Schedule Form */}
+                        {showDrcSchedule && (
+                          <form onSubmit={handleDrcScheduleSubmit} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 16, borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            <div style={{ fontWeight: 800, fontSize: '0.85rem', color: '#1E293B', borderBottom: '1px solid #E2E8F0', paddingBottom: 6 }}>Schedule DRC Panel Meeting</div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                              <div>
+                                <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>Meeting Date</label>
+                                <input type="date" className="form-input" style={{ width: '100%', padding: '6px', fontSize: '0.8rem' }} value={drcForm.scheduledDate} onChange={e => setDrcForm({...drcForm, scheduledDate: e.target.value})} required />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>Meeting Time</label>
+                                <input type="text" className="form-input" style={{ width: '100%', padding: '6px', fontSize: '0.8rem' }} placeholder="e.g. 11:30 AM" value={drcForm.scheduledTime} onChange={e => setDrcForm({...drcForm, scheduledTime: e.target.value})} required />
+                              </div>
+                            </div>
+                            <div>
+                              <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>Venue</label>
+                              <input type="text" className="form-input" style={{ width: '100%', padding: '6px', fontSize: '0.8rem' }} placeholder="e.g. HOD Board Room" value={drcForm.venue} onChange={e => setDrcForm({...drcForm, venue: e.target.value})} required />
+                            </div>
+                            <div>
+                              <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>Committee Panel Members</label>
+                              <input type="text" className="form-input" style={{ width: '100%', padding: '6px', fontSize: '0.8rem' }} placeholder="e.g. Dr. A. Sen (HOD), Prof. M. Roy, Dr. S. Ghose" value={drcForm.committeeMembers} onChange={e => setDrcForm({...drcForm, committeeMembers: e.target.value})} />
+                            </div>
+                            <div>
+                              <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>Agenda / Focus Areas</label>
+                              <textarea className="form-input" style={{ width: '100%', padding: '6px', resize: 'vertical', fontSize: '0.8rem' }} rows="2" placeholder="e.g. Feasibility review of candidate's synopsis and guide allocation." value={drcForm.agenda} onChange={e => setDrcForm({...drcForm, agenda: e.target.value})} />
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                              <button type="button" className="btn-outline" onClick={() => setShowDrcSchedule(false)} style={{ padding: '4px 10px', fontSize: '0.75rem' }}>Cancel</button>
+                              <button type="submit" className="btn-primary" disabled={loading} style={{ padding: '4px 14px', fontSize: '0.75rem', background: '#3B82F6' }}>Schedule Event</button>
+                            </div>
+                          </form>
+                        )}
+
+                        {/* DRC Result Grading Form */}
+                        {showDrcResult && selectedDrc && (
+                          <form onSubmit={handleDrcResultSubmit} style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', padding: 16, borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            <div style={{ fontWeight: 800, fontSize: '0.85rem', color: '#065F46', borderBottom: '1px solid #A7F3D0', paddingBottom: 6 }}>Record Committee Review Decision</div>
+                            <div>
+                              <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#047857', display: 'block', marginBottom: 4 }}>Committee Outcome Decision</label>
+                              <select className="form-input" style={{ width: '100%', padding: '6px', fontSize: '0.8rem' }} value={drcResultForm.status} onChange={e => setDrcResultForm({...drcResultForm, status: e.target.value})} required>
+                                <option value="APPROVED">APPROVED (Move Candidate to ACTIVE_RESEARCH)</option>
+                                <option value="REVISION_REQUIRED">REVISION REQUIRED (Revert Synopsis to Candidate)</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#047857', display: 'block', marginBottom: 4 }}>Minutes of Meeting / Evaluation remarks</label>
+                              <textarea className="form-input" style={{ width: '100%', padding: '6px', resize: 'vertical', fontSize: '0.8rem' }} rows="3" placeholder="Enter comments or required modifications in detail..." value={drcResultForm.remarks} onChange={e => setDrcResultForm({...drcResultForm, remarks: e.target.value})} required />
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                              <button type="button" className="btn-outline" onClick={() => { setShowDrcResult(false); setSelectedDrc(null); }} style={{ padding: '4px 10px', fontSize: '0.75rem' }}>Cancel</button>
+                              <button type="submit" className="btn-primary" disabled={loading} style={{ padding: '4px 14px', fontSize: '0.75rem', background: '#059669' }}>Submit Decision</button>
+                            </div>
+                          </form>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+            </div>
           </div>
-        )}
+
+          {/* ACCORDION 4: Operational History / Audit Trail */}
+          <div style={{ border: '1px solid var(--color-border, #E2E8F0)', borderRadius: 12, overflow: 'hidden', background: 'var(--color-surface, #ffffff)', flexShrink: 0 }}>
+            <button 
+              type="button"
+              onClick={() => toggleSection('timeline')}
+              style={{
+                width: '100%',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '14px 20px',
+                background: 'var(--color-bg, #F8FAFC)',
+                border: 'none',
+                cursor: 'pointer',
+                textAlign: 'left',
+                color: 'var(--color-text, #1E293B)',
+                fontWeight: 700,
+                fontSize: '0.9rem',
+                outline: 'none',
+                transition: 'background 0.2s'
+              }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                📜 4. Scholar Transition Timeline & Audit Logs
+              </span>
+              <ChevronIcon isOpen={accordionOpen.timeline} />
+            </button>
+            {accordionOpen.timeline && (
+              <div style={{ padding: '20px 24px', borderTop: '1px solid var(--color-border, #E2E8F0)', background: 'var(--color-surface, #ffffff)' }}>
+                <div style={{ maxHeight: 150, overflowY: 'auto', background: '#F8FAFC', borderRadius: 8, padding: 12, border: '1px solid #E2E8F0' }} className="custom-scrollbar">
+                  {thesis.auditLog?.length ? (
+                    thesis.auditLog.map((l, i) => (
+                      <div key={i} style={{ fontSize: '0.8rem', padding: '6px 0', borderBottom: i < thesis.auditLog.length - 1 ? '1px solid #E2E8F0' : 'none' }}>
+                        <strong style={{ color: '#1E3A8A' }}>{l.action}</strong> — {l.note} <span style={{ color: '#64748B', fontSize: '0.75rem' }}>({new Date(l.date).toLocaleString()})</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ fontSize: '0.8rem', color: '#9CA3AF', fontStyle: 'italic' }}>No audit trail recorded.</div>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                  <input 
+                    className="form-input" 
+                    style={{ flex: 1, padding: '6px 12px', fontSize: '0.8rem' }} 
+                    placeholder="Enter custom administrative note (e.g. certificates verified, dispatched documents)..." 
+                    value={auditNote} 
+                    onChange={e => setAuditNote(e.target.value)} 
+                  />
+                  <button 
+                    className="btn-outline" 
+                    onClick={() => { act('audit', { action: 'MANUAL_NOTE', note: auditNote }); setAuditNote(''); }} 
+                    disabled={!auditNote.trim() || loading} 
+                    style={{ padding: '6px 14px', fontSize: '0.8rem', fontWeight: 600 }}
+                  >
+                    Add Entry
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ACCORDION 5: Academic Milestones Progress */}
+          <div style={{ border: '1px solid var(--color-border, #E2E8F0)', borderRadius: 12, overflow: 'hidden', background: 'var(--color-surface, #ffffff)', flexShrink: 0 }}>
+            <button 
+              type="button"
+              onClick={() => toggleSection('milestones')}
+              style={{
+                width: '100%',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '14px 20px',
+                background: 'var(--color-bg, #F8FAFC)',
+                border: 'none',
+                cursor: 'pointer',
+                textAlign: 'left',
+                color: 'var(--color-text, #1E293B)',
+                fontWeight: 700,
+                fontSize: '0.9rem',
+                outline: 'none',
+                transition: 'background 0.2s'
+              }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                📁 5. Complete PhD Milestone History
+              </span>
+              <ChevronIcon isOpen={accordionOpen.milestones} />
+            </button>
+            {accordionOpen.milestones && (
+              <div style={{ padding: '20px 24px', borderTop: '1px solid var(--color-border, #E2E8F0)', background: 'var(--color-surface, #ffffff)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {milestones?.length > 0 ? (
+                  milestones.map(m => (
+                    <div key={m._id} style={{ border: '1px solid #E2E8F0', borderRadius: 12, padding: 14, background: '#F8FAFC' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#1E293B' }}>{m.title}</div>
+                        <span style={{ padding: '3px 9px', borderRadius: 12, fontSize: '0.72rem', fontWeight: 700, background: m.status === 'APPROVED' ? '#D1FAE5' : m.status === 'SUBMITTED' ? '#DBEAFE' : m.status === 'REVISION_REQUIRED' ? '#FEE2E2' : '#FEF3C7', color: m.status === 'APPROVED' ? '#065F46' : m.status === 'SUBMITTED' ? '#1D4ED8' : m.status === 'REVISION_REQUIRED' ? '#991B1B' : '#D97706' }}>
+                          {m.status}
+                        </span>
+                      </div>
+                      {m.documentUrl && (
+                        <a href={`${API_BASE_URL}${m.documentUrl}`} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', color: '#2563EB', fontSize: '0.8rem', fontWeight: 700, marginTop: 4, textDecoration: 'none' }}>
+                          📄 Download Submitted File Proof ⬇️
+                        </a>
+                      )}
+                      {m.comments?.length > 0 && (
+                        <div style={{ background: '#FFFBEB', borderRadius: 8, padding: 10, marginTop: 8, borderLeft: '3px solid #F59E0B', fontSize: '0.78rem' }}>
+                          <div style={{ fontWeight: 700, color: '#B45309', marginBottom: 4 }}>Supervisor Remarks Log:</div>
+                          {m.comments.map((c, i) => (
+                            <div key={i} style={{ color: '#78350F', marginTop: 2, borderBottom: i < m.comments.length - 1 ? '1px dashed #FDE68A' : 'none', paddingBottom: i < m.comments.length - 1 ? 4 : 0 }}>
+                              "{c.text}" — <span style={{ fontWeight: 700 }}>{c.authorName}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ fontSize: '0.8rem', color: '#64748B', fontStyle: 'italic' }}>No academic milestones logged yet.</div>
+                )}
+              </div>
+            )}
+          </div>
+
+        </div>
       </div>
     </div>
   );
@@ -1186,7 +1739,7 @@ const HODDocumentEvaluationModal = ({ doc, onClose, onRefresh }) => {
       inset: 0, 
       background: 'rgba(0,0,0,0.6)', 
       backdropFilter: 'blur(4px)', 
-      zIndex: 1100, 
+      zIndex: 99999, 
       display: 'flex', 
       alignItems: 'center', 
       justifyContent: 'center', 
