@@ -106,7 +106,8 @@ connectDB().then(async () => {
 });
 
 // Ensure uploads directory exists
-if (!fs.existsSync('./uploads')) fs.mkdirSync('./uploads');
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
 
 // Middleware
 app.use(cors());

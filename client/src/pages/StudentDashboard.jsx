@@ -2260,6 +2260,15 @@ const ProfileTab = () => {
   const [avatarLoading, setAvatarLoading] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState('');
   const [selectedFileNames, setSelectedFileNames] = useState({});
+  const [editModes, setEditModes] = useState({
+    general: false,
+    class10: false,
+    class12: false,
+    graduation: false,
+    postGraduation: false,
+    netJrf: false,
+    other: false
+  });
 
   // Common ERP fields
   const [dob, setDob] = useState(user?.profile?.dob ? user.profile.dob.split('T')[0] : '');
@@ -2389,6 +2398,27 @@ const ProfileTab = () => {
 
       // Other
       setOtherDetails(q?.other?.details || '');
+
+      // Initialize editModes based on if database has values
+      setEditModes(prev => ({
+        general: prev.general || !user?.profile?.dob,
+        class10: prev.class10 || !q?.class10?.rollNo,
+        class12: prev.class12 || !q?.class12?.rollNo,
+        graduation: prev.graduation || !q?.graduation?.rollNo,
+        postGraduation: prev.postGraduation || !q?.postGraduation?.rollNo,
+        netJrf: prev.netJrf || (q?.netJrf?.qualified && !q?.netJrf?.rollNo),
+        other: prev.other || !q?.other
+      }));
+    } else {
+      setEditModes({
+        general: true,
+        class10: true,
+        class12: true,
+        graduation: true,
+        postGraduation: true,
+        netJrf: true,
+        other: true
+      });
     }
   }, [user]);
 
@@ -2429,6 +2459,29 @@ const ProfileTab = () => {
     } else {
       toast.error(`Upload failed: ${res.message}`);
     }
+  };
+
+  const handleSaveAcademicDetails = async (e) => {
+    e.preventDefault();
+    const q = user?.profile?.qualifications;
+    const missing = [];
+    if (!q?.class10?.rollNo || !q?.class10?.certificateUrl) missing.push('Class 10 Details & Certificate');
+    if (!q?.class12?.rollNo || !q?.class12?.certificateUrl) missing.push('Class 12 Details & Certificate');
+    if (!q?.graduation?.rollNo || !q?.graduation?.certificateUrl) missing.push('Graduation Details & Certificate');
+    if (!q?.postGraduation?.rollNo || !q?.postGraduation?.certificateUrl) missing.push('Post Graduation Details & Certificate');
+    
+    if (netJrfQualified === 'YES') {
+      if (!q?.netJrf?.rollNo || !q?.netJrf?.certificateUrl) {
+        missing.push('NET JRF Details & Certificate');
+      }
+    }
+    
+    if (missing.length > 0) {
+      toast.error(`Please save all required academic qualifications and upload their certificates first: ${missing.join(', ')}`);
+      return;
+    }
+    
+    await handleUpdate(e);
   };
 
   const handleUpdate = async (e) => {
@@ -2518,9 +2571,14 @@ const ProfileTab = () => {
     setLoading(false);
     if (res.success) {
       let msg = 'PhD Scholar profile details updated successfully!';
-      if (subTab === 'general') msg = 'General Information saved successfully!';
-      else if (subTab === 'academic') msg = 'Academic details saved successfully!';
-      else if (subTab === 'guide') msg = 'Preferred guide details saved successfully!';
+      if (subTab === 'general') {
+        msg = 'General Information saved successfully!';
+        setEditModes(prev => ({ ...prev, general: false }));
+      } else if (subTab === 'academic') {
+        msg = 'Academic details saved successfully!';
+      } else if (subTab === 'guide') {
+        msg = 'Preferred guide details saved successfully!';
+      }
       toast.success(msg);
     } else {
       toast.error('Failed to update profile: ' + res.message);
@@ -2532,6 +2590,11 @@ const ProfileTab = () => {
     let sectionData = {};
     
     if (sectionKey === 'class10') {
+      if (!class10Roll.trim() || !class10Board.trim() || !class10School.trim() || !class10Marks.trim() || !class10Total.trim() || !class10Percentage.trim()) {
+        toast.error('Please fill in all Class 10 details before saving.');
+        setLoading(false);
+        return;
+      }
       sectionData = {
         rollNo: class10Roll,
         board: class10Board,
@@ -2542,6 +2605,11 @@ const ProfileTab = () => {
         certificateUrl: user?.profile?.qualifications?.class10?.certificateUrl
       };
     } else if (sectionKey === 'class12') {
+      if (!class12Roll.trim() || !class12Board.trim() || !class12School.trim() || !class12Marks.trim() || !class12Total.trim() || !class12Percentage.trim()) {
+        toast.error('Please fill in all Class 12 details before saving.');
+        setLoading(false);
+        return;
+      }
       sectionData = {
         rollNo: class12Roll,
         board: class12Board,
@@ -2552,6 +2620,11 @@ const ProfileTab = () => {
         certificateUrl: user?.profile?.qualifications?.class12?.certificateUrl
       };
     } else if (sectionKey === 'graduation') {
+      if (!gradRoll.trim() || !gradDegree.trim() || !gradCollege.trim() || !gradUniversity.trim() || !gradMarks.trim() || !gradTotal.trim() || !gradPercentage.trim()) {
+        toast.error('Please fill in all Graduation details before saving.');
+        setLoading(false);
+        return;
+      }
       sectionData = {
         rollNo: gradRoll,
         degree: gradDegree,
@@ -2563,6 +2636,11 @@ const ProfileTab = () => {
         certificateUrl: user?.profile?.qualifications?.graduation?.certificateUrl
       };
     } else if (sectionKey === 'postGraduation') {
+      if (!pgRoll.trim() || !pgDegree.trim() || !pgCollege.trim() || !pgUniversity.trim() || !pgMarks.trim() || !pgTotal.trim() || !pgPercentage.trim()) {
+        toast.error('Please fill in all Post Graduation details before saving.');
+        setLoading(false);
+        return;
+      }
       sectionData = {
         rollNo: pgRoll,
         degree: pgDegree,
@@ -2574,6 +2652,13 @@ const ProfileTab = () => {
         certificateUrl: user?.profile?.qualifications?.postGraduation?.certificateUrl
       };
     } else if (sectionKey === 'netJrf') {
+      if (netJrfQualified === 'YES') {
+        if (!netJrfCertNumber.trim() || !netJrfRoll.trim() || !netJrfRank.trim() || !netJrfScore.trim() || !netJrfIssueDate.trim()) {
+          toast.error('Please fill in all NET JRF details before saving.');
+          setLoading(false);
+          return;
+        }
+      }
       sectionData = {
         qualified: netJrfQualified === 'YES',
         certNumber: netJrfCertNumber,
@@ -2585,8 +2670,8 @@ const ProfileTab = () => {
       };
     } else if (sectionKey === 'other') {
       sectionData = {
-        details: otherDetails,
-        certificateUrl: user?.profile?.qualifications?.other?.certificateUrl
+        details: otherDetails || '',
+        certificateUrl: user?.profile?.qualifications?.other?.certificateUrl || ''
       };
     }
 
@@ -2603,6 +2688,7 @@ const ProfileTab = () => {
     if (res.success) {
       const prettyName = sectionKey === 'netJrf' ? 'NET JRF' : sectionKey.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
       toast.success(`${prettyName} details saved successfully!`);
+      setEditModes(prev => ({ ...prev, [sectionKey]: false }));
     } else {
       toast.error(`Failed to save details: ${res.message}`);
     }
@@ -2639,6 +2725,9 @@ const ProfileTab = () => {
         </div>
       );
     }
+    if (docType === 'other') {
+      return <span style={{ fontSize: '0.75rem', padding: '4px 8px', borderRadius: '12px', background: '#F3F4F6', color: '#6B7280', fontWeight: 600 }}>Optional</span>;
+    }
     return <span style={{ fontSize: '0.75rem', padding: '4px 8px', borderRadius: '12px', background: '#F3F4F6', color: '#6B7280', fontWeight: 600 }}>Pending Upload</span>;
   };
 
@@ -2667,7 +2756,6 @@ const ProfileTab = () => {
           fontSize: '0.75rem', 
           fontWeight: 600, 
           cursor: 'pointer', 
-          display: 'block', 
           textAlign: 'center',
           transition: 'all 0.2s',
           boxShadow: isUploaded ? '0 2px 4px rgba(217, 119, 6, 0.2)' : 'none'
@@ -2865,111 +2953,203 @@ const ProfileTab = () => {
         </button>
       </div>
 
-      <form onSubmit={handleUpdate} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <form onSubmit={subTab === 'academic' ? handleSaveAcademicDetails : handleUpdate} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         {/* --- Tab 1: General Information --- */}
         {subTab === 'general' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#133A26', margin: '0 0 8px 0' }}>Personal & Institutional ERP Details</h3>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Full Name</label>
-                <input type="text" className="form-input" value={user?.name} disabled style={{ background: '#F1F5F9', color: '#64748B' }} />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>University Email (ID)</label>
-                <input type="text" className="form-input" value={user?.username} disabled style={{ background: '#F1F5F9', color: '#64748B' }} />
-              </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#133A26', margin: 0 }}>Personal & ERP Details</h3>
+              {!editModes.general && (
+                <button
+                  type="button"
+                  onClick={() => setEditModes(prev => ({ ...prev, general: true }))}
+                  style={{ background: '#3B82F6', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(59, 130, 246, 0.15)', transition: 'all 0.2s' }}
+                >
+                  ✏️ Edit General Info
+                </button>
+              )}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Date of Birth <span style={{ color: '#EF4444' }}>*</span></label>
-                <input type="date" className="form-input" value={dob} onChange={e => setDob(e.target.value)} required />
+            {!editModes.general ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '20px', fontSize: '0.85rem' }}>
+                  <div>
+                    <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Full Name</span>
+                    <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{user?.name || '—'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>University Email</span>
+                    <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{user?.username || '—'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Date of Birth</span>
+                    <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{dob || '—'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Enrollment Number</span>
+                    <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{enrollmentNumber || '—'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Gender</span>
+                    <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{gender || '—'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Social Category</span>
+                    <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{category || '—'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Father's Name</span>
+                    <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{fatherName || '—'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Mother's Name</span>
+                    <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{motherName || '—'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Nationality</span>
+                    <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{nationality || '—'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Date of Admission</span>
+                    <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{admissionDate || '—'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Ph.D. Mode</span>
+                    <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{phdMode || '—'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Specialization</span>
+                    <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{specialization || '—'}</strong>
+                  </div>
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Area of Research Interest</span>
+                    <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{areaOfInterest || '—'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Phone Number</span>
+                    <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{phoneNumber || '—'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Residential Address</span>
+                    <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{address || '—'}</strong>
+                  </div>
+                </div>
               </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>University Enrollment Number <span style={{ color: '#EF4444' }}>*</span></label>
-                <input type="text" className="form-input" placeholder="Enter enrollment number" value={enrollmentNumber} onChange={e => setEnrollmentNumber(e.target.value)} required />
-              </div>
-            </div>
+            ) : (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Full Name</label>
+                    <input type="text" className="form-input" value={user?.name} disabled style={{ background: '#F1F5F9', color: '#64748B' }} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>University Email (ID)</label>
+                    <input type="text" className="form-input" value={user?.username} disabled style={{ background: '#F1F5F9', color: '#64748B' }} />
+                  </div>
+                </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Gender <span style={{ color: '#EF4444' }}>*</span></label>
-                <select className="form-input" value={gender} onChange={e => setGender(e.target.value)} required>
-                  <option value="">Select...</option>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Social Category <span style={{ color: '#EF4444' }}>*</span></label>
-                <select className="form-input" value={category} onChange={e => setCategory(e.target.value)} required>
-                  <option value="">Select Category...</option>
-                  <option value="General">General / Unreserved</option>
-                  <option value="OBC">OBC (Other Backward Classes)</option>
-                  <option value="SC">SC (Scheduled Caste)</option>
-                  <option value="ST">ST (Scheduled Tribe)</option>
-                  <option value="EWS">EWS (Economically Weaker Section)</option>
-                </select>
-              </div>
-            </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Date of Birth <span style={{ color: '#EF4444' }}>*</span></label>
+                    <input type="date" className="form-input" value={dob} onChange={e => setDob(e.target.value)} required />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>University Enrollment Number <span style={{ color: '#EF4444' }}>*</span></label>
+                    <input type="text" className="form-input" placeholder="Enter enrollment number" value={enrollmentNumber} onChange={e => setEnrollmentNumber(e.target.value)} required />
+                  </div>
+                </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Father's Name <span style={{ color: '#EF4444' }}>*</span></label>
-                <input type="text" className="form-input" placeholder="Father's full name" value={fatherName} onChange={e => setFatherName(e.target.value)} required />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Mother's Name <span style={{ color: '#EF4444' }}>*</span></label>
-                <input type="text" className="form-input" placeholder="Mother's full name" value={motherName} onChange={e => setMotherName(e.target.value)} required />
-              </div>
-            </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Gender <span style={{ color: '#EF4444' }}>*</span></label>
+                    <select className="form-input" value={gender} onChange={e => setGender(e.target.value)} required>
+                      <option value="">Select...</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Social Category <span style={{ color: '#EF4444' }}>*</span></label>
+                    <select className="form-input" value={category} onChange={e => setCategory(e.target.value)} required>
+                      <option value="">Select Category...</option>
+                      <option value="General">General / Unreserved</option>
+                      <option value="OBC">OBC (Other Backward Classes)</option>
+                      <option value="SC">SC (Scheduled Caste)</option>
+                      <option value="ST">ST (Scheduled Tribe)</option>
+                      <option value="EWS">EWS (Economically Weaker Section)</option>
+                    </select>
+                  </div>
+                </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Nationality <span style={{ color: '#EF4444' }}>*</span></label>
-                <input type="text" className="form-input" placeholder="e.g. Indian" value={nationality} onChange={e => setNationality(e.target.value)} required />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Date of Admission <span style={{ color: '#EF4444' }}>*</span></label>
-                <input type="date" className="form-input" value={admissionDate} onChange={e => setAdmissionDate(e.target.value)} required />
-              </div>
-            </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Father's Name <span style={{ color: '#EF4444' }}>*</span></label>
+                    <input type="text" className="form-input" placeholder="Father's full name" value={fatherName} onChange={e => setFatherName(e.target.value)} required />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Mother's Name <span style={{ color: '#EF4444' }}>*</span></label>
+                    <input type="text" className="form-input" placeholder="Mother's full name" value={motherName} onChange={e => setMotherName(e.target.value)} required />
+                  </div>
+                </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Mode of Ph.D. <span style={{ color: '#EF4444' }}>*</span></label>
-                <select className="form-input" value={phdMode} onChange={e => setPhdMode(e.target.value)} required>
-                  <option value="">Select Mode...</option>
-                  <option value="Full-time">Full-time Regular</option>
-                  <option value="Part-time">Part-time / Sponsored</option>
-                </select>
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Area of Specialization <span style={{ color: '#EF4444' }}>*</span></label>
-                <input type="text" className="form-input" placeholder="e.g. Machine Learning, Structural Bio" value={specialization} onChange={e => setSpecialization(e.target.value)} required />
-              </div>
-            </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Nationality <span style={{ color: '#EF4444' }}>*</span></label>
+                    <input type="text" className="form-input" placeholder="e.g. Indian" value={nationality} onChange={e => setNationality(e.target.value)} required />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Date of Admission <span style={{ color: '#EF4444' }}>*</span></label>
+                    <input type="date" className="form-input" value={admissionDate} onChange={e => setAdmissionDate(e.target.value)} required />
+                  </div>
+                </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Area of Research Interest <span style={{ color: '#EF4444' }}>*</span></label>
-                <input type="text" className="form-input" placeholder="Specific research title domain" value={areaOfInterest} onChange={e => setAreaOfInterest(e.target.value)} required />
-              </div>
-            </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Mode of Ph.D. <span style={{ color: '#EF4444' }}>*</span></label>
+                    <select className="form-input" value={phdMode} onChange={e => setPhdMode(e.target.value)} required>
+                      <option value="">Select Mode...</option>
+                      <option value="Full-time">Full-time Regular</option>
+                      <option value="Part-time">Part-time / Sponsored</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Area of Specialization <span style={{ color: '#EF4444' }}>*</span></label>
+                    <input type="text" className="form-input" placeholder="e.g. Machine Learning, Structural Bio" value={specialization} onChange={e => setSpecialization(e.target.value)} required />
+                  </div>
+                </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Phone Number (Indian Format) <span style={{ color: '#EF4444' }}>*</span></label>
-                <input type="text" className="form-input" placeholder="Enter 10-digit mobile number" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} required />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Full Residential Address <span style={{ color: '#EF4444' }}>*</span></label>
-                <input type="text" className="form-input" placeholder="Street, City, State, ZIP" value={address} onChange={e => setAddress(e.target.value)} required />
-              </div>
-            </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Area of Research Interest <span style={{ color: '#EF4444' }}>*</span></label>
+                    <input type="text" className="form-input" placeholder="Specific research title domain" value={areaOfInterest} onChange={e => setAreaOfInterest(e.target.value)} required />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Phone Number (Indian Format) <span style={{ color: '#EF4444' }}>*</span></label>
+                    <input type="text" className="form-input" placeholder="Enter 10-digit mobile number" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} required />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Full Residential Address <span style={{ color: '#EF4444' }}>*</span></label>
+                    <input type="text" className="form-input" placeholder="Street, City, State, ZIP" value={address} onChange={e => setAddress(e.target.value)} required />
+                  </div>
+                </div>
+
+                {user?.profile?.dob && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setEditModes(prev => ({ ...prev, general: false }))}
+                      style={{ background: '#6B7280', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer' }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
 
@@ -2978,292 +3158,598 @@ const ProfileTab = () => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             
             {/* Class 10 Card */}
-            <div style={{ border: '1px solid #E5E7EB', borderRadius: '12px', padding: '16px', background: '#F9FAFB' }}>
+            <div style={{ border: '1px solid #E5E7EB', borderRadius: '12px', padding: '16px', background: '#F9FAFB', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#133A26', margin: 0 }}>Class 10 (Secondary) Details</h4>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1E293B', margin: 0 }}>Class 10 (Secondary) Details</h4>
                 {getDocBadge('class10', user?.profile?.qualifications?.class10?.certificateUrl)}
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+              
+              {!editModes.class10 ? (
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Roll Number</label>
-                  <input type="text" className="form-input" placeholder="Roll No" value={class10Roll} onChange={e => setClass10Roll(e.target.value)} />
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', background: '#F8FAFC', border: '1px solid #F1F5F9', borderRadius: '8px', padding: '16px', fontSize: '0.85rem', marginBottom: '16px' }}>
+                    <div>
+                      <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Roll Number</span>
+                      <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{class10Roll || '—'}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Board of Examination</span>
+                      <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{class10Board || '—'}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>School Name</span>
+                      <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{class10School || '—'}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Marks Obtained / Total</span>
+                      <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{class10Marks || '0'} / {class10Total || '0'}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Percentage (%)</span>
+                      <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{class10Percentage || '0%'}</strong>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #E5E7EB', paddingTop: '12px' }}>
+                    <div>
+                      {getUploadButton('class10', user?.profile?.qualifications?.class10?.certificateUrl)}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditModes(prev => ({ ...prev, class10: true }))}
+                      style={{ background: '#3B82F6', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(59, 130, 246, 0.15)', transition: 'all 0.2s' }}
+                    >
+                      ✏️ Edit Class 10 Details
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Board of Examination</label>
-                  <input type="text" className="form-input" placeholder="e.g. CBSE, ICSE" value={class10Board} onChange={e => setClass10Board(e.target.value)} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>School Name</label>
-                  <input type="text" className="form-input" placeholder="School Name" value={class10School} onChange={e => setClass10School(e.target.value)} />
-                </div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', alignItems: 'flex-end' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Marks Obtained</label>
-                  <input type="number" step="0.01" className="form-input" placeholder="Marks" value={class10Marks} onChange={e => setClass10Marks(e.target.value)} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Total Marks</label>
-                  <input type="number" step="0.01" className="form-input" placeholder="Total" value={class10Total} onChange={e => setClass10Total(e.target.value)} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Percentage (%)</label>
-                  <input type="text" className="form-input" placeholder="e.g. 92.5%" value={class10Percentage} onChange={e => setClass10Percentage(e.target.value)} />
-                </div>
-                <div>
-                  {getUploadButton('class10', user?.profile?.qualifications?.class10?.certificateUrl)}
-                </div>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E5E7EB' }}>
-                <button
-                  type="button"
-                  onClick={() => saveSection('class10')}
-                  disabled={loading}
-                  style={{ background: '#059669', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)', transition: 'all 0.2s' }}
-                >
-                  💾 Save Class 10 Details
-                </button>
-              </div>
+              ) : (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Roll Number</label>
+                      <input type="text" className="form-input" placeholder="Roll No" value={class10Roll} onChange={e => setClass10Roll(e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Board of Examination</label>
+                      <input type="text" className="form-input" placeholder="e.g. CBSE, ICSE" value={class10Board} onChange={e => setClass10Board(e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>School Name</label>
+                      <input type="text" className="form-input" placeholder="School Name" value={class10School} onChange={e => setClass10School(e.target.value)} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', alignItems: 'flex-end' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Marks Obtained</label>
+                      <input type="number" step="0.01" className="form-input" placeholder="Marks" value={class10Marks} onChange={e => setClass10Marks(e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Total Marks</label>
+                      <input type="number" step="0.01" className="form-input" placeholder="Total" value={class10Total} onChange={e => setClass10Total(e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Percentage (%)</label>
+                      <input type="text" className="form-input" placeholder="e.g. 92.5%" value={class10Percentage} onChange={e => setClass10Percentage(e.target.value)} />
+                    </div>
+                    <div>
+                      {getUploadButton('class10', user?.profile?.qualifications?.class10?.certificateUrl)}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E5E7EB' }}>
+                    {user?.profile?.qualifications?.class10?.rollNo && (
+                      <button
+                        type="button"
+                        onClick={() => setEditModes(prev => ({ ...prev, class10: false }))}
+                        style={{ background: '#6B7280', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer' }}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => saveSection('class10')}
+                      disabled={loading}
+                      style={{ background: '#059669', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)', transition: 'all 0.2s' }}
+                    >
+                      💾 Save Class 10 Details
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Class 12 Card */}
-            <div style={{ border: '1px solid #E5E7EB', borderRadius: '12px', padding: '16px', background: '#F9FAFB' }}>
+            <div style={{ border: '1px solid #E5E7EB', borderRadius: '12px', padding: '16px', background: '#F9FAFB', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#133A26', margin: 0 }}>Class 12 (Higher Secondary) Details</h4>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1E293B', margin: 0 }}>Class 12 (Higher Secondary) Details</h4>
                 {getDocBadge('class12', user?.profile?.qualifications?.class12?.certificateUrl)}
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+              
+              {!editModes.class12 ? (
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Roll Number</label>
-                  <input type="text" className="form-input" placeholder="Roll No" value={class12Roll} onChange={e => setClass12Roll(e.target.value)} />
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', background: '#F8FAFC', border: '1px solid #F1F5F9', borderRadius: '8px', padding: '16px', fontSize: '0.85rem', marginBottom: '16px' }}>
+                    <div>
+                      <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Roll Number</span>
+                      <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{class12Roll || '—'}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Board of Examination</span>
+                      <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{class12Board || '—'}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>School/College Name</span>
+                      <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{class12School || '—'}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Marks Obtained / Total</span>
+                      <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{class12Marks || '0'} / {class12Total || '0'}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Percentage (%)</span>
+                      <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{class12Percentage || '0%'}</strong>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #E5E7EB', paddingTop: '12px' }}>
+                    <div>
+                      {getUploadButton('class12', user?.profile?.qualifications?.class12?.certificateUrl)}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditModes(prev => ({ ...prev, class12: true }))}
+                      style={{ background: '#3B82F6', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(59, 130, 246, 0.15)', transition: 'all 0.2s' }}
+                    >
+                      ✏️ Edit Class 12 Details
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Board of Examination</label>
-                  <input type="text" className="form-input" placeholder="e.g. CBSE, State Board" value={class12Board} onChange={e => setClass12Board(e.target.value)} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>School/College Name</label>
-                  <input type="text" className="form-input" placeholder="School/College Name" value={class12School} onChange={e => setClass12School(e.target.value)} />
-                </div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', alignItems: 'flex-end' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Marks Obtained</label>
-                  <input type="number" step="0.01" className="form-input" placeholder="Marks" value={class12Marks} onChange={e => setClass12Marks(e.target.value)} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Total Marks</label>
-                  <input type="number" step="0.01" className="form-input" placeholder="Total" value={class12Total} onChange={e => setClass12Total(e.target.value)} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Percentage (%)</label>
-                  <input type="text" className="form-input" placeholder="e.g. 88.2%" value={class12Percentage} onChange={e => setClass12Percentage(e.target.value)} />
-                </div>
-                <div>
-                  {getUploadButton('class12', user?.profile?.qualifications?.class12?.certificateUrl)}
-                </div>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E5E7EB' }}>
-                <button
-                  type="button"
-                  onClick={() => saveSection('class12')}
-                  disabled={loading}
-                  style={{ background: '#059669', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)', transition: 'all 0.2s' }}
-                >
-                  💾 Save Class 12 Details
-                </button>
-              </div>
+              ) : (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Roll Number</label>
+                      <input type="text" className="form-input" placeholder="Roll No" value={class12Roll} onChange={e => setClass12Roll(e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Board of Examination</label>
+                      <input type="text" className="form-input" placeholder="e.g. CBSE, State Board" value={class12Board} onChange={e => setClass12Board(e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>School/College Name</label>
+                      <input type="text" className="form-input" placeholder="School/College Name" value={class12School} onChange={e => setClass12School(e.target.value)} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', alignItems: 'flex-end' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Marks Obtained</label>
+                      <input type="number" step="0.01" className="form-input" placeholder="Marks" value={class12Marks} onChange={e => setClass12Marks(e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Total Marks</label>
+                      <input type="number" step="0.01" className="form-input" placeholder="Total" value={class12Total} onChange={e => setClass12Total(e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Percentage (%)</label>
+                      <input type="text" className="form-input" placeholder="e.g. 88.2%" value={class12Percentage} onChange={e => setClass12Percentage(e.target.value)} />
+                    </div>
+                    <div>
+                      {getUploadButton('class12', user?.profile?.qualifications?.class12?.certificateUrl)}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E5E7EB' }}>
+                    {user?.profile?.qualifications?.class12?.rollNo && (
+                      <button
+                        type="button"
+                        onClick={() => setEditModes(prev => ({ ...prev, class12: false }))}
+                        style={{ background: '#6B7280', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer' }}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => saveSection('class12')}
+                      disabled={loading}
+                      style={{ background: '#059669', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)', transition: 'all 0.2s' }}
+                    >
+                      💾 Save Class 12 Details
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Graduation Card */}
-            <div style={{ border: '1px solid #E5E7EB', borderRadius: '12px', padding: '16px', background: '#F9FAFB' }}>
+            <div style={{ border: '1px solid #E5E7EB', borderRadius: '12px', padding: '16px', background: '#F9FAFB', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#133A26', margin: 0 }}>Graduation Details</h4>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1E293B', margin: 0 }}>Graduation Details</h4>
                 {getDocBadge('graduation', user?.profile?.qualifications?.graduation?.certificateUrl)}
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+              
+              {!editModes.graduation ? (
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Roll No / Enroll No</label>
-                  <input type="text" className="form-input" placeholder="Roll No" value={gradRoll} onChange={e => setGradRoll(e.target.value)} />
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', background: '#F8FAFC', border: '1px solid #F1F5F9', borderRadius: '8px', padding: '16px', fontSize: '0.85rem', marginBottom: '16px' }}>
+                    <div>
+                      <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Roll No / Enroll No</span>
+                      <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{gradRoll || '—'}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Degree</span>
+                      <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{gradDegree || '—'}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>College Name</span>
+                      <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{gradCollege || '—'}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>University Name</span>
+                      <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{gradUniversity || '—'}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>CGPA / Marks Obtained / Scale</span>
+                      <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{gradMarks || '0'} / {gradTotal || '0'}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Percentage / CGPA (%)</span>
+                      <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{gradPercentage || '—'}</strong>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #E5E7EB', paddingTop: '12px' }}>
+                    <div>
+                      {getUploadButton('graduation', user?.profile?.qualifications?.graduation?.certificateUrl)}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditModes(prev => ({ ...prev, graduation: true }))}
+                      style={{ background: '#3B82F6', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(59, 130, 246, 0.15)', transition: 'all 0.2s' }}
+                    >
+                      ✏️ Edit Graduation Details
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Degree (e.g. B.Tech, B.Sc)</label>
-                  <input type="text" className="form-input" placeholder="e.g. B.Tech CSE" value={gradDegree} onChange={e => setGradDegree(e.target.value)} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>College Name</label>
-                  <input type="text" className="form-input" placeholder="College Name" value={gradCollege} onChange={e => setGradCollege(e.target.value)} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>University Name</label>
-                  <input type="text" className="form-input" placeholder="University" value={gradUniversity} onChange={e => setGradUniversity(e.target.value)} />
-                </div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', alignItems: 'flex-end' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>CGPA / Marks Obtained</label>
-                  <input type="number" step="0.01" className="form-input" placeholder="Marks" value={gradMarks} onChange={e => setGradMarks(e.target.value)} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Total Max Marks / Scale</label>
-                  <input type="number" step="0.01" className="form-input" placeholder="Total scale" value={gradTotal} onChange={e => setGradTotal(e.target.value)} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Percentage / CGPA (%)</label>
-                  <input type="text" className="form-input" placeholder="e.g. 8.4 CGPA" value={gradPercentage} onChange={e => setGradPercentage(e.target.value)} />
-                </div>
-                <div>
-                  {getUploadButton('graduation', user?.profile?.qualifications?.graduation?.certificateUrl)}
-                </div>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E5E7EB' }}>
-                <button
-                  type="button"
-                  onClick={() => saveSection('graduation')}
-                  disabled={loading}
-                  style={{ background: '#059669', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)', transition: 'all 0.2s' }}
-                >
-                  💾 Save Graduation Details
-                </button>
-              </div>
+              ) : (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Roll No / Enroll No</label>
+                      <input type="text" className="form-input" placeholder="Roll No" value={gradRoll} onChange={e => setGradRoll(e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Degree (e.g. B.Tech, B.Sc)</label>
+                      <input type="text" className="form-input" placeholder="e.g. B.Tech CSE" value={gradDegree} onChange={e => setGradDegree(e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>College Name</label>
+                      <input type="text" className="form-input" placeholder="College Name" value={gradCollege} onChange={e => setGradCollege(e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>University Name</label>
+                      <input type="text" className="form-input" placeholder="University" value={gradUniversity} onChange={e => setGradUniversity(e.target.value)} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', alignItems: 'flex-end' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>CGPA / Marks Obtained</label>
+                      <input type="number" step="0.01" className="form-input" placeholder="Marks" value={gradMarks} onChange={e => setGradMarks(e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Total Max Marks / Scale</label>
+                      <input type="number" step="0.01" className="form-input" placeholder="Total scale" value={gradTotal} onChange={e => setGradTotal(e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Percentage / CGPA (%)</label>
+                      <input type="text" className="form-input" placeholder="e.g. 8.4 CGPA" value={gradPercentage} onChange={e => setGradPercentage(e.target.value)} />
+                    </div>
+                    <div>
+                      {getUploadButton('graduation', user?.profile?.qualifications?.graduation?.certificateUrl)}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E5E7EB' }}>
+                    {user?.profile?.qualifications?.graduation?.rollNo && (
+                      <button
+                        type="button"
+                        onClick={() => setEditModes(prev => ({ ...prev, graduation: false }))}
+                        style={{ background: '#6B7280', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer' }}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => saveSection('graduation')}
+                      disabled={loading}
+                      style={{ background: '#059669', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)', transition: 'all 0.2s' }}
+                    >
+                      💾 Save Graduation Details
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Post Graduation Card */}
-            <div style={{ border: '1px solid #E5E7EB', borderRadius: '12px', padding: '16px', background: '#F9FAFB' }}>
+            <div style={{ border: '1px solid #E5E7EB', borderRadius: '12px', padding: '16px', background: '#F9FAFB', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#133A26', margin: 0 }}>Post-Graduation Details</h4>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1E293B', margin: 0 }}>Post-Graduation Details</h4>
                 {getDocBadge('postGraduation', user?.profile?.qualifications?.postGraduation?.certificateUrl)}
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+              
+              {!editModes.postGraduation ? (
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Roll No / Enroll No</label>
-                  <input type="text" className="form-input" placeholder="Roll No" value={pgRoll} onChange={e => setPgRoll(e.target.value)} />
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', background: '#F8FAFC', border: '1px solid #F1F5F9', borderRadius: '8px', padding: '16px', fontSize: '0.85rem', marginBottom: '16px' }}>
+                    <div>
+                      <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Roll No / Enroll No</span>
+                      <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{pgRoll || '—'}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Degree</span>
+                      <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{pgDegree || '—'}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>College Name</span>
+                      <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{pgCollege || '—'}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>University Name</span>
+                      <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{pgUniversity || '—'}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>CGPA / Marks Obtained / Scale</span>
+                      <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{pgMarks || '0'} / {pgTotal || '0'}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Percentage / CGPA (%)</span>
+                      <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{pgPercentage || '—'}</strong>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #E5E7EB', paddingTop: '12px' }}>
+                    <div>
+                      {getUploadButton('postGraduation', user?.profile?.qualifications?.postGraduation?.certificateUrl)}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditModes(prev => ({ ...prev, postGraduation: true }))}
+                      style={{ background: '#3B82F6', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(59, 130, 246, 0.15)', transition: 'all 0.2s' }}
+                    >
+                      ✏️ Edit Post-Graduation Details
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>PG Degree (e.g. M.Tech, M.Sc)</label>
-                  <input type="text" className="form-input" placeholder="e.g. M.Tech CSE" value={pgDegree} onChange={e => setPgDegree(e.target.value)} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>College Name</label>
-                  <input type="text" className="form-input" placeholder="College Name" value={pgCollege} onChange={e => setPgCollege(e.target.value)} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>University Name</label>
-                  <input type="text" className="form-input" placeholder="University" value={pgUniversity} onChange={e => setPgUniversity(e.target.value)} />
-                </div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', alignItems: 'flex-end' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>CGPA / Marks Obtained</label>
-                  <input type="number" step="0.01" className="form-input" placeholder="Marks" value={pgMarks} onChange={e => setPgMarks(e.target.value)} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Total Max Marks / Scale</label>
-                  <input type="number" step="0.01" className="form-input" placeholder="Total scale" value={pgTotal} onChange={e => setPgTotal(e.target.value)} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Percentage / CGPA (%)</label>
-                  <input type="text" className="form-input" placeholder="e.g. 9.1 CGPA" value={pgPercentage} onChange={e => setPgPercentage(e.target.value)} />
-                </div>
-                <div>
-                  {getUploadButton('postGraduation', user?.profile?.qualifications?.postGraduation?.certificateUrl)}
-                </div>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E5E7EB' }}>
-                <button
-                  type="button"
-                  onClick={() => saveSection('postGraduation')}
-                  disabled={loading}
-                  style={{ background: '#059669', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)', transition: 'all 0.2s' }}
-                >
-                  💾 Save Post-Graduation Details
-                </button>
-              </div>
+              ) : (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Roll No / Enroll No</label>
+                      <input type="text" className="form-input" placeholder="Roll No" value={pgRoll} onChange={e => setPgRoll(e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>PG Degree (e.g. M.Tech, M.Sc)</label>
+                      <input type="text" className="form-input" placeholder="e.g. M.Tech CSE" value={pgDegree} onChange={e => setPgDegree(e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>College Name</label>
+                      <input type="text" className="form-input" placeholder="College Name" value={pgCollege} onChange={e => setPgCollege(e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>University Name</label>
+                      <input type="text" className="form-input" placeholder="University" value={pgUniversity} onChange={e => setPgUniversity(e.target.value)} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', alignItems: 'flex-end' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>CGPA / Marks Obtained</label>
+                      <input type="number" step="0.01" className="form-input" placeholder="Marks" value={pgMarks} onChange={e => setPgMarks(e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Total Max Marks / Scale</label>
+                      <input type="number" step="0.01" className="form-input" placeholder="Total scale" value={pgTotal} onChange={e => setPgTotal(e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Percentage / CGPA (%)</label>
+                      <input type="text" className="form-input" placeholder="e.g. 9.1 CGPA" value={pgPercentage} onChange={e => setPgPercentage(e.target.value)} />
+                    </div>
+                    <div>
+                      {getUploadButton('postGraduation', user?.profile?.qualifications?.postGraduation?.certificateUrl)}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E5E7EB' }}>
+                    {user?.profile?.qualifications?.postGraduation?.rollNo && (
+                      <button
+                        type="button"
+                        onClick={() => setEditModes(prev => ({ ...prev, postGraduation: false }))}
+                        style={{ background: '#6B7280', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer' }}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => saveSection('postGraduation')}
+                      disabled={loading}
+                      style={{ background: '#059669', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)', transition: 'all 0.2s' }}
+                    >
+                      💾 Save Post-Graduation Details
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* NET JRF Qualifications */}
-            <div style={{ border: '1px solid #E5E7EB', borderRadius: '12px', padding: '16px', background: '#F9FAFB' }}>
+            <div style={{ border: '1px solid #E5E7EB', borderRadius: '12px', padding: '16px', background: '#F9FAFB', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#133A26', margin: 0 }}>National Entrance Examinations (NET / JRF / GATE)</h4>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1E293B', margin: 0 }}>National Entrance Examinations (NET / JRF / GATE)</h4>
                 {getDocBadge('netJrf', user?.profile?.qualifications?.netJrf?.certificateUrl)}
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+              
+              {!editModes.netJrf ? (
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Have you qualified NET JRF?</label>
-                  <select className="form-input" value={netJrfQualified} onChange={e => setNetJrfQualified(e.target.value)}>
-                    <option value="NO">No</option>
-                    <option value="YES">Yes</option>
-                  </select>
-                </div>
-                {netJrfQualified === 'YES' && (
-                  <>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', background: '#F8FAFC', border: '1px solid #F1F5F9', borderRadius: '8px', padding: '16px', fontSize: '0.85rem', marginBottom: '16px' }}>
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Certification / Award Letter Number</label>
-                      <input type="text" className="form-input" placeholder="Cert Number" value={netJrfCertNumber} onChange={e => setNetJrfCertNumber(e.target.value)} />
+                      <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Qualified NET JRF?</span>
+                      <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{netJrfQualified}</strong>
                     </div>
+                    {netJrfQualified === 'YES' && (
+                      <>
+                        <div>
+                          <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Award Letter Number</span>
+                          <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{netJrfCertNumber || '—'}</strong>
+                        </div>
+                        <div>
+                          <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Roll Number</span>
+                          <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{netJrfRoll || '—'}</strong>
+                        </div>
+                        <div>
+                          <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>All India Rank (AIR)</span>
+                          <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{netJrfRank || '—'}</strong>
+                        </div>
+                        <div>
+                          <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Normalized Score</span>
+                          <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{netJrfScore || '—'}</strong>
+                        </div>
+                        <div>
+                          <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Certificate Issue Date</span>
+                          <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{netJrfIssueDate || '—'}</strong>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #E5E7EB', paddingTop: '12px' }}>
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Roll Number / Reg Number</label>
-                      <input type="text" className="form-input" placeholder="Roll No" value={netJrfRoll} onChange={e => setNetJrfRoll(e.target.value)} />
+                      {netJrfQualified === 'YES' && getUploadButton('netJrf', user?.profile?.qualifications?.netJrf?.certificateUrl)}
                     </div>
-                  </>
-                )}
-              </div>
-              {netJrfQualified === 'YES' && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', alignItems: 'flex-end' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>All India Rank (AIR)</label>
-                    <input type="text" className="form-input" placeholder="AIR Rank" value={netJrfRank} onChange={e => setNetJrfRank(e.target.value)} />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Normalized Score / Percentile</label>
-                    <input type="text" className="form-input" placeholder="Score" value={netJrfScore} onChange={e => setNetJrfScore(e.target.value)} />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Date of Certificate Issue</label>
-                    <input type="date" className="form-input" value={netJrfIssueDate} onChange={e => setNetJrfIssueDate(e.target.value)} />
-                  </div>
-                  <div>
-                    {getUploadButton('netJrf', user?.profile?.qualifications?.netJrf?.certificateUrl)}
+                    <button
+                      type="button"
+                      onClick={() => setEditModes(prev => ({ ...prev, netJrf: true }))}
+                      style={{ background: '#3B82F6', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(59, 130, 246, 0.15)', transition: 'all 0.2s' }}
+                    >
+                      ✏️ Edit NET JRF Details
+                    </button>
                   </div>
                 </div>
+              ) : (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Have you qualified NET JRF?</label>
+                      <select className="form-input" value={netJrfQualified} onChange={e => setNetJrfQualified(e.target.value)}>
+                        <option value="NO">No</option>
+                        <option value="YES">Yes</option>
+                      </select>
+                    </div>
+                    {netJrfQualified === 'YES' && (
+                      <>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Certification / Award Letter Number</label>
+                          <input type="text" className="form-input" placeholder="Cert Number" value={netJrfCertNumber} onChange={e => setNetJrfCertNumber(e.target.value)} />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Roll Number / Reg Number</label>
+                          <input type="text" className="form-input" placeholder="Roll No" value={netJrfRoll} onChange={e => setNetJrfRoll(e.target.value)} />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  {netJrfQualified === 'YES' && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', alignItems: 'flex-end' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>All India Rank (AIR)</label>
+                        <input type="text" className="form-input" placeholder="AIR Rank" value={netJrfRank} onChange={e => setNetJrfRank(e.target.value)} />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Normalized Score / Percentile</label>
+                        <input type="text" className="form-input" placeholder="Score" value={netJrfScore} onChange={e => setNetJrfScore(e.target.value)} />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Date of Certificate Issue</label>
+                        <input type="date" className="form-input" value={netJrfIssueDate} onChange={e => setNetJrfIssueDate(e.target.value)} />
+                      </div>
+                      <div>
+                        {getUploadButton('netJrf', user?.profile?.qualifications?.netJrf?.certificateUrl)}
+                      </div>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E5E7EB' }}>
+                    {user?.profile?.qualifications?.netJrf?.rollNo && (
+                      <button
+                        type="button"
+                        onClick={() => setEditModes(prev => ({ ...prev, netJrf: false }))}
+                        style={{ background: '#6B7280', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer' }}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => saveSection('netJrf')}
+                      disabled={loading}
+                      style={{ background: '#059669', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)', transition: 'all 0.2s' }}
+                    >
+                      💾 Save NET JRF Details
+                    </button>
+                  </div>
+                </>
               )}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E5E7EB' }}>
-                <button
-                  type="button"
-                  onClick={() => saveSection('netJrf')}
-                  disabled={loading}
-                  style={{ background: '#059669', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)', transition: 'all 0.2s' }}
-                >
-                  💾 Save NET JRF Details
-                </button>
-              </div>
             </div>
 
             {/* Other Achievements Card */}
-            <div style={{ border: '1px solid #E5E7EB', borderRadius: '12px', padding: '16px', background: '#F9FAFB' }}>
+            <div style={{ border: '1px solid #E5E7EB', borderRadius: '12px', padding: '16px', background: '#F9FAFB', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#133A26', margin: 0 }}>Other Qualifications / Fellowships (DST INSPIRE, NFSC, RGNF, etc.)</h4>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1E293B', margin: 0 }}>Other Qualifications / Fellowships (DST INSPIRE, NFSC, RGNF, etc.)</h4>
                 {getDocBadge('other', user?.profile?.qualifications?.other?.certificateUrl)}
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '12px', alignItems: 'flex-end' }}>
+              
+              {!editModes.other ? (
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Academic/Fellowship Details</label>
-                  <input type="text" className="form-input" placeholder="Describe fellowship/awards or additional exams cleared" value={otherDetails} onChange={e => setOtherDetails(e.target.value)} />
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px', background: '#F8FAFC', border: '1px solid #F1F5F9', borderRadius: '8px', padding: '16px', fontSize: '0.85rem', marginBottom: '16px' }}>
+                    <div>
+                      <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Academic/Fellowship Details</span>
+                      <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{otherDetails || '—'}</strong>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #E5E7EB', paddingTop: '12px' }}>
+                    <div>
+                      {getUploadButton('other', user?.profile?.qualifications?.other?.certificateUrl)}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditModes(prev => ({ ...prev, other: true }))}
+                      style={{ background: '#3B82F6', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(59, 130, 246, 0.15)', transition: 'all 0.2s' }}
+                    >
+                      ✏️ Edit Other Details
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  {getUploadButton('other', user?.profile?.qualifications?.other?.certificateUrl)}
-                </div>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E5E7EB' }}>
-                <button
-                  type="button"
-                  onClick={() => saveSection('other')}
-                  disabled={loading}
-                  style={{ background: '#059669', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)', transition: 'all 0.2s' }}
-                >
-                  💾 Save Other Details
-                </button>
-              </div>
+              ) : (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '12px', alignItems: 'flex-end' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Academic/Fellowship Details</label>
+                      <input type="text" className="form-input" placeholder="Describe fellowship/awards or additional exams cleared" value={otherDetails} onChange={e => setOtherDetails(e.target.value)} />
+                    </div>
+                    <div>
+                      {getUploadButton('other', user?.profile?.qualifications?.other?.certificateUrl)}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E5E7EB' }}>
+                    {user?.profile?.qualifications?.other?.details && (
+                      <button
+                        type="button"
+                        onClick={() => setEditModes(prev => ({ ...prev, other: false }))}
+                        style={{ background: '#6B7280', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer' }}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => saveSection('other')}
+                      disabled={loading}
+                      style={{ background: '#059669', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)', transition: 'all 0.2s' }}
+                    >
+                      💾 Save Other Details
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -3304,14 +3790,16 @@ const ProfileTab = () => {
           </div>
         )}
         <div style={{ display: 'flex', gap: '16px', marginTop: '24px', paddingTop: '16px', borderTop: '1px solid #E5E7EB' }}>
-          <button 
-            type="submit" 
-            disabled={loading || (thesis && thesis.status !== 'REGISTRATION_PENDING')} 
-            className="btn-primary" 
-            style={{ flex: 1, background: '#1F2937', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-          >
-            {loading ? 'Saving Changes...' : '💾 Save PhD Profile Details'}
-          </button>
+          {!(subTab === 'general' && !editModes.general) && (
+            <button 
+              type="submit" 
+              disabled={loading || (thesis && thesis.status !== 'REGISTRATION_PENDING')} 
+              className="btn-primary" 
+              style={{ flex: 1, background: '#1F2937', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+            >
+              {loading ? 'Saving Changes...' : subTab === 'academic' ? '💾 Save Academic Details' : subTab === 'guide' ? '💾 Save Guide Preference' : '💾 Save General Info'}
+            </button>
+          )}
 
           {!thesis && (
             <button 
