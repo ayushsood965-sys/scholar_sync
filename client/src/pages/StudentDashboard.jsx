@@ -2321,7 +2321,10 @@ const ProfileTab = () => {
   const [pgPercentage, setPgPercentage] = useState(user?.profile?.qualifications?.postGraduation?.percentage || '');
 
   // NET JRF
-  const [netJrfQualified, setNetJrfQualified] = useState(user?.profile?.qualifications?.netJrf?.qualified ? 'YES' : 'NO');
+  const [netJrfQualified, setNetJrfQualified] = useState(
+    user?.profile?.qualifications?.netJrf?.qualified === true ? 'YES' : 
+    user?.profile?.qualifications?.netJrf?.qualified === false ? 'NO' : ''
+  );
   const [netJrfCertNumber, setNetJrfCertNumber] = useState(user?.profile?.qualifications?.netJrf?.certNumber || '');
   const [netJrfRoll, setNetJrfRoll] = useState(user?.profile?.qualifications?.netJrf?.rollNo || '');
   const [netJrfRank, setNetJrfRank] = useState(user?.profile?.qualifications?.netJrf?.rank || '');
@@ -2389,7 +2392,10 @@ const ProfileTab = () => {
       setPgPercentage(q?.postGraduation?.percentage || '');
 
       // NET JRF
-      setNetJrfQualified(q?.netJrf?.qualified ? 'YES' : 'NO');
+      setNetJrfQualified(
+        q?.netJrf?.qualified === true ? 'YES' : 
+        q?.netJrf?.qualified === false ? 'NO' : ''
+      );
       setNetJrfCertNumber(q?.netJrf?.certNumber || '');
       setNetJrfRoll(q?.netJrf?.rollNo || '');
       setNetJrfRank(q?.netJrf?.rank || '');
@@ -2406,7 +2412,7 @@ const ProfileTab = () => {
         class12: prev.class12 || !q?.class12?.rollNo,
         graduation: prev.graduation || !q?.graduation?.rollNo,
         postGraduation: prev.postGraduation || !q?.postGraduation?.rollNo,
-        netJrf: prev.netJrf || (q?.netJrf?.qualified && !q?.netJrf?.rollNo),
+        netJrf: prev.netJrf || q?.netJrf?.qualified === undefined || (q?.netJrf?.qualified === true && !q?.netJrf?.rollNo),
         other: prev.other || !q?.other
       }));
     } else {
@@ -2749,19 +2755,19 @@ const ProfileTab = () => {
           alignItems: 'center', 
           justifyContent: 'center',
           gap: '6px', 
-          background: isUploaded ? '#D97706' : '#4B5563', 
+          background: !!thesis ? '#9CA3AF' : isUploaded ? '#D97706' : '#4B5563', 
           color: 'white', 
           padding: '8px 12px', 
           borderRadius: '6px', 
           fontSize: '0.75rem', 
           fontWeight: 600, 
-          cursor: 'pointer', 
+          cursor: !!thesis ? 'not-allowed' : 'pointer', 
           textAlign: 'center',
           transition: 'all 0.2s',
-          boxShadow: isUploaded ? '0 2px 4px rgba(217, 119, 6, 0.2)' : 'none'
+          boxShadow: !thesis && isUploaded ? '0 2px 4px rgba(217, 119, 6, 0.2)' : 'none'
         }}>
-          {isUploaded ? '🔄 Reupload Certificate (PDF)' : '📤 Upload Certificate (PDF)'}
-          <input type="file" accept=".pdf,image/*" onChange={e => handleDocUpload(e, docType)} style={{ display: 'none' }} />
+          {isUploaded ? '✓ Certificate Uploaded' : '📤 Upload Certificate (PDF)'}
+          {!thesis && <input type="file" accept=".pdf,image/*" onChange={e => handleDocUpload(e, docType)} style={{ display: 'none' }} />}
         </label>
         {displayFileName && (
           <div style={{ fontSize: '0.7rem', color: '#4B5563', fontStyle: 'italic', wordBreak: 'break-all', display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -2807,6 +2813,17 @@ const ProfileTab = () => {
     // 4. Preferred Guide preference check
     if (!preferredGuideId) {
       toast.error('please fill in all the details before submitting the form.');
+      return;
+    }
+
+    const isConfirmed = window.confirm(
+      "⚠️ PROFILE SUBMISSION WARNING ⚠️\n\n" +
+      "Please check all information and uploaded certificates properly before submitting your profile for HOD approval.\n\n" +
+      "Once you submit this profile, all fields will be locked to read-only mode and you will not be able to modify any details during HOD verification.\n\n" +
+      "Are you absolutely sure you want to submit your profile for HOD approval now?"
+    );
+
+    if (!isConfirmed) {
       return;
     }
 
@@ -2958,12 +2975,13 @@ const ProfileTab = () => {
         {subTab === 'general' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#133A26', margin: 0 }}>Personal & ERP Details</h3>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#133A26', margin: 0 }}>Personal Details</h3>
               {!editModes.general && (
                 <button
                   type="button"
-                  onClick={() => setEditModes(prev => ({ ...prev, general: true }))}
-                  style={{ background: '#3B82F6', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(59, 130, 246, 0.15)', transition: 'all 0.2s' }}
+                  disabled={!!thesis}
+                  onClick={() => !thesis && setEditModes(prev => ({ ...prev, general: true }))}
+                  style={{ background: !!thesis ? '#9CA3AF' : '#3B82F6', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: !!thesis ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: !!thesis ? 'none' : '0 2px 4px rgba(59, 130, 246, 0.15)', transition: 'all 0.2s' }}
                 >
                   ✏️ Edit General Info
                 </button>
@@ -3194,8 +3212,9 @@ const ProfileTab = () => {
                     </div>
                     <button
                       type="button"
-                      onClick={() => setEditModes(prev => ({ ...prev, class10: true }))}
-                      style={{ background: '#3B82F6', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(59, 130, 246, 0.15)', transition: 'all 0.2s' }}
+                      disabled={!!thesis}
+                      onClick={() => !thesis && setEditModes(prev => ({ ...prev, class10: true }))}
+                      style={{ background: !!thesis ? '#9CA3AF' : '#3B82F6', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: !!thesis ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: !!thesis ? 'none' : '0 2px 4px rgba(59, 130, 246, 0.15)', transition: 'all 0.2s' }}
                     >
                       ✏️ Edit Class 10 Details
                     </button>
@@ -3294,8 +3313,9 @@ const ProfileTab = () => {
                     </div>
                     <button
                       type="button"
-                      onClick={() => setEditModes(prev => ({ ...prev, class12: true }))}
-                      style={{ background: '#3B82F6', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(59, 130, 246, 0.15)', transition: 'all 0.2s' }}
+                      disabled={!!thesis}
+                      onClick={() => !thesis && setEditModes(prev => ({ ...prev, class12: true }))}
+                      style={{ background: !!thesis ? '#9CA3AF' : '#3B82F6', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: !!thesis ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: !!thesis ? 'none' : '0 2px 4px rgba(59, 130, 246, 0.15)', transition: 'all 0.2s' }}
                     >
                       ✏️ Edit Class 12 Details
                     </button>
@@ -3398,8 +3418,9 @@ const ProfileTab = () => {
                     </div>
                     <button
                       type="button"
-                      onClick={() => setEditModes(prev => ({ ...prev, graduation: true }))}
-                      style={{ background: '#3B82F6', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(59, 130, 246, 0.15)', transition: 'all 0.2s' }}
+                      disabled={!!thesis}
+                      onClick={() => !thesis && setEditModes(prev => ({ ...prev, graduation: true }))}
+                      style={{ background: !!thesis ? '#9CA3AF' : '#3B82F6', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: !!thesis ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: !!thesis ? 'none' : '0 2px 4px rgba(59, 130, 246, 0.15)', transition: 'all 0.2s' }}
                     >
                       ✏️ Edit Graduation Details
                     </button>
@@ -3506,8 +3527,9 @@ const ProfileTab = () => {
                     </div>
                     <button
                       type="button"
-                      onClick={() => setEditModes(prev => ({ ...prev, postGraduation: true }))}
-                      style={{ background: '#3B82F6', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(59, 130, 246, 0.15)', transition: 'all 0.2s' }}
+                      disabled={!!thesis}
+                      onClick={() => !thesis && setEditModes(prev => ({ ...prev, postGraduation: true }))}
+                      style={{ background: !!thesis ? '#9CA3AF' : '#3B82F6', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: !!thesis ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: !!thesis ? 'none' : '0 2px 4px rgba(59, 130, 246, 0.15)', transition: 'all 0.2s' }}
                     >
                       ✏️ Edit Post-Graduation Details
                     </button>
@@ -3618,8 +3640,9 @@ const ProfileTab = () => {
                     </div>
                     <button
                       type="button"
-                      onClick={() => setEditModes(prev => ({ ...prev, netJrf: true }))}
-                      style={{ background: '#3B82F6', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(59, 130, 246, 0.15)', transition: 'all 0.2s' }}
+                      disabled={!!thesis}
+                      onClick={() => !thesis && setEditModes(prev => ({ ...prev, netJrf: true }))}
+                      style={{ background: !!thesis ? '#9CA3AF' : '#3B82F6', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: !!thesis ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: !!thesis ? 'none' : '0 2px 4px rgba(59, 130, 246, 0.15)', transition: 'all 0.2s' }}
                     >
                       ✏️ Edit NET JRF Details
                     </button>
@@ -3631,6 +3654,7 @@ const ProfileTab = () => {
                     <div>
                       <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Have you qualified NET JRF?</label>
                       <select className="form-input" value={netJrfQualified} onChange={e => setNetJrfQualified(e.target.value)}>
+                        <option value="">Select option...</option>
                         <option value="NO">No</option>
                         <option value="YES">Yes</option>
                       </select>
@@ -3711,8 +3735,9 @@ const ProfileTab = () => {
                     </div>
                     <button
                       type="button"
-                      onClick={() => setEditModes(prev => ({ ...prev, other: true }))}
-                      style={{ background: '#3B82F6', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(59, 130, 246, 0.15)', transition: 'all 0.2s' }}
+                      disabled={!!thesis}
+                      onClick={() => !thesis && setEditModes(prev => ({ ...prev, other: true }))}
+                      style={{ background: !!thesis ? '#9CA3AF' : '#3B82F6', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: !!thesis ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: !!thesis ? 'none' : '0 2px 4px rgba(59, 130, 246, 0.15)', transition: 'all 0.2s' }}
                     >
                       ✏️ Edit Other Details
                     </button>
@@ -3769,6 +3794,7 @@ const ProfileTab = () => {
                 className="form-input" 
                 value={preferredGuideId} 
                 onChange={e => setPreferredGuideId(e.target.value)}
+                disabled={!!thesis}
               >
                 <option value="">Select Preferred Guide...</option>
                 {faculties.map(fac => (
@@ -3790,10 +3816,10 @@ const ProfileTab = () => {
           </div>
         )}
         <div style={{ display: 'flex', gap: '16px', marginTop: '24px', paddingTop: '16px', borderTop: '1px solid #E5E7EB' }}>
-          {!(subTab === 'general' && !editModes.general) && (
+          {!thesis && !(subTab === 'general' && !editModes.general) && (
             <button 
               type="submit" 
-              disabled={loading || (thesis && thesis.status !== 'REGISTRATION_PENDING')} 
+              disabled={loading} 
               className="btn-primary" 
               style={{ flex: 1, background: '#1F2937', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
             >
@@ -3815,7 +3841,7 @@ const ProfileTab = () => {
 
           {thesis && thesis.status === 'REGISTRATION_PENDING' && (
             <div style={{ flex: 1.2, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FEF3C7', border: '1px solid #FDE68A', borderRadius: '8px', color: '#D97706', fontSize: '0.85rem', fontWeight: 700, padding: '10px 16px' }}>
-              ⏳ Awaiting HOD Verification & Supervisor
+              ⏳ Awaiting HOD Verification
             </div>
           )}
         </div>
