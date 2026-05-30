@@ -23,20 +23,33 @@ const augmentThesesWithMilestones = async (theses) => {
 const createThesis = async (req, res) => {
   try {
     const existing = await Thesis.findOne({ scholarId: req.user._id });
-    if (existing) return res.status(400).json({ message: 'Thesis already registered' });
+    if (existing) return res.status(400).json({ message: 'Profile registration already submitted or approved' });
 
-    const { department, title, enrollmentNumber, abstract } = req.body;
+    // Fetch full User profile
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // Ensure the student has completed their profile details first!
+    if (!user.profileCompleted || !user.profile?.enrollmentNumber || !user.department) {
+      return res.status(400).json({ 
+        message: 'Please complete all required fields (General Info, Qualifications, and Preferred Guide) in your Profile tab first and click Save Profile before submitting for approval.' 
+      });
+    }
+
     const thesis = await Thesis.create({
       scholarId: req.user._id,
-      department, title, enrollmentNumber, abstract,
+      department: user.department,
+      title: user.profile.areaOfInterest || "Ph.D. Research Candidate",
+      enrollmentNumber: user.profile.enrollmentNumber,
+      abstract: `Specialization: ${user.profile.specialization || "N/A"}. Mode: ${user.profile.phdMode || "N/A"}. Candidate has completed and submitted their academic dossier for HOD registration review.`,
       status: 'REGISTRATION_PENDING',
     });
 
     await createNotification({
       roleScope: 'HOD',
       department: thesis.department,
-      title: '⏳ New Scholar Thesis Registration',
-      message: `A new scholar (${req.user.name}) has submitted their thesis registration: "${thesis.title}". Please verify their enrollment and assign a supervisor.`,
+      title: '⏳ New Scholar Profile Verification',
+      message: `Scholar ${user.name} has submitted their academic dossier & profile details for HOD registration approval.`,
       type: 'PENDING_ACTION',
       link: 'registration'
     });
@@ -75,7 +88,7 @@ const getAllTheses = async (req, res) => {
     }
 
     const theses = await Thesis.find(filter)
-      .populate('scholarId', 'name username')
+      .populate('scholarId', 'name username email profile profileCompleted department')
       .populate('supervisorId', 'name username')
       .sort('-createdAt');
     const augmented = await augmentThesesWithMilestones(theses);
@@ -89,7 +102,7 @@ const getAllTheses = async (req, res) => {
 const getThesisById = async (req, res) => {
   try {
     const thesis = await Thesis.findById(req.params.id)
-      .populate('scholarId', 'name username email')
+      .populate('scholarId', 'name username email profile profileCompleted department')
       .populate('supervisorId', 'name username subRole department');
     if (!thesis) return res.status(404).json({ message: 'Thesis not found' });
 
@@ -290,7 +303,7 @@ const updateAuditLog = async (req, res) => {
 const getAssignedTheses = async (req, res) => {
   try {
     const theses = await Thesis.find({ supervisorId: req.user._id })
-      .populate('scholarId', 'name username')
+      .populate('scholarId', 'name username email profile profileCompleted department')
       .sort('-updatedAt');
     const augmented = await augmentThesesWithMilestones(theses);
     res.json(augmented);
@@ -303,7 +316,7 @@ const getAssignedTheses = async (req, res) => {
 const getDeptTheses = async (req, res) => {
   try {
     const theses = await Thesis.find({ department: req.user.department })
-      .populate('scholarId', 'name username')
+      .populate('scholarId', 'name username email profile profileCompleted department')
       .populate('supervisorId', 'name username')
       .sort('-updatedAt');
     const augmented = await augmentThesesWithMilestones(theses);

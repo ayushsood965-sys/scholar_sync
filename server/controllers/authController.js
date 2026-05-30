@@ -126,8 +126,15 @@ const updateProfile = async (req, res) => {
       profileData.phoneNumber = `+91 ${tenDigits.slice(0, 5)}-${tenDigits.slice(5)}`;
     }
 
-    user.profile = { ...user.profile, ...profileData };
+    if (!user.profile) {
+      user.profile = {};
+    }
+    Object.keys(profileData).forEach(key => {
+      user.profile[key] = profileData[key];
+    });
     user.profileCompleted = true;
+    user.markModified('profile');
+    user.markModified('profile.qualifications');
     await user.save();
 
     res.json({
@@ -292,6 +299,56 @@ const getMe = async (req, res) => {
   }
 };
 
+// PUT /api/auth/profile/document — Upload educational certificate PDF/image
+const uploadDocument = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (!req.file) return res.status(400).json({ message: 'Please select a file to upload' });
+
+    const { docType } = req.body;
+    if (!docType) return res.status(400).json({ message: 'docType parameter is required' });
+
+    const fileUrl = `/uploads/${req.file.filename}`;
+
+    if (!user.profile) user.profile = {};
+    if (!user.profile.qualifications) user.profile.qualifications = {};
+
+    if (docType === 'class10') {
+      if (!user.profile.qualifications.class10) user.profile.qualifications.class10 = {};
+      user.profile.qualifications.class10.certificateUrl = fileUrl;
+    } else if (docType === 'class12') {
+      if (!user.profile.qualifications.class12) user.profile.qualifications.class12 = {};
+      user.profile.qualifications.class12.certificateUrl = fileUrl;
+    } else if (docType === 'graduation') {
+      if (!user.profile.qualifications.graduation) user.profile.qualifications.graduation = {};
+      user.profile.qualifications.graduation.certificateUrl = fileUrl;
+    } else if (docType === 'postGraduation') {
+      if (!user.profile.qualifications.postGraduation) user.profile.qualifications.postGraduation = {};
+      user.profile.qualifications.postGraduation.certificateUrl = fileUrl;
+    } else if (docType === 'netJrf') {
+      if (!user.profile.qualifications.netJrf) user.profile.qualifications.netJrf = {};
+      user.profile.qualifications.netJrf.certificateUrl = fileUrl;
+    } else if (docType === 'other') {
+      if (!user.profile.qualifications.other) user.profile.qualifications.other = {};
+      user.profile.qualifications.other.certificateUrl = fileUrl;
+    }
+
+    user.markModified('profile');
+    user.markModified('profile.qualifications');
+    await user.save();
+
+    res.json({
+      _id: user._id, name: user.name, username: user.username,
+      role: user.role, subRole: user.subRole, department: user.department,
+      isActive: user.isActive, isVerified: user.isVerified, profileCompleted: user.profileCompleted,
+      avatarUrl: user.avatarUrl, profile: user.profile,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // PUT /api/auth/users/:id/verify — Verify a user account (HOD or Super Admin action)
 const verifyUser = async (req, res) => {
   try {
@@ -315,4 +372,4 @@ const verifyUser = async (req, res) => {
   }
 };
 
-module.exports = { login, register, getFacultyList, updateProfile, toggleUserActive, getDeptUsers, getAllUsers, adminCreateUser, deleteUser, uploadAvatar, verifyUser, getMe };
+module.exports = { login, register, getFacultyList, updateProfile, toggleUserActive, getDeptUsers, getAllUsers, adminCreateUser, deleteUser, uploadAvatar, uploadDocument, verifyUser, getMe };
