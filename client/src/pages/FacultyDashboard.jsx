@@ -1,7 +1,7 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Home, FileText, Users, Calendar, User, LogOut, Bell, CheckCircle2, XCircle, Layers, Award, Upload, ShieldCheck, Edit, AlertTriangle } from 'lucide-react';
+import { Home, FileText, Users, Calendar, User, LogOut, Bell, CheckCircle2, XCircle, Layers, Award, Upload, ShieldCheck, Edit, AlertTriangle, Plus } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE_URL, API_URL } from '../config';
 
@@ -2466,16 +2466,129 @@ const OverviewPage = ({ theses, user, onSelect, setActiveTab }) => {
   );
 };
 
-// ── Supervisor RAC clearance view ──
+// ── RAC Review Modal ──
+const RACReviewModal = ({ rac, onClose, onSave }) => {
+  const [status, setStatus] = useState(rac.status && rac.status !== 'SCHEDULED' ? rac.status : 'SATISFACTORY');
+  const [remarks, setRemarks] = useState(rac.remarks || '');
+  const [researchProgress, setResearchProgress] = useState(rac.researchProgress || '');
+  const [nextMilestones, setNextMilestones] = useState(rac.nextMilestones || '');
+  const [nextMeetingDate, setNextMeetingDate] = useState(rac.nextMeetingDate ? new Date(rac.nextMeetingDate).toISOString().split('T')[0] : '');
+  const [committeeChairedBy, setCommitteeChairedBy] = useState(rac.committeeChairedBy || '');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    await onSave(rac._id, {
+      status,
+      remarks,
+      researchProgress,
+      nextMilestones,
+      nextMeetingDate: nextMeetingDate || null,
+      committeeChairedBy
+    });
+    setLoading(false);
+    onClose();
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999999, padding: 20 }}>
+      <div className="card" style={{ maxWidth: 640, width: '100%', padding: '28px 32px', borderRadius: 20, background: 'var(--color-surface, #ffffff)', color: 'var(--color-text, #1f2937)', display: 'flex', flexDirection: 'column', gap: 20, boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', maxHeight: '90vh', overflowY: 'auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border, #E2E8F0)', paddingBottom: 16 }}>
+          <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>Evaluate RAC-{rac.racNumber} Meeting Progress</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-text-secondary, #64748B)' }}>×</button>
+        </div>
+
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: '1fr 1fr', 
+          gap: 12, 
+          padding: 14, 
+          background: 'var(--color-bg, #F8FAFC)', 
+          borderRadius: 12, 
+          border: '1px solid var(--color-border, #E2E8F0)',
+          fontSize: '0.82rem'
+        }}>
+          <div>
+            <span style={{ color: 'var(--color-text-secondary, #64748B)', fontWeight: 600 }}>Scholar Name:</span>
+            <div style={{ fontWeight: 700, marginTop: 2, color: 'var(--color-text, #0F172A)' }}>{rac.scholar?.name || 'Academic Scholar'}</div>
+          </div>
+          <div>
+            <span style={{ color: 'var(--color-text-secondary, #64748B)', fontWeight: 600 }}>Scheduled Date:</span>
+            <div style={{ fontWeight: 700, marginTop: 2, color: 'var(--color-text, #0F172A)' }}>{new Date(rac.scheduledDate).toLocaleDateString()}</div>
+          </div>
+          <div style={{ gridColumn: 'span 2' }}>
+            <span style={{ color: 'var(--color-text-secondary, #64748B)', fontWeight: 600 }}>Thesis Topic:</span>
+            <div style={{ fontWeight: 700, marginTop: 2, color: 'var(--color-text, #0F172A)', lineHeight: 1.3 }}>{rac.title || 'N/A'}</div>
+          </div>
+          <div style={{ gridColumn: 'span 2' }}>
+            <span style={{ color: 'var(--color-text-secondary, #64748B)', fontWeight: 600 }}>Assigned Committee Members:</span>
+            <div style={{ fontWeight: 700, marginTop: 2, color: 'var(--color-text, #0F172A)' }}>{rac.committeeMembers || 'Pending'}</div>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Committee Recommendation</label>
+              <select className="form-input" value={status} onChange={e => setStatus(e.target.value)} required>
+                <option value="SATISFACTORY">Satisfactory (Approved)</option>
+                <option value="UNSATISFACTORY">Unsatisfactory (Fail / Needs Correction)</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Committee Chairperson (Chaired By)</label>
+              <input type="text" className="form-input" placeholder="e.g. Prof. R. K. Sen" value={committeeChairedBy} onChange={e => setCommitteeChairedBy(e.target.value)} />
+            </div>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Research Progress & Methodology Evaluation</label>
+            <textarea className="form-input" style={{ width: '100%', resize: 'vertical' }} rows="3" placeholder="Detail the candidate's research updates, literature coverage, and experiment design comments..." value={researchProgress} onChange={e => setResearchProgress(e.target.value)} required />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Milestone Targets for the Next 6 Months</label>
+            <textarea className="form-input" style={{ width: '100%', resize: 'vertical' }} rows="2" placeholder="List specific targets to achieve before the next RAC session (e.g. complete Chapter 2, publish 1 paper)..." value={nextMilestones} onChange={e => setNextMilestones(e.target.value)} required />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Proposed Next RAC Session Date</label>
+              <input type="date" className="form-input" value={nextMeetingDate} onChange={e => setNextMeetingDate(e.target.value)} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>General/Overall Remarks</label>
+              <input type="text" className="form-input" placeholder="e.g. Progress is positive, proceed to next semester." value={remarks} onChange={e => setRemarks(e.target.value)} />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', borderTop: '1px solid var(--color-border, #E2E8F0)', paddingTop: 16, marginTop: 8 }}>
+            <button type="button" onClick={onClose} className="btn-outline" style={{ padding: '10px 20px' }}>Cancel</button>
+            <button type="submit" className="btn-primary" disabled={loading} style={{ padding: '10px 24px', background: '#059669', border: 'none' }}>
+              {loading ? 'Submitting...' : 'Submit Evaluation'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 const SupervisorRACConsole = ({ theses }) => {
   const toast = useToast();
   const [racs, setRacs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showScheduleForm, setShowScheduleForm] = useState(false);
+  const [schedForm, setSchedForm] = useState({ thesisId: '', racNumber: 1, scheduledDate: '', committeeMembers: '' });
+  const [selectedRAC, setSelectedRAC] = useState(null);
+
+  const activeScholars = theses.filter(t => t.status === 'ACTIVE_RESEARCH');
 
   const fetchRacs = async () => {
     try {
       const allRacs = [];
-      for (const t of theses) {
+      for (const t of activeScholars) {
         const rRes = await axios.get(`${API}/lifecycle/rac/thesis/${t._id}`, getAuthHeader());
         rRes.data.forEach(r => { r.scholar = t.scholarId; r.title = t.title; });
         allRacs.push(...rRes.data);
@@ -2489,30 +2602,84 @@ const SupervisorRACConsole = ({ theses }) => {
     fetchRacs();
   }, [theses]);
 
-  const handleAddRemarks = async (racId) => {
-    const rem = prompt('Enter your Supervisor clearance/recommendation remarks for this RAC session:');
-    if (rem === null) return;
+  const handleScheduleSubmit = async (e) => {
+    e.preventDefault();
+    if (!schedForm.thesisId || !schedForm.scheduledDate) return toast.warning('Please complete the scheduling form.');
     try {
-      await axios.put(`${API}/lifecycle/rac/${racId}/remarks`, { remarks: rem }, getAuthHeader());
-      toast.success('Remarks saved successfully!');
+      await axios.post(`${API}/lifecycle/rac/schedule`, schedForm, getAuthHeader());
+      toast.success('RAC review meeting scheduled successfully!');
+      setShowScheduleForm(false);
+      setSchedForm({ thesisId: '', racNumber: 1, scheduledDate: '', committeeMembers: '' });
       fetchRacs();
     } catch (err) {
-      toast.error('Failed to save remarks.');
+      toast.error(err.response?.data?.message || 'Failed to schedule RAC.');
+    }
+  };
+
+  const handleRACGrade = async (racId, payload) => {
+    try {
+      await axios.put(`${API}/lifecycle/rac/${racId}/result`, payload, getAuthHeader());
+      toast.success(`RAC progress successfully graded as ${payload.status}!`);
+      fetchRacs();
+    } catch (err) {
+      toast.error('Failed to submit grade.');
     }
   };
 
   return (
-    <div className="card">
-      <h3 className="card-title">Research Advisory Committee (RAC) Schedule & Clearance</h3>
-      <p style={{ color: '#64748B', fontSize: '0.85rem', marginBottom: 20 }}>
-        Review periodic doctoral committee milestones and add your supervisor evaluation remarks for your assigned PhD scholars.
-      </p>
+    <div className="card" style={{ padding: 24, borderRadius: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div>
+          <h3 className="card-title" style={{ margin: 0 }}>Research Advisory Committee (RAC) Schedule & Clearance</h3>
+          <p style={{ color: '#64748B', fontSize: '0.85rem', marginTop: 4 }}>
+            Schedule and manage periodic doctoral committee milestones and add your supervisor evaluation remarks for your active assigned PhD scholars.
+          </p>
+        </div>
+        <button onClick={() => setShowScheduleForm(!showScheduleForm)} className="btn-primary" style={{ background: '#059669', display: 'flex', gap: 6, alignItems: 'center', padding: '8px 16px', fontSize: '0.85rem' }}>
+          <Plus size={16} /> Schedule RAC Review
+        </button>
+      </div>
+
+      {showScheduleForm && (
+        <form onSubmit={handleScheduleSubmit} style={{ background: 'var(--color-bg, #F8FAFC)', padding: 20, borderRadius: 12, border: '1px solid var(--color-border, #E2E8F0)', marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <h4 style={{ margin: 0 }}>Schedule Research Advisory Committee (RAC) Session</h4>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Select Scholar</label>
+              <select className="form-input" required value={schedForm.thesisId} onChange={e => setSchedForm({ ...schedForm, thesisId: e.target.value })}>
+                <option value="">Choose scholar...</option>
+                {activeScholars.map(s => <option key={s._id} value={s._id}>{s.scholarId?.name} — {s.title}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>RAC Session Number</label>
+              <select className="form-input" value={schedForm.racNumber} onChange={e => setSchedForm({ ...schedForm, racNumber: parseInt(e.target.value) })}>
+                {[1,2,3,4,5,6].map(n => <option key={n} value={n}>RAC - {n}</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 12 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Scheduled Date</label>
+              <input type="date" className="form-input" required value={schedForm.scheduledDate} onChange={e => setSchedForm({ ...schedForm, scheduledDate: e.target.value })} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Committee Members (Separated by commas)</label>
+              <input type="text" className="form-input" placeholder="e.g. Dr. Verma, Prof. Sen, Dr. Kapoor" value={schedForm.committeeMembers} onChange={e => setSchedForm({ ...schedForm, committeeMembers: e.target.value })} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+            <button type="button" onClick={() => setShowScheduleForm(false)} className="btn-outline" style={{ padding: '8px 16px' }}>Cancel</button>
+            <button type="submit" className="btn-primary" style={{ background: '#133A26', padding: '8px 16px' }}>Save Schedule</button>
+          </div>
+        </form>
+      )}
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: 20 }}>Loading RAC records...</div>
       ) : racs.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '36px', color: '#64748B', background: '#F8FAFC', borderRadius: 8 }}>
-          No scheduled RAC review meetings found for your scholars.
+          No scheduled RAC review meetings found for your active scholars.
         </div>
       ) : (
         <div className="file-list">
@@ -2522,7 +2689,7 @@ const SupervisorRACConsole = ({ theses }) => {
             <div style={{ flex: 1.5 }}>Scheduled Date</div>
             <div style={{ flex: 1.8 }}>Progress Report</div>
             <div style={{ flex: 1.2 }}>Status</div>
-            <div style={{ flex: 2.2, textAlign: 'center' }}>Supervisor Action</div>
+            <div style={{ flex: 2.2, textAlign: 'center' }}>Grading Actions & Remarks</div>
           </div>
           {racs.map(r => (
             <div key={r._id} className="file-item">
@@ -2550,18 +2717,40 @@ const SupervisorRACConsole = ({ theses }) => {
                   {r.status}
                 </span>
               </div>
-              <div style={{ flex: 2.2, display: 'flex', justifyContent: 'center' }}>
+              <div style={{ flex: 2.2, display: 'flex', flexDirection: 'column', gap: 6, justifyContent: 'center', alignItems: 'center' }}>
                 <button 
-                  onClick={() => handleAddRemarks(r._id)} 
-                  className="btn-primary" 
-                  style={{ padding: '6px 12px', fontSize: '0.75rem', background: '#2563EB' }}
+                  onClick={() => setSelectedRAC(r)}
+                  className={r.status === 'SCHEDULED' ? "btn-primary" : "btn-outline"}
+                  style={{ 
+                    padding: '6px 14px', 
+                    fontSize: '0.8rem', 
+                    background: r.status === 'SCHEDULED' ? 'var(--color-primary, #059669)' : 'transparent',
+                    borderColor: 'var(--color-primary, #059669)',
+                    color: r.status === 'SCHEDULED' ? '#ffffff' : 'var(--color-primary, #059669)',
+                    border: r.status === 'SCHEDULED' ? 'none' : '1px solid var(--color-primary, #059669)'
+                  }}
                 >
-                  {r.remarks ? 'Edit Remarks' : 'Add Remarks'}
+                  {r.status === 'SCHEDULED' ? 'Review Meeting' : 'Edit Review'}
                 </button>
+                {r.status !== 'SCHEDULED' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary, #64748B)', maxWidth: 180, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Remarks: {r.remarks || 'None'}</span>
+                    <span style={{ fontSize: '0.72rem', color: '#065F46', background: '#D1FAE5', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>Evaluated ✓</span>
+                  </div>
+                )}
               </div>
             </div>
           ))}
         </div>
+      )}
+
+      {selectedRAC && createPortal(
+        <RACReviewModal 
+          rac={selectedRAC} 
+          onClose={() => setSelectedRAC(null)} 
+          onSave={handleRACGrade} 
+        />,
+        document.body
       )}
     </div>
   );

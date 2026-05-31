@@ -3,9 +3,49 @@ const Thesis = require('../models/Thesis');
 const RACReview = require('../models/RACReview');
 const { createNotification } = require('./notificationController');
 
+const getPeriodMeta = (startDate, seq) => {
+  const start = new Date(startDate);
+  start.setMonth(start.getMonth() + (seq - 1) * 6);
+  
+  const end = new Date(startDate);
+  end.setMonth(end.getMonth() + seq * 6);
+  
+  const options = { year: 'numeric', month: 'short' };
+  const durationStr = `${start.toLocaleDateString('en-US', options)} - ${end.toLocaleDateString('en-US', options)}`;
+  
+  return {
+    title: `6-Month Progress Report - Semester ${seq} (${durationStr})`,
+    dueDate: end
+  };
+};
+
 // GET /api/milestones/:thesisId
 const getMilestones = async (req, res) => {
   try {
+    const thesis = await Thesis.findById(req.params.thesisId);
+    if (thesis && ['ACTIVE_RESEARCH', 'PRE_SUBMISSION', 'SUBMITTED', 'AWARDED'].includes(thesis.status) && thesis.startDate) {
+      // Calculate how many 6-month periods have elapsed/started
+      const diffMs = new Date() - new Date(thesis.startDate);
+      const diffMonths = diffMs / (1000 * 60 * 60 * 24 * 30.4375); // average days per month
+      const activePeriods = Math.max(1, Math.ceil(diffMonths / 6));
+
+      for (let i = 1; i <= activePeriods; i++) {
+        // Check if this milestone already exists
+        const exists = await Milestone.findOne({ thesisId: thesis._id, type: '6_MONTH_REPORT', sequence: i });
+        if (!exists) {
+          const meta = getPeriodMeta(thesis.startDate, i);
+          await Milestone.create({
+            thesisId: thesis._id,
+            type: '6_MONTH_REPORT',
+            sequence: i,
+            title: meta.title,
+            dueDate: meta.dueDate,
+            status: 'PENDING'
+          });
+        }
+      }
+    }
+
     const milestones = await Milestone.find({ thesisId: req.params.thesisId })
       .sort('sequence createdAt');
     res.json(milestones);

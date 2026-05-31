@@ -20,7 +20,13 @@ const RACReviewSchema = new mongoose.Schema({
     type: String, 
     enum: ['SCHEDULED', 'SATISFACTORY', 'UNSATISFACTORY'], 
     default: 'SCHEDULED' 
-  }
+  },
+  
+  // Enriched Ph.D. RAC academic review parameters
+  researchProgress: { type: String, default: '' },
+  nextMilestones: { type: String, default: '' },
+  nextMeetingDate: { type: Date, default: null },
+  committeeChairedBy: { type: String, default: '' }
 }, { timestamps: true });
 
 module.exports = mongoose.model('RACReview', RACReviewSchema);

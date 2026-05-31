@@ -338,7 +338,7 @@ const MilestoneTimeline = ({ thesis, milestones = [] }) => {
   );
 };
 
-const Sidebar = ({ activeTab, setActiveTab, isVerified }) => {
+const Sidebar = ({ activeTab, setActiveTab, isVerified, thesis }) => {
   const { logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const items = [
@@ -370,7 +370,9 @@ const Sidebar = ({ activeTab, setActiveTab, isVerified }) => {
       </div>
       <div className="sidebar-nav" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 160px)' }}>
         {items.map(({ key, label, Icon }) => {
-          const disabled = !isVerified && key !== 'profile';
+          const isActiveResearchTab = key === 'sixMonthReports' || key === 'chapterDrafts';
+          const isPhase3Locked = isActiveResearchTab && (!thesis || !['ACTIVE_RESEARCH', 'PRE_SUBMISSION', 'SUBMITTED', 'AWARDED'].includes(thesis.status));
+          const disabled = (!isVerified && key !== 'profile') || isPhase3Locked;
           return (
             <button 
               key={key} 
@@ -3947,7 +3949,7 @@ const StudentDashboard = () => {
   return (
     <div className="app-container">
       <div className="mobile-overlay" onClick={() => document.body.classList.remove('sidebar-mobile-open')} />
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} isVerified={thesis && thesis.status !== 'REGISTRATION_PENDING'} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} isVerified={thesis && thesis.status !== 'REGISTRATION_PENDING'} thesis={thesis} />
       <div className="main-content" style={{ display: 'flex', flexDirection: 'column' }}>
         {/* Floating warning banner */}
         {user && !user.profileCompleted && (

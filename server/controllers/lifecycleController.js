@@ -58,16 +58,20 @@ const uploadRACReport = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
-
 const submitRACResult = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, remarks } = req.body;
+    const { status, remarks, researchProgress, nextMilestones, nextMeetingDate, committeeChairedBy } = req.body;
     const rac = await RACReview.findById(id);
     if (!rac) return res.status(404).json({ message: 'RAC meeting not found' });
 
     rac.status = status;
-    rac.remarks = remarks;
+    rac.remarks = remarks || '';
+    if (researchProgress !== undefined) rac.researchProgress = researchProgress;
+    if (nextMilestones !== undefined) rac.nextMilestones = nextMilestones;
+    if (nextMeetingDate !== undefined) rac.nextMeetingDate = nextMeetingDate;
+    if (committeeChairedBy !== undefined) rac.committeeChairedBy = committeeChairedBy;
+    
     await rac.save();
 
     // Log to thesis audit
@@ -75,7 +79,7 @@ const submitRACResult = async (req, res) => {
     if (thesis) {
       thesis.auditLog.push({
         action: 'RAC_REVIEWED',
-        note: `RAC-${rac.racNumber} marked ${status}. Remarks: ${remarks}`
+        note: `RAC-${rac.racNumber} marked ${status}. Remarks: ${remarks || ''}`
       });
       await thesis.save();
     }
@@ -85,11 +89,10 @@ const submitRACResult = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
-
 const getRACs = async (req, res) => {
   try {
     const { thesisId } = req.params;
-    const racs = await RACReview.find({ thesisId }).sort('racNumber');
+    const racs = await RACReview.find({ thesisId, milestoneId: null }).sort('racNumber');
     res.json(racs);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -325,7 +328,7 @@ const generateCertificate = async (req, res) => {
       }
     } else if (type === 'RAC') {
       titleText = 'Research Progress & RAC Verification';
-      const racs = await RACReview.find({ thesisId, status: 'SATISFACTORY' });
+      const racs = await RACReview.find({ thesisId, status: 'SATISFACTORY', milestoneId: null });
       bodyText = `This is to certify that the Research Advisory Committee (RAC) has reviewed the ongoing doctoral work of <strong>${scholar?.name || 'Academic Scholar'}</strong>. The candidate has presented satisfactory progress reports across the required assessment sessions.`;
       if (racs.length > 0) {
         extraTable = `

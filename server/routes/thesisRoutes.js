@@ -18,7 +18,7 @@ router.put('/:id/assign', protect, authorize('ADMIN', 'HOD'), assignSupervisor);
 router.put('/:id/coursework', protect, authorize('ADMIN', 'HOD', 'FACULTY'), clearCoursework);
 router.put('/:id/award', protect, authorize('ADMIN', 'HOD'), awardDegree);
 router.put('/:id/audit', protect, authorize('ADMIN', 'HOD'), updateAuditLog);
-router.put('/:id/annual-rac', protect, authorize('ADMIN', 'HOD'), toggleAnnualRAC);
+router.put('/:id/annual-rac', protect, authorize('ADMIN', 'HOD', 'FACULTY'), toggleAnnualRAC);
 
 // Faculty
 router.get('/assigned', protect, authorize('FACULTY'), getAssignedTheses);
