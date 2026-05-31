@@ -17,7 +17,7 @@ const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } });
 router.get('/defaulters', protect, getDefaulters);
 router.get('/:thesisId', protect, getMilestones);
 router.post('/create', protect, createMilestone);
-router.post('/:id/submit', protect, upload.single('document'), submitDocument);
+router.post('/:id/submit', protect, upload.fields([{ name: 'document', maxCount: 1 }, { name: 'plagiarism', maxCount: 1 }]), submitDocument);
 router.put('/:id/review', protect, reviewMilestone);
 
 module.exports = router;

@@ -102,7 +102,7 @@ const register = async (req, res) => {
 // GET /api/auth/faculty — list all faculty (for admin supervisor dropdown)
 const getFacultyList = async (req, res) => {
   try {
-    const faculty = await User.find({ role: 'FACULTY' }).select('name username subRole department isActive');
+    const faculty = await User.find({ role: { $in: ['FACULTY', 'HOD'] } }).select('name username role subRole department isActive isVerified');
     res.json(faculty);
   } catch (error) {
     res.status(500).json({ message: error.message });

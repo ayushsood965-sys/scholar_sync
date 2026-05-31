@@ -338,7 +338,7 @@ const MilestoneTimeline = ({ thesis, milestones = [] }) => {
   );
 };
 
-const Sidebar = ({ activeTab, setActiveTab, isVerified, thesis }) => {
+const Sidebar = ({ activeTab, setActiveTab, isVerified, thesis, milestones }) => {
   const { logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const items = [
@@ -351,6 +351,7 @@ const Sidebar = ({ activeTab, setActiveTab, isVerified, thesis }) => {
     { key: 'chapterDrafts', label: 'Chapter Drafts', Icon: FileText },
     { key: 'researchOutputs', label: 'Research Outputs', Icon: Award },
     { key: 'publications', label: 'Publications', Icon: File },
+    { key: 'preSubmission', label: 'Pre-Submission', Icon: ClipboardList },
     { key: 'meetings', label: 'Meetings', Icon: Calendar },
     { key: 'documents', label: 'Documents', Icon: FileText },
     { key: 'changes', label: 'Request Changes', Icon: Edit },
@@ -370,9 +371,36 @@ const Sidebar = ({ activeTab, setActiveTab, isVerified, thesis }) => {
       </div>
       <div className="sidebar-nav" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 160px)' }}>
         {items.map(({ key, label, Icon }) => {
-          const isActiveResearchTab = key === 'sixMonthReports' || key === 'chapterDrafts';
-          const isPhase3Locked = isActiveResearchTab && (!thesis || !['ACTIVE_RESEARCH', 'PRE_SUBMISSION', 'SUBMITTED', 'AWARDED'].includes(thesis.status));
-          const disabled = (!isVerified && key !== 'profile') || isPhase3Locked;
+          const disabled = (() => {
+            if (key === 'overview' || key === 'profile') return false;
+            if (!thesis || thesis.status === 'REGISTRATION_PENDING') return true;
+            
+            const status = thesis.status;
+            if (key === 'thesis' || key === 'milestones') {
+              return !['COURSEWORK', 'SYNOPSIS_PENDING', 'ACTIVE_RESEARCH', 'PRE_SUBMISSION', 'SUBMITTED', 'AWARDED'].includes(status);
+            }
+            if ([
+              'rac', 
+              'sixMonthReports', 
+              'chapterDrafts', 
+              'researchOutputs', 
+              'publications', 
+              'meetings', 
+              'documents', 
+              'changes'
+            ].includes(key)) {
+              return !['ACTIVE_RESEARCH', 'PRE_SUBMISSION', 'SUBMITTED', 'AWARDED'].includes(status);
+            }
+            if (key === 'preSubmission') {
+              const hasPreMilestone = milestones && milestones.some(m => m.type === 'PRE_SUBMISSION');
+              return !(['PRE_SUBMISSION', 'SUBMITTED', 'AWARDED'].includes(status) || hasPreMilestone);
+            }
+            if (key === 'certificates') {
+              return !['SUBMITTED', 'AWARDED'].includes(status);
+            }
+            return true;
+          })();
+
           return (
             <button 
               key={key} 
@@ -385,7 +413,8 @@ const Sidebar = ({ activeTab, setActiveTab, isVerified, thesis }) => {
                 width: '100%', 
                 cursor: disabled ? 'not-allowed' : 'pointer', 
                 textAlign: 'left',
-                opacity: disabled ? 0.45 : 1
+                opacity: disabled ? 0.45 : 1,
+                pointerEvents: disabled ? 'none' : 'auto'
               }}
             >
               <Icon className="nav-icon" /> {label} {disabled && '🔒'}
@@ -947,39 +976,364 @@ const ActiveResearch = ({ thesis, milestones, onSubmit }) => (
 );
 
 // ── Pre-Submission Phase ──
-const PreSubmission = ({ thesis, milestones, onSubmit }) => {
+const PreSubmission = ({ thesis, milestones = [], onSubmit }) => {
+  const toast = useToast();
   const preMilestone = milestones.find(m => m.type === 'PRE_SUBMISSION');
-  return (
-    <div>
-      <div className="card" style={{ marginBottom: 16, background: '#F0F9FF', border: '1px solid #BAE6FD' }}>
-        <h3 style={{ color: '#0369A1', marginBottom: 8 }}>🎯 Pre-Submission Stage</h3>
-        <p style={{ color: '#0C4A6E', fontSize: '0.9rem' }}>You've been cleared by the HOD! Upload your pre-submission package including publication proofs, plagiarism report, and rough draft.</p>
+  const finalMilestone = milestones.find(m => m.type === 'FINAL_SUBMISSION');
+  
+  const [fileThesis, setFileThesis] = useState(null);
+  const [filePlagiarism, setFilePlagiarism] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const [fileFinalThesis, setFileFinalThesis] = useState(null);
+  const [submittingFinal, setSubmittingFinal] = useState(false);
+
+  if (!preMilestone) {
+    return (
+      <div className="card" style={{ textAlign: 'center', padding: 40, color: 'var(--color-text-secondary, #64748B)' }}>
+        ⏳ Pre-submission package milestone generation pending. Fulfill all prerequisites first to unlock.
       </div>
-      {preMilestone && <MilestoneCard milestone={preMilestone} onSubmit={onSubmit} isLocked={false} />}
+    );
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!fileThesis) return toast.warning('Please upload the rough thesis PDF.');
+    if (!filePlagiarism) return toast.warning('Please upload the plagiarism clearance certificate PDF.');
+
+    setSubmitting(true);
+    try {
+      const formData = new FormData();
+      formData.append('document', fileThesis);
+      formData.append('plagiarism', filePlagiarism);
+
+      await axios.post(`${API_URL}/milestones/${preMilestone._id}/submit`, formData, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      toast.success('Pre-Submission package submitted successfully!');
+      setFileThesis(null);
+      setFilePlagiarism(null);
+      if (onSubmit) await onSubmit();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Error submitting package.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleFinalSubmit = async (e) => {
+    e.preventDefault();
+    if (!fileFinalThesis) return toast.warning('Please upload your final thesis PDF.');
+    if (!finalMilestone) return toast.error('Final submission milestone not found.');
+
+    setSubmittingFinal(true);
+    try {
+      await onSubmit(finalMilestone._id, fileFinalThesis);
+      toast.success('Final Ph.D. thesis uploaded successfully! Awaiting supervisor digital sign-off.');
+      setFileFinalThesis(null);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Error uploading final thesis.');
+    } finally {
+      setSubmittingFinal(false);
+    }
+  };
+
+  const isPending = preMilestone.status === 'PENDING';
+  const isRevision = preMilestone.status === 'REVISION_REQUIRED';
+  const isSubmitted = preMilestone.status === 'SUBMITTED';
+  const isApproved = preMilestone.status === 'APPROVED';
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Overview Banner */}
+      <div className="card" style={{ 
+        padding: 24, 
+        borderRadius: 16, 
+        background: 'linear-gradient(135deg, rgba(234, 88, 12, 0.08) 0%, rgba(249, 115, 22, 0.03) 100%)', 
+        border: '1px solid rgba(234, 88, 12, 0.15)' 
+      }}>
+        <h4 style={{ margin: '0 0 12px 0', fontSize: '1rem', fontWeight: 800, color: 'var(--color-text, #0F172A)', display: 'flex', alignItems: 'center', gap: 8 }}>
+          🎓 Pre-Submission Colloquium & Thesis Defense
+        </h4>
+        <p style={{ color: 'var(--color-text-secondary, #475569)', fontSize: '0.85rem', lineHeight: 1.5, margin: 0 }}>
+          Congratulations! You have fulfilled the active research prerequisites (3-year duration, reports, and verified publications). Fulfill the final steps by submitting your rough thesis draft and Turnitin plagiarism clearance report. The department will then schedule your offline expert defense seminar.
+        </p>
+      </div>
+
+      {/* Package Form or Status */}
+      {(isPending || isRevision) && (
+        <div className="card">
+          <h3 className="card-title">Upload Pre-Submission Package</h3>
+          <p style={{ color: 'var(--color-text-secondary, #64748B)', fontSize: '0.85rem', marginBottom: 20 }}>
+            Upload complete rough draft thesis compiled from approved chapters, along with the plagiarism verification clearance certificate.
+          </p>
+
+          {preMilestone.comments?.length > 0 && (
+            <div style={{ marginBottom: 20, padding: 12, background: '#FEE2E2', borderLeft: '4px solid #EF4444', borderRadius: 8, color: '#991B1B', fontSize: '0.85rem' }}>
+              <strong>Correction Required:</strong> "{preMilestone.comments[preMilestone.comments.length - 1].text}"
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 6 }}>
+                 Rough Thesis Complete Document (PDF format only) *
+              </label>
+              <input type="file" required accept=".pdf" className="form-input" onChange={e => setFileThesis(e.target.files[0])} />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 6 }}>
+                 Plagiarism Clearance Certificate (PDF format only) *
+              </label>
+              <input type="file" required accept=".pdf" className="form-input" onChange={e => setFilePlagiarism(e.target.files[0])} />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+              <button type="submit" className="btn-primary" disabled={submitting} style={{ background: '#EA580C', padding: '10px 24px', display: 'flex', gap: 8, alignItems: 'center' }}>
+                {submitting ? 'Uploading Package...' : '🚀 Submit Pre-Submission Package'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {isSubmitted && (
+        <div className="card" style={{ textAlign: 'center', padding: '40px 24px' }}>
+          <div style={{ fontSize: '3rem', marginBottom: 16 }}>⏳</div>
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-text, #0F172A)', margin: '0 0 8px 0' }}>Pre-Submission Package Uploaded</h3>
+          <p style={{ color: 'var(--color-text-secondary, #64748B)', fontSize: '0.85rem', maxWidth: 500, margin: '0 auto 20px', lineHeight: 1.5 }}>
+            Your rough draft and Turnitin report have been submitted to the HOD. Awaiting department scheduling for your open, offline Pre-Submission Seminar presentation.
+          </p>
+          <div style={{ display: 'inline-flex', gap: 16, background: 'var(--color-bg, #F8FAFC)', padding: '12px 20px', borderRadius: 12, border: '1px solid var(--color-border, #E2E8F0)' }}>
+            {preMilestone.documentUrl && (
+              <a href={`${API_BASE_URL}${preMilestone.documentUrl}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.85rem', color: '#EA580C', fontWeight: 600, textDecoration: 'underline' }}>
+                📄 Rough Thesis Draft
+              </a>
+            )}
+            {preMilestone.plagiarismReportUrl && (
+              <a href={`${API_BASE_URL}${preMilestone.plagiarismReportUrl}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.85rem', color: '#10B981', fontWeight: 600, textDecoration: 'underline' }}>
+                📊 Plagiarism Report
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
+      {isApproved && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div className="card" style={{ padding: '40px 24px', borderLeft: '8px solid #059669', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+            <div style={{ fontSize: '3rem', marginBottom: 16 }}>🎉</div>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#065F46', margin: '0 0 8px 0' }}>Pre-Submission Seminar Successful!</h3>
+            <p style={{ color: 'var(--color-text-secondary, #64748B)', fontSize: '0.85rem', maxWidth: 500, margin: '0 auto 20px', lineHeight: 1.5 }}>
+              Your expert defense seminar was recorded as **Successful** by the HOD. Your thesis status has progressed to **PRE_SUBMISSION**. Please begin assembling your final submission materials.
+            </p>
+            <div style={{ display: 'inline-flex', gap: 16, background: 'var(--color-bg, #F8FAFC)', padding: '12px 20px', borderRadius: 12, border: '1px solid var(--color-border, #E2E8F0)' }}>
+              {preMilestone.documentUrl && (
+                <a href={`${API_BASE_URL}${preMilestone.documentUrl}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.85rem', color: '#EA580C', fontWeight: 600, textDecoration: 'underline' }}>
+                  📄 Rough Thesis Draft
+                </a>
+              )}
+              {preMilestone.plagiarismReportUrl && (
+                <a href={`${API_BASE_URL}${preMilestone.plagiarismReportUrl}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.85rem', color: '#10B981', fontWeight: 600, textDecoration: 'underline' }}>
+                  📊 Plagiarism Report
+                </a>
+              )}
+            </div>
+          </div>
+
+          {finalMilestone && (
+            <div className="card">
+              <h3 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--color-text, #0F172A)' }}>
+                <span>🚀</span> Final Thesis Package Submission
+              </h3>
+              
+              {finalMilestone.status === 'PENDING' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 12 }}>
+                  <p style={{ color: 'var(--color-text-secondary, #64748B)', fontSize: '0.85rem', lineHeight: 1.5, margin: 0 }}>
+                    Please compile and upload your absolute final, hard-bound equivalent Ph.D. thesis document here. Ensure that all corrections, suggestions, and feedback received from the expert panel during your offline defense colloquium are fully incorporated.
+                  </p>
+
+                  <form onSubmit={handleFinalSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 8 }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 6 }}>
+                        Final Hard-Bound Equivalent Thesis (PDF format only) *
+                      </label>
+                      <input type="file" required accept=".pdf" className="form-input" onChange={e => setFileFinalThesis(e.target.files[0])} />
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+                      <button type="submit" className="btn-primary" disabled={submittingFinal} style={{ background: '#EA580C', padding: '10px 24px', display: 'flex', gap: 8, alignItems: 'center' }}>
+                        {submittingFinal ? 'Uploading Final Thesis...' : '🚀 Submit Final Thesis Package'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              {finalMilestone.status === 'SUBMITTED' && (
+                <div style={{ textAlign: 'center', padding: '32px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                  <div style={{ fontSize: '3rem' }}>⏳</div>
+                  <h4 style={{ fontWeight: 700, color: 'var(--color-text, #0F172A)', margin: 0 }}>Awaiting Digital Sign-off</h4>
+                  <p style={{ color: 'var(--color-text-secondary, #64748B)', fontSize: '0.85rem', maxWidth: 500, margin: 0, lineHeight: 1.5 }}>
+                    Your final complete thesis document has been submitted and forwarded to your assigned Faculty Supervisor for the last digital signature and sign-off.
+                  </p>
+                  
+                  {finalMilestone.documentUrl && (
+                    <div style={{ marginTop: 8 }}>
+                      <a href={`${API_BASE_URL}${finalMilestone.documentUrl}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.85rem', color: '#EA580C', fontWeight: 600, textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        📄 View Submitted Final Thesis
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
 
 // ── Submitted (Read-Only) ──
-const SubmittedView = ({ thesis }) => (
-  <div className="card" style={{ maxWidth: 600, margin: '0 auto', textAlign: 'center', padding: 48 }}>
-    <Lock size={64} color="#6B7280" style={{ margin: '0 auto 16px' }} />
-    <h3 style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#111827', marginBottom: 8 }}>Thesis Submitted</h3>
-    <p style={{ color: '#6b7280', marginBottom: 16 }}>Your thesis was submitted on <strong>{thesis.submittedAt ? new Date(thesis.submittedAt).toLocaleDateString() : 'N/A'}</strong>. All uploads are now permanently locked. Awaiting external evaluation.</p>
-    <div style={{ background: '#F3F4F6', borderRadius: 12, padding: 16 }}>
-      <div style={{ fontSize: '0.9rem', color: '#374151' }}>📬 Thesis dispatched to external examiners<br/>⏳ Awaiting examiner reports and viva date</div>
+const SubmittedView = ({ thesis }) => {
+  const isAwarded = thesis.status === 'AWARDED';
+  
+  const steps = [
+    {
+      title: '📤 Thesis Submission Package',
+      desc: `Your final Ph.D. thesis was digitally signed-off by your Supervisor and submitted on ${thesis.submittedAt ? new Date(thesis.submittedAt).toLocaleDateString() : new Date().toLocaleDateString()}. Your account is locked.`,
+      status: 'SUCCESS'
+    },
+    {
+      title: '📬 Dispatch to External University Examiners',
+      desc: thesis.dispatchDate 
+        ? `Dispatched on ${new Date(thesis.dispatchDate).toLocaleDateString()} via ${thesis.dispatchMethod} ${thesis.dispatchTrackingNumber ? `(Ref: ${thesis.dispatchTrackingNumber})` : ''}. Examiner evaluation is in progress.`
+        : 'Your thesis is being verified by the HOD and Academic Branch for official examiner dispatch.',
+      status: thesis.dispatchDate ? 'SUCCESS' : 'WARNING'
+    },
+    {
+      title: '🎓 Viva-Voce Defense Colloquium',
+      desc: thesis.vivaStatus === 'SUCCESSFUL'
+        ? `Passed defense colloquium successfully! Panel Remarks: "${thesis.vivaRemarks || 'Satisfactory'}"`
+        : thesis.vivaStatus === 'SCHEDULED'
+        ? `Defense Scheduled: ${new Date(thesis.vivaDate).toLocaleDateString()} at ${thesis.vivaTime} in ${thesis.vivaVenue}. External Expert panel will evaluate.`
+        : thesis.vivaStatus === 'UNSUCCESSFUL'
+        ? `Corrections required: "${thesis.vivaRemarks || 'Check notes'}"`
+        : 'Awaiting clearance and positive reports from external university examiners.',
+      status: thesis.vivaStatus === 'SUCCESSFUL' ? 'SUCCESS' : thesis.vivaStatus === 'SCHEDULED' ? 'WARNING' : thesis.vivaStatus === 'UNSUCCESSFUL' ? 'DANGER' : 'PENDING'
+    },
+    {
+      title: '📜 Degree Award Clearance',
+      desc: isAwarded 
+        ? `Ph.D. degree officially awarded by the Academic Council on ${thesis.awardedAt ? new Date(thesis.awardedAt).toLocaleDateString() : 'N/A'}! Congratulations!`
+        : 'Degree award clearance by Himachal Pradesh University Academic Council.',
+      status: isAwarded ? 'SUCCESS' : 'PENDING'
+    }
+  ];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 750, margin: '0 auto' }}>
+      <div className="card" style={{ display: 'flex', gap: 16, alignItems: 'center', background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(37, 99, 235, 0.03) 100%)', border: '1px solid rgba(59, 130, 246, 0.15)', borderRadius: 16, padding: 24 }}>
+        <div style={{ fontSize: '3rem' }}>🚀</div>
+        <div>
+          <h4 style={{ margin: '0 0 4px 0', fontSize: '1.1rem', fontWeight: 800, color: 'var(--color-text, #0F172A)' }}>
+            {isAwarded ? '🎓 Ph.D. Degree Officially Awarded!' : '📚 Thesis in External Evaluation Phase'}
+          </h4>
+          <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-text-secondary, #475569)', lineHeight: 1.4 }}>
+            {isAwarded 
+              ? 'Congratulations, Doctor! Your Ph.D. degree has been officially awarded and cleared by the university board.'
+              : 'Your final thesis package has been locked. View the current external assessment and Viva-Voce progression timeline below.'}
+          </p>
+        </div>
+      </div>
+
+      <div className="card" style={{ padding: '28px 24px' }}>
+        <h3 className="card-title" style={{ fontSize: '1rem', marginBottom: 24, color: 'var(--color-text, #0F172A)' }}>📋 Ph.D. Degree Evaluation Progression</h3>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20, position: 'relative' }}>
+          {/* Vertical timeline line */}
+          <div style={{ position: 'absolute', top: 8, bottom: 8, left: 15, width: 2, background: 'var(--color-border, #E2E8F0)' }} />
+
+          {steps.map((step, idx) => {
+            const isSuccess = step.status === 'SUCCESS';
+            const isWarning = step.status === 'WARNING';
+            const isDanger = step.status === 'DANGER';
+            
+            let bgCircle = 'var(--color-bg, #F1F5F9)';
+            let borderCircle = 'var(--color-border, #CBD5E1)';
+            let textColor = 'var(--color-text-secondary, #64748B)';
+            let iconText = '⚪';
+
+            if (isSuccess) {
+              bgCircle = '#10B981';
+              borderCircle = '#10B981';
+              textColor = '#10B981';
+              iconText = '✓';
+            } else if (isWarning) {
+              bgCircle = '#F59E0B';
+              borderCircle = '#F59E0B';
+              textColor = '#D97706';
+              iconText = '⏳';
+            } else if (isDanger) {
+              bgCircle = '#EF4444';
+              borderCircle = '#EF4444';
+              textColor = '#EF4444';
+              iconText = '⚠️';
+            }
+
+            return (
+              <div key={idx} style={{ display: 'flex', gap: 16, position: 'relative', zIndex: 1 }}>
+                {/* Timeline Circle */}
+                <div style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: '50%',
+                  background: bgCircle,
+                  border: `2px solid ${borderCircle}`,
+                  color: isSuccess ? 'white' : 'var(--color-text, #475569)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 800,
+                  fontSize: '0.8rem',
+                  flexShrink: 0
+                }}>
+                  {iconText}
+                </div>
+
+                {/* Content Box */}
+                <div style={{
+                  flex: 1,
+                  background: isSuccess ? 'rgba(16, 185, 129, 0.03)' : isWarning ? 'rgba(245, 158, 11, 0.03)' : 'var(--color-bg, #F8FAFC)',
+                  border: `1px solid ${isSuccess ? 'rgba(16, 185, 129, 0.1)' : isWarning ? 'rgba(245, 158, 11, 0.1)' : 'var(--color-border, #E2E8F0)'}`,
+                  borderRadius: 12,
+                  padding: '14px 18px'
+                }}>
+                  <div style={{ fontWeight: 800, fontSize: '0.88rem', color: isSuccess ? '#065F46' : isWarning ? '#B45309' : 'var(--color-text, #1F2937)' }}>
+                    {step.title}
+                  </div>
+                  <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: 'var(--color-text-secondary, #475569)', lineHeight: 1.4 }}>
+                    {step.desc}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 // ── Awarded ──
 const AwardedView = ({ thesis }) => (
-  <div className="card" style={{ maxWidth: 600, margin: '0 auto', textAlign: 'center', padding: 48 }}>
-    <div style={{ fontSize: 80, marginBottom: 16 }}>🎓</div>
-    <h3 style={{ fontSize: '2rem', fontWeight: 'bold', color: '#059669', marginBottom: 8 }}>Degree Awarded!</h3>
-    <p style={{ color: '#6b7280', marginBottom: 16 }}>Congratulations, Doctor! Your Ph.D. degree has been officially awarded on <strong>{thesis.awardedAt ? new Date(thesis.awardedAt).toLocaleDateString() : 'N/A'}</strong>.</p>
-    <div style={{ fontStyle: 'italic', color: '#374151', fontSize: '1.1rem' }}>"{thesis.title}"</div>
-  </div>
+  <SubmittedView thesis={thesis} />
 );
 
 // ── Overview (status summary) ──
@@ -1071,6 +1425,75 @@ const OverviewPage = ({ thesis, milestones, setActiveTab, user }) => {
                 Agenda: {activeDrc.agenda}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {thesis.status === 'ACTIVE_RESEARCH' && (
+        <div className="card" style={{ 
+          background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(37, 99, 235, 0.02) 100%)', 
+          border: '1px solid rgba(59, 130, 246, 0.15)',
+          padding: 20,
+          borderRadius: 16
+        }}>
+          <h4 style={{ margin: '0 0 12px 0', fontSize: '0.95rem', fontWeight: 800, color: 'var(--color-text, #0F172A)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            🎯 Pre-Submission Seminar Eligibility Checklist
+          </h4>
+          <p style={{ color: 'var(--color-text-secondary, #475569)', fontSize: '0.82rem', lineHeight: 1.4, margin: '0 0 16px 0' }}>
+            Before scheduling your Pre-Submission Seminar and submitting your rough thesis, you must fulfill the institutional milestones below.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* Prerequisite 1: Time */}
+            {(() => {
+              const diffMs = thesis.startDate ? (new Date() - new Date(thesis.startDate)) : 0;
+              const diffYears = Math.min(3, +(diffMs / (1000 * 60 * 60 * 24 * 365.25)).toFixed(2));
+              const isTimeMet = diffYears >= 3;
+              return (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--color-surface, #ffffff)', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--color-border, #E2E8F0)' }}>
+                  <div style={{ fontSize: '0.82rem' }}>
+                    <strong>⏳ Minimum Research Duration:</strong> {diffYears} / 3 Years
+                  </div>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: isTimeMet ? '#065F46' : '#D97706' }}>
+                    {isTimeMet ? '✅ Eligible' : '⏳ Time Remaining'}
+                  </span>
+                </div>
+              );
+            })()}
+
+            {/* Prerequisite 2: Reports */}
+            {(() => {
+              const reports = milestones.filter(m => m.type === '6_MONTH_REPORT');
+              const approvedReports = reports.filter(r => r.status === 'APPROVED').length;
+              const totalReports = reports.length;
+              const isReportsMet = totalReports > 0 && approvedReports === totalReports;
+              return (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--color-surface, #ffffff)', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--color-border, #E2E8F0)' }}>
+                  <div style={{ fontSize: '0.82rem' }}>
+                    <strong>📄 Progress Reports:</strong> {approvedReports} / {totalReports || 1} Semester Reports Approved
+                  </div>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: isReportsMet ? '#065F46' : '#D97706' }}>
+                    {isReportsMet ? '✅ All Approved' : '⏳ Pending Reviews'}
+                  </span>
+                </div>
+              );
+            })()}
+
+            {/* Prerequisite 3: Publications */}
+            {(() => {
+              const journalsCount = publications.filter(p => p.type === 'JOURNAL' && p.status === 'VERIFIED').length;
+              const conferencesCount = publications.filter(p => p.type === 'CONFERENCE' && p.status === 'VERIFIED').length;
+              const isPubsMet = journalsCount >= 2 && conferencesCount >= 2;
+              return (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--color-surface, #ffffff)', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--color-border, #E2E8F0)' }}>
+                  <div style={{ fontSize: '0.82rem' }}>
+                    <strong>📚 Publications Log:</strong> Journals: {journalsCount}/2 | Conferences: {conferencesCount}/2
+                  </div>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: isPubsMet ? '#065F46' : '#D97706' }}>
+                    {isPubsMet ? '✅ Complete' : '⏳ Prerequisites Locked'}
+                  </span>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
@@ -1334,11 +1757,21 @@ const PublicationsTab = ({ thesis }) => {
   const [pubs, setPubs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ title: '', journalName: '', issn: '', publicationDate: '', paperLink: '', attachmentUrl: '' });
+  const [submitting, setSubmitting] = useState(false);
+  const [file, setFile] = useState(null);
+  const [form, setForm] = useState({ 
+    title: '', 
+    journalName: '', 
+    issn: '', 
+    publicationDate: '', 
+    paperLink: '', 
+    type: 'JOURNAL',
+    doiUrl: ''
+  });
 
   const fetchPubs = async () => {
     try {
-      const res = await axios.get(`${API}/lifecycle/publications/thesis/${thesis._id}`, getAuthHeader());
+      const res = await axios.get(`${API}/publications/thesis/${thesis._id}`, getAuthHeader());
       setPubs(res.data);
     } catch (err) {}
     setLoading(false);
@@ -1348,108 +1781,874 @@ const PublicationsTab = ({ thesis }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!form.title.trim() || !form.journalName.trim()) return toast.warning('Please enter paper title and publisher details.');
+    if (!file) return toast.warning('Please upload a PDF proof of acceptance.');
+    
+    setSubmitting(true);
     try {
-      await axios.post(`${API}/lifecycle/publications`, { ...form, thesisId: thesis._id }, getAuthHeader());
-      toast.success('Publication logged successfully and pending review!');
+      const formData = new FormData();
+      formData.append('thesisId', thesis._id);
+      formData.append('title', form.title);
+      formData.append('journalName', form.journalName);
+      formData.append('issn', form.issn);
+      formData.append('publicationDate', form.publicationDate);
+      formData.append('paperLink', form.paperLink || form.doiUrl || '');
+      formData.append('type', form.type);
+      formData.append('doiUrl', form.doiUrl);
+      formData.append('document', file);
+
+      await axios.post(`${API}/publications`, formData, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      toast.success('Scientific Publication logged successfully & pending verification!');
       setShowForm(false);
-      setForm({ title: '', journalName: '', issn: '', publicationDate: '', paperLink: '', attachmentUrl: '' });
+      setForm({ title: '', journalName: '', issn: '', publicationDate: '', paperLink: '', type: 'JOURNAL', doiUrl: '' });
+      setFile(null);
       fetchPubs();
     } catch (err) {
-      toast.error('Error logging publication.');
+      toast.error(err.response?.data?.message || 'Error logging publication.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
+  const verifiedJournals = pubs.filter(p => p.type === 'JOURNAL' && p.status === 'VERIFIED').length;
+  const verifiedConferences = pubs.filter(p => p.type === 'CONFERENCE' && p.status === 'VERIFIED').length;
+
   return (
-    <div className="card">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <div>
-          <h3 className="card-title" style={{ margin: 0 }}>Research Publications Log</h3>
-          <p style={{ color: '#64748B', fontSize: '0.85rem', marginTop: 4 }}>
-            Maintain records of peer-reviewed journal papers and scientific publications generated during your doctoral studies.
-          </p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Target Progress Summary widget */}
+      <div className="card" style={{ 
+        padding: 24, 
+        borderRadius: 16, 
+        background: 'linear-gradient(135deg, rgba(5, 150, 105, 0.08) 0%, rgba(16, 185, 129, 0.03) 100%)', 
+        border: '1px solid rgba(16, 185, 129, 0.15)' 
+      }}>
+        <h4 style={{ margin: '0 0 12px 0', fontSize: '0.95rem', fontWeight: 800, color: 'var(--color-text, #0F172A)', display: 'flex', alignItems: 'center', gap: 8 }}>
+          📚 Pre-Submission Publication Prerequisites
+        </h4>
+        <p style={{ color: 'var(--color-text-secondary, #475569)', fontSize: '0.82rem', lineHeight: 1.4, margin: '0 0 16px 0' }}>
+          To unlock the Pre-Submission Seminar phase, you are required to have published at least 2 papers in verified peer-reviewed journals (UGC-CARE listed) and presented at least 2 papers at scientific conferences.
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div style={{ 
+            background: 'var(--color-surface, #ffffff)', 
+            border: '1px solid var(--color-border, #E2E8F0)',
+            padding: 16, 
+            borderRadius: 12,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 6
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #64748B)' }}>Journal Publications</span>
+              <span style={{ 
+                fontSize: '0.72rem', 
+                fontWeight: 700, 
+                padding: '2px 8px', 
+                borderRadius: 12, 
+                background: verifiedJournals >= 2 ? '#D1FAE5' : '#FEF3C7',
+                color: verifiedJournals >= 2 ? '#065F46' : '#D97706'
+              }}>
+                {verifiedJournals >= 2 ? 'COMPLETED' : 'IN PROGRESS'}
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+              <span style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--color-text, #0F172A)' }}>{verifiedJournals}</span>
+              <span style={{ fontSize: '0.9rem', color: 'var(--color-text-secondary, #64748B)', fontWeight: 500 }}>/ 2 required</span>
+            </div>
+            <div style={{ width: '100%', height: 6, background: 'var(--color-bg, #F1F5F9)', borderRadius: 3, overflow: 'hidden', marginTop: 4 }}>
+              <div style={{ width: `${Math.min((verifiedJournals / 2) * 100, 100)}%`, height: '100%', background: verifiedJournals >= 2 ? '#10B981' : '#F59E0B', borderRadius: 3 }} />
+            </div>
+          </div>
+
+          <div style={{ 
+            background: 'var(--color-surface, #ffffff)', 
+            border: '1px solid var(--color-border, #E2E8F0)',
+            padding: 16, 
+            borderRadius: 12,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 6
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #64748B)' }}>Conference Presentations</span>
+              <span style={{ 
+                fontSize: '0.72rem', 
+                fontWeight: 700, 
+                padding: '2px 8px', 
+                borderRadius: 12, 
+                background: verifiedConferences >= 2 ? '#D1FAE5' : '#FEF3C7',
+                color: verifiedConferences >= 2 ? '#065F46' : '#D97706'
+              }}>
+                {verifiedConferences >= 2 ? 'COMPLETED' : 'IN PROGRESS'}
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+              <span style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--color-text, #0F172A)' }}>{verifiedConferences}</span>
+              <span style={{ fontSize: '0.9rem', color: 'var(--color-text-secondary, #64748B)', fontWeight: 500 }}>/ 2 required</span>
+            </div>
+            <div style={{ width: '100%', height: 6, background: 'var(--color-bg, #F1F5F9)', borderRadius: 3, overflow: 'hidden', marginTop: 4 }}>
+              <div style={{ width: `${Math.min((verifiedConferences / 2) * 100, 100)}%`, height: '100%', background: verifiedConferences >= 2 ? '#10B981' : '#F59E0B', borderRadius: 3 }} />
+            </div>
+          </div>
         </div>
-        <button onClick={() => setShowForm(!showForm)} className="btn-primary" style={{ background: '#059669', display: 'flex', gap: 6, alignItems: 'center' }}>
-          <Plus size={16} /> Log Paper
-        </button>
       </div>
 
-      {showForm && (
-        <form onSubmit={handleSubmit} style={{ background: '#F8FAFC', padding: 20, borderRadius: 12, border: '1px solid #E2E8F0', marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <h4 style={{ margin: 0, color: '#0F172A' }}>Log New Scientific Publication</h4>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Paper Title</label>
-              <input type="text" className="form-input" required value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Journal/Conference Name</label>
-              <input type="text" className="form-input" required value={form.journalName} onChange={e => setForm({ ...form, journalName: e.target.value })} />
-            </div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>ISSN / ISBN</label>
-              <input type="text" className="form-input" value={form.issn} onChange={e => setForm({ ...form, issn: e.target.value })} />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Publication Date</label>
-              <input type="date" className="form-input" required value={form.publicationDate} onChange={e => setForm({ ...form, publicationDate: e.target.value })} />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Paper/Publisher Link</label>
-              <input type="text" className="form-input" value={form.paperLink} onChange={e => setForm({ ...form, paperLink: e.target.value })} />
-            </div>
-          </div>
+      <div className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Attachment Proof URL (e.g. PDF copy upload link)</label>
-            <input type="text" className="form-input" value={form.attachmentUrl} onChange={e => setForm({ ...form, attachmentUrl: e.target.value })} />
+            <h3 className="card-title" style={{ margin: 0 }}>Research Publications Log</h3>
+            <p style={{ color: 'var(--color-text-secondary, #64748B)', fontSize: '0.85rem', marginTop: 4 }}>
+              Log and track peer-reviewed journal papers and scientific presentations completed during your active Ph.D. tenure.
+            </p>
           </div>
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-            <button type="button" onClick={() => setShowForm(false)} className="btn-outline" style={{ padding: '8px 16px' }}>Cancel</button>
-            <button type="submit" className="btn-primary" style={{ background: '#133A26', padding: '8px 16px' }}>Submit Log</button>
-          </div>
-        </form>
-      )}
-
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: 20 }}>Loading publications...</div>
-      ) : pubs.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '36px', color: '#64748B', background: '#F8FAFC', borderRadius: 8 }}>
-          No research papers logged yet.
+          <button onClick={() => setShowForm(!showForm)} className="btn-primary" style={{ background: 'var(--color-primary, #059669)', display: 'flex', gap: 6, alignItems: 'center' }}>
+            <Plus size={16} /> Log Paper / Presentation
+          </button>
         </div>
-      ) : (
-        <div className="file-list">
-          <div className="file-header">
-            <div style={{ flex: 3 }}>Paper Title</div>
-            <div style={{ flex: 2 }}>Journal</div>
-            <div style={{ flex: 1.2 }}>ISSN</div>
-            <div style={{ flex: 1.5 }}>Date</div>
-            <div style={{ flex: 1.2 }}>Status</div>
-            <div style={{ flex: 1.2, textAlign: 'center' }}>Links</div>
-          </div>
-          {pubs.map(p => (
-            <div key={p._id} className="file-item">
-              <div style={{ flex: 3, fontWeight: 700 }}>{p.title}</div>
-              <div style={{ flex: 2, fontSize: '0.9rem' }}>{p.journalName}</div>
-              <div style={{ flex: 1.2, fontSize: '0.85rem', color: '#64748B' }}>{p.issn || '—'}</div>
-              <div style={{ flex: 1.5, fontSize: '0.85rem' }}>{new Date(p.publicationDate).toLocaleDateString()}</div>
-              <div style={{ flex: 1.2 }}>
-                <span style={{ 
-                  padding: '4px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 600,
-                  background: p.status === 'VERIFIED' ? '#D1FAE5' : p.status === 'REJECTED' ? '#FEE2E2' : '#FEF3C7',
-                  color: p.status === 'VERIFIED' ? '#065F46' : p.status === 'REJECTED' ? '#991B1B' : '#D97706'
-                }}>
-                  {p.status}
-                </span>
+
+        {showForm && (
+          <form onSubmit={handleSubmit} style={{ background: 'var(--color-bg, #F8FAFC)', padding: 20, borderRadius: 12, border: '1px solid var(--color-border, #E2E8F0)', marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <h4 style={{ margin: 0, color: 'var(--color-text, #0F172A)' }}>Log New Scientific Publication / Conference</h4>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Paper Title *</label>
+                <input type="text" className="form-input" required value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="e.g. A Deep Learning Approach to Cybersecurity" />
               </div>
-              <div style={{ flex: 1.2, display: 'flex', gap: 8, justifyContent: 'center' }}>
-                {p.paperLink && <a href={p.paperLink} target="_blank" rel="noreferrer" title="View Article" style={{ color: '#2563EB' }}><File size={16} /></a>}
-                {p.attachmentUrl && <a href={p.attachmentUrl} target="_blank" rel="noreferrer" title="Attachment" style={{ color: '#059669' }}><Upload size={16} /></a>}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Journal / Publisher / Conference Name *</label>
+                <input type="text" className="form-input" required value={form.journalName} onChange={e => setForm({ ...form, journalName: e.target.value })} placeholder="e.g. IEEE Transactions on Forensics" />
               </div>
             </div>
-          ))}
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Publication / Presentation Type *</label>
+                <select className="form-input" required value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}>
+                  <option value="JOURNAL">Journal Publication</option>
+                  <option value="CONFERENCE">Conference Presentation</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>ISSN / ISBN</label>
+                <input type="text" className="form-input" value={form.issn} onChange={e => setForm({ ...form, issn: e.target.value })} placeholder="e.g. 1549-3652" />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Date of Acceptance/Print *</label>
+                <input type="date" className="form-input" required value={form.publicationDate} onChange={e => setForm({ ...form, publicationDate: e.target.value })} />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Paper/Publisher Link</label>
+                <input type="text" className="form-input" value={form.paperLink} onChange={e => setForm({ ...form, paperLink: e.target.value })} placeholder="e.g. https://ieeexplore.ieee.org/document/..." />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>DOI URL / Number</label>
+                <input type="text" className="form-input" value={form.doiUrl} onChange={e => setForm({ ...form, doiUrl: e.target.value })} placeholder="e.g. 10.1109/TIFS.2026.12345" />
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Upload Proof of Acceptance (PDF format) *</label>
+              <input type="file" className="form-input" required accept=".pdf" onChange={e => setFile(e.target.files[0])} />
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button type="button" onClick={() => setShowForm(false)} className="btn-outline" style={{ padding: '8px 16px' }}>Cancel</button>
+              <button type="submit" className="btn-primary" disabled={submitting} style={{ background: '#133A26', padding: '8px 18px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                {submitting ? 'Submitting...' : 'Submit Log'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: 20 }}>Loading publications...</div>
+        ) : pubs.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '36px', color: 'var(--color-text-secondary, #64748B)', background: 'var(--color-bg, #F8FAFC)', borderRadius: 8 }}>
+            No research papers or presentations logged yet.
+          </div>
+        ) : (
+          <div className="file-list" style={{ overflowX: 'auto' }}>
+            <div className="file-header" style={{ minWidth: 700 }}>
+              <div style={{ flex: 2.2 }}>Paper Title</div>
+              <div style={{ flex: 1.5 }}>Journal/Conference</div>
+              <div style={{ flex: 1 }}>Type</div>
+              <div style={{ flex: 1 }}>Date</div>
+              <div style={{ flex: 1 }}>Status</div>
+              <div style={{ flex: 1.8, textAlign: 'center' }}>Links & Proof</div>
+            </div>
+            {pubs.map(p => (
+              <div key={p._id} className="file-item" style={{ minWidth: 700, flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                  <div style={{ flex: 2.2, fontWeight: 700, color: 'var(--color-text, #1E293B)' }}>{p.title}</div>
+                  <div style={{ flex: 1.5, fontSize: '0.9rem' }}>{p.journalName}</div>
+                  <div style={{ flex: 1 }}>
+                    <span style={{ 
+                      padding: '2px 6px', borderRadius: 4, fontSize: '0.7rem', fontWeight: 700,
+                      background: p.type === 'JOURNAL' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(139, 92, 246, 0.1)',
+                      color: p.type === 'JOURNAL' ? '#2563EB' : '#7C3AED'
+                    }}>
+                      {p.type}
+                    </span>
+                  </div>
+                  <div style={{ flex: 1, fontSize: '0.85rem' }}>{new Date(p.publicationDate).toLocaleDateString()}</div>
+                  <div style={{ flex: 1 }}>
+                    <span style={{ 
+                      padding: '4px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 600,
+                      background: p.status === 'VERIFIED' ? '#D1FAE5' : p.status === 'REJECTED' ? '#FEE2E2' : '#FEF3C7',
+                      color: p.status === 'VERIFIED' ? '#065F46' : p.status === 'REJECTED' ? '#991B1B' : '#D97706'
+                    }}>
+                      {p.status}
+                    </span>
+                  </div>
+                  <div style={{ flex: 1.8, display: 'flex', gap: 12, justifyContent: 'center' }}>
+                    {p.paperLink && <a href={p.paperLink} target="_blank" rel="noreferrer" title="View Publisher Page" style={{ fontSize: '0.82rem', color: '#2563EB', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}><File size={16} /> Link</a>}
+                    {p.documentUrl && <a href={`${API_BASE_URL}${p.documentUrl}`} target="_blank" rel="noreferrer" title="View Proof PDF" style={{ fontSize: '0.82rem', color: '#059669', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}><Upload size={16} /> PDF</a>}
+                  </div>
+                </div>
+                {p.remarks && (
+                  <div style={{ background: 'var(--color-bg, #F8FAFC)', borderLeft: '3px solid var(--color-border, #CBD5E1)', padding: '6px 12px', borderRadius: 6, fontSize: '0.8rem', color: 'var(--color-text-secondary, #475569)', marginTop: 4 }}>
+                    <strong>Supervisor Feedback:</strong> "{p.remarks}"
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const MeetingsTab = ({ thesis }) => {
+  const toast = useToast();
+  const [meetings, setMeetings] = useState([]);
+  const [faculty, setFaculty] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState({ date: '', time: '', reason: '', attendees: [] });
+
+  const fetchData = async () => {
+    try {
+      const [mRes, fRes] = await Promise.all([
+        axios.get(`${API}/meetings/me`, getAuthHeader()),
+        axios.get(`${API}/auth/faculty`, getAuthHeader())
+      ]);
+      setMeetings(mRes.data);
+      // Filter faculty by department, excluding students, and making sure inactive aren't displayed
+      const deptFaculty = fRes.data.filter(f => f.department === thesis.department && f.isActive);
+      setFaculty(deptFaculty);
+    } catch (err) {
+      toast.error('Failed to load meeting details.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleCheckboxChange = (facultyId) => {
+    const isSelected = form.attendees.includes(facultyId);
+    if (isSelected) {
+      setForm(prev => ({ ...prev, attendees: prev.attendees.filter(id => id !== facultyId) }));
+    } else {
+      setForm(prev => ({ ...prev, attendees: [...prev.attendees, facultyId] }));
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.date || !form.time || !form.reason.trim()) {
+      return toast.warning('Please enter date, suggested time, and reason.');
+    }
+
+    setSubmitting(true);
+    try {
+      await axios.post(`${API}/meetings`, form, getAuthHeader());
+      toast.success('Meeting request submitted successfully to HOD for approval.');
+      setShowModal(false);
+      setForm({ date: '', time: '', reason: '', attendees: [] });
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Error scheduling meeting.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const getStatusStyle = (status) => {
+    if (status === 'APPROVED') return { bg: '#ECFDF5', text: '#059669', border: 'rgba(16, 185, 129, 0.2)' };
+    if (status === 'REJECTED') return { bg: '#FEF2F2', text: '#DC2626', border: 'rgba(239, 68, 68, 0.2)' };
+    return { bg: '#FFFBEB', text: '#D97706', border: 'rgba(245, 158, 11, 0.2)' };
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <div>
+            <h3 className="card-title" style={{ margin: 0 }}>Meetings Scheduler Desk</h3>
+            <p style={{ color: 'var(--color-text-secondary, #64748B)', fontSize: '0.85rem', marginTop: 4 }}>
+              Request custom research guidance and monitoring meetings. All meeting proposals route to your department Head (HOD) for administrative approval.
+            </p>
+          </div>
+          <button onClick={() => setShowModal(true)} className="btn-primary" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <Plus size={16} /> Request Meeting
+          </button>
+        </div>
+
+        {loading ? (
+          <div style={{ padding: 32, textAlign: 'center', color: '#64748B' }}>Loading schedules...</div>
+        ) : meetings.length === 0 ? (
+          <div style={{ padding: 48, textAlign: 'center', color: '#94A3B8' }}>
+            <Calendar size={48} style={{ margin: '0 auto 12px', opacity: 0.5 }} />
+            <p style={{ margin: 0, fontWeight: 600 }}>No proposed meetings found</p>
+            <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem' }}>Click "Request Meeting" to propose your first consultation session.</p>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {meetings.map((meeting) => {
+              const statusStyle = getStatusStyle(meeting.status);
+              return (
+                <div
+                  key={meeting._id}
+                  style={{
+                    background: 'var(--color-surface, #ffffff)',
+                    border: `1px solid var(--color-border, #E2E8F0)`,
+                    borderRadius: 12,
+                    padding: 16,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 12,
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                      <div style={{
+                        background: 'var(--color-bg, #F1F5F9)',
+                        padding: '8px 12px',
+                        borderRadius: 8,
+                        textAlign: 'center',
+                        border: '1px solid var(--color-border, #E2E8F0)'
+                      }}>
+                        <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--color-text-secondary, #64748B)', textTransform: 'uppercase' }}>
+                          {new Date(meeting.date).toLocaleString('default', { month: 'short' })}
+                        </div>
+                        <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--color-text, #0F172A)' }}>
+                          {new Date(meeting.date).getDate()}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 700, color: 'var(--color-text, #0F172A)' }}>
+                          Suggested Time: {meeting.time}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary, #64748B)' }}>
+                          Proposed: {new Date(meeting.createdAt).toLocaleDateString()}
+                        </div>
+                      </div>
+                    </div>
+                    <span style={{
+                      padding: '4px 10px',
+                      borderRadius: 12,
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      background: statusStyle.bg,
+                      color: statusStyle.text,
+                      border: `1px solid ${statusStyle.border}`
+                    }}>
+                      {meeting.status}
+                    </span>
+                  </div>
+
+                  <div style={{ fontSize: '0.85rem', color: 'var(--color-text, #334155)', lineHeight: 1.4 }}>
+                    <strong>Agenda:</strong> {meeting.reason}
+                  </div>
+
+                  {meeting.attendees && meeting.attendees.length > 0 && (
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary, #64748B)', fontWeight: 600 }}>Invited Attendees:</span>
+                      {meeting.attendees.map(member => (
+                        <span
+                          key={member._id}
+                          style={{
+                            fontSize: '0.72rem',
+                            padding: '2px 8px',
+                            background: 'var(--color-bg, #F1F5F9)',
+                            border: '1px solid var(--color-border, #E2E8F0)',
+                            color: 'var(--color-text, #334155)',
+                            borderRadius: 6,
+                            fontWeight: 600
+                          }}
+                        >
+                          {member.name} {member.role === 'HOD' ? '(HOD)' : `(${member.subRole || 'Faculty'})`}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {meeting.remarks && (
+                    <div style={{
+                      background: meeting.status === 'APPROVED' ? 'rgba(16, 185, 129, 0.05)' : 'rgba(239, 68, 68, 0.05)',
+                      borderLeft: `3px solid ${statusStyle.text}`,
+                      padding: '10px 14px',
+                      borderRadius: '0 8px 8px 0',
+                      fontSize: '0.8rem',
+                      color: 'var(--color-text, #334155)',
+                      marginTop: 4
+                    }}>
+                      <strong>HOD Remarks:</strong> "{meeting.remarks}"
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {showModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(15, 23, 42, 0.6)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 99999,
+          padding: 16
+        }}>
+          <form
+            onSubmit={handleSubmit}
+            style={{
+              background: 'var(--color-surface, #ffffff)',
+              border: '1px solid var(--color-border, #E2E8F0)',
+              borderRadius: 16,
+              padding: 24,
+              width: '100%',
+              maxWidth: 550,
+              boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 16,
+              maxHeight: '90vh',
+              overflowY: 'auto'
+            }}
+          >
+            <h3 style={{ margin: 0, color: 'var(--color-text, #0F172A)', fontWeight: 800 }}>Propose Guidance Consultation Meeting</h3>
+            <p style={{ margin: 0, color: 'var(--color-text-secondary, #64748B)', fontSize: '0.8rem', lineHeight: 1.4 }}>
+              Propose a schedule for a progress discussion. Administrative HOD validation is required to activate the invitation link.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Suggested Date *</label>
+                <input
+                  type="date"
+                  className="form-input"
+                  required
+                  value={form.date}
+                  onChange={e => setForm({ ...form, date: e.target.value })}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Suggested Time *</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  required
+                  value={form.time}
+                  onChange={e => setForm({ ...form, time: e.target.value })}
+                  placeholder="e.g. 11:30 AM"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Agenda / Discussion Reason *</label>
+              <textarea
+                className="form-input"
+                required
+                rows="3"
+                value={form.reason}
+                onChange={e => setForm({ ...form, reason: e.target.value })}
+                placeholder="Explain the purpose of the meeting, e.g. synopsis outline discussion, thesis chapter review..."
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 6 }}>
+                Checklist Department Attendees (faculties / HOD)
+              </label>
+              {faculty.length === 0 ? (
+                <p style={{ fontSize: '0.78rem', color: '#64748B', margin: '4px 0 0 0', fontStyle: 'italic' }}>No registered department faculty members found.</p>
+              ) : (
+                <div style={{
+                  border: '1px solid var(--color-border, #E2E8F0)',
+                  borderRadius: 8,
+                  maxHeight: 150,
+                  overflowY: 'auto',
+                  padding: 8,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                  background: 'var(--color-bg, #F8FAFC)'
+                }}>
+                  {faculty.map((member) => (
+                    <label
+                      key={member._id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        fontSize: '0.8rem',
+                        color: 'var(--color-text, #1E293B)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={form.attendees.includes(member._id)}
+                        onChange={() => handleCheckboxChange(member._id)}
+                      />
+                      <span>
+                        <strong>{member.name}</strong> — {member.role === 'HOD' ? 'Department Head (HOD)' : (member.subRole || 'Faculty')}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 8 }}>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
+                  setShowModal(false);
+                  setForm({ date: '', time: '', reason: '', attendees: [] });
+                }}
+                disabled={submitting}
+                style={{ padding: '8px 16px' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={submitting}
+                style={{ padding: '8px 20px' }}
+              >
+                {submitting ? 'Submitting...' : 'Submit Proposed Request'}
+              </button>
+            </div>
+          </form>
         </div>
       )}
+    </div>
+  );
+};
+
+const DocumentsTab = ({ thesis }) => {
+  const toast = useToast();
+  const [docs, setDocs] = useState([]);
+  const [faculty, setFaculty] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [file, setFile] = useState(null);
+  const [form, setForm] = useState({ title: '', description: '', forwardedTo: '', forwardedRole: '' });
+
+  const fetchData = async () => {
+    try {
+      const [dRes, fRes] = await Promise.all([
+        axios.get(`${API}/additional-documents/me`, getAuthHeader()),
+        axios.get(`${API}/auth/faculty`, getAuthHeader())
+      ]);
+      setDocs(dRes.data);
+      // Filter faculty by department, excluding students, and making sure inactive aren't displayed
+      const deptFaculty = fRes.data.filter(f => f.department === thesis.department && f.isActive);
+      setFaculty(deptFaculty);
+    } catch (err) {
+      toast.error('Failed to load document details.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.title.trim()) return toast.warning('Please enter a document title.');
+    if (!form.forwardedTo) return toast.warning('Please select a recipient to forward the document.');
+    if (!file) return toast.warning('Please select a PDF document to upload.');
+
+    setSubmitting(true);
+    try {
+      const formData = new FormData();
+      formData.append('title', form.title);
+      formData.append('description', form.description);
+      formData.append('forwardedTo', form.forwardedTo);
+      formData.append('forwardedRole', form.forwardedRole);
+      formData.append('document', file);
+
+      await axios.post(`${API}/additional-documents`, formData, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      toast.success('Document uploaded and forwarded successfully.');
+      setShowForm(false);
+      setFile(null);
+      setForm({ title: '', description: '', forwardedTo: '', forwardedRole: '' });
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Error uploading document.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRecipientChange = (e) => {
+    const val = e.target.value;
+    if (!val) {
+      setForm(prev => ({ ...prev, forwardedTo: '', forwardedRole: '' }));
+      return;
+    }
+    const [id, role] = val.split(':');
+    setForm(prev => ({ ...prev, forwardedTo: id, forwardedRole: role }));
+  };
+
+  // Find department HOD
+  const hodUser = faculty.find(f => f.role === 'HOD');
+  // Supervisor user
+  const supervisorUser = thesis.supervisorId;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <div>
+            <h3 className="card-title" style={{ margin: 0 }}>Additional Documents Vault</h3>
+            <p style={{ color: 'var(--color-text-secondary, #64748B)', fontSize: '0.85rem', marginTop: 4 }}>
+              Upload and forward miscellaneous academic documents, drafts, or certificates to your Supervisor or HOD.
+            </p>
+          </div>
+          <button onClick={() => setShowForm(!showForm)} className="btn-primary" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <Plus size={16} /> Upload Document
+          </button>
+        </div>
+
+        {showForm && (
+          <form
+            onSubmit={handleSubmit}
+            style={{
+              background: 'var(--color-bg, #F8FAFC)',
+              padding: 20,
+              borderRadius: 12,
+              border: '1px solid var(--color-border, #E2E8F0)',
+              marginBottom: 24,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 16
+            }}
+          >
+            <h4 style={{ margin: 0, color: 'var(--color-text, #0F172A)' }}>Upload New Document</h4>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Document Title *</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  required
+                  value={form.title}
+                  onChange={e => setForm({ ...form, title: e.target.value })}
+                  placeholder="e.g. Research Methodology Slides, Progress Presentation"
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Forward To Recipient *</label>
+                <select
+                  className="form-input"
+                  required
+                  value={form.forwardedTo ? `${form.forwardedTo}:${form.forwardedRole}` : ''}
+                  onChange={handleRecipientChange}
+                >
+                  <option value="">-- Select Recipient --</option>
+                  {supervisorUser && (
+                    <option value={`${supervisorUser._id}:SUPERVISOR`}>
+                      Supervisor (Prof. {supervisorUser.name})
+                    </option>
+                  )}
+                  {hodUser && (
+                    <option value={`${hodUser._id}:HOD`}>
+                      Head of Department (Prof. {hodUser.name})
+                    </option>
+                  )}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Document Description / Context</label>
+              <textarea
+                className="form-input"
+                rows="2"
+                value={form.description}
+                onChange={e => setForm({ ...form, description: e.target.value })}
+                placeholder="Provide a brief context or notes regarding this uploaded file..."
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Upload File (PDF only) *</label>
+              <input
+                type="file"
+                accept=".pdf"
+                required
+                onChange={e => setFile(e.target.files[0])}
+                style={{ fontSize: '0.85rem' }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 4 }}>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
+                  setShowForm(false);
+                  setFile(null);
+                  setForm({ title: '', description: '', forwardedTo: '', forwardedRole: '' });
+                }}
+                disabled={submitting}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={submitting}
+              >
+                {submitting ? 'Uploading...' : 'Submit Document'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {loading ? (
+          <div style={{ padding: 32, textAlign: 'center', color: '#64748B' }}>Loading vault documents...</div>
+        ) : docs.length === 0 ? (
+          <div style={{ padding: 48, textAlign: 'center', color: '#94A3B8' }}>
+            <FileText size={48} style={{ margin: '0 auto 12px', opacity: 0.5 }} />
+            <p style={{ margin: 0, fontWeight: 600 }}>No uploaded documents found</p>
+            <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem' }}>Upload additional files to supervisor or HOD for reviews.</p>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+            {docs.map((doc) => (
+              <div
+                key={doc._id}
+                style={{
+                  background: 'var(--color-surface, #ffffff)',
+                  border: '1px solid var(--color-border, #E2E8F0)',
+                  borderRadius: 12,
+                  padding: 16,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: 12
+                }}
+              >
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                    <h4 style={{ margin: 0, fontSize: '0.92rem', color: 'var(--color-text, #0F172A)', fontWeight: 800 }}>{doc.title}</h4>
+                    <span style={{
+                      padding: '2px 8px',
+                      borderRadius: 12,
+                      fontSize: '0.7rem',
+                      fontWeight: 700,
+                      background: doc.status === 'REVIEWED' ? '#D1FAE5' : '#FEF3C7',
+                      color: doc.status === 'REVIEWED' ? '#065F46' : '#D97706',
+                      flexShrink: 0
+                    }}>
+                      {doc.status}
+                    </span>
+                  </div>
+                  <p style={{ margin: '6px 0 0 0', fontSize: '0.8rem', color: 'var(--color-text-secondary, #64748B)', lineHeight: 1.4 }}>
+                    {doc.description || 'No description provided.'}
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary, #64748B)' }}>
+                    <div>📤 Forwarded Recipient: <strong>{doc.forwardedTo?.name || 'N/A'}</strong> ({doc.forwardedRole})</div>
+                    <div style={{ marginTop: 2 }}>📅 Date: {new Date(doc.createdAt).toLocaleDateString()}</div>
+                  </div>
+
+                  {doc.remarks && (
+                    <div style={{
+                      background: 'rgba(16, 185, 129, 0.05)',
+                      borderLeft: '3px solid #059669',
+                      padding: '8px 10px',
+                      borderRadius: '0 6px 6px 0',
+                      fontSize: '0.78rem',
+                      color: 'var(--color-text, #334155)'
+                    }}>
+                      <strong>Remarks:</strong> "{doc.remarks}"
+                    </div>
+                  )}
+
+                  <a
+                    href={`${API_BASE_URL}${doc.documentUrl}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      color: '#0284C7',
+                      textDecoration: 'none',
+                      padding: '8px',
+                      background: '#F0F9FF',
+                      border: '1px solid #BCE4FC',
+                      borderRadius: 8,
+                      textAlign: 'center',
+                      marginTop: 4
+                    }}
+                  >
+                    <FileText size={14} /> View File Proof
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -3877,6 +5076,7 @@ const StudentDashboard = () => {
     sixMonthReports: '6-Month Progress Reports',
     chapterDrafts: 'Chapter Drafts Workspace',
     researchOutputs: 'Research Outputs Vault',
+    preSubmission: 'Pre-Submission Package',
     changes: 'Request Changes', 
     certificates: 'Certificates', 
     milestones: 'Milestones', 
@@ -3909,11 +5109,14 @@ const StudentDashboard = () => {
       case 'overview': return <OverviewPage thesis={thesis} milestones={milestones} setActiveTab={setActiveTab} user={user} />;
       case 'rac': return <RACProgressTab thesis={thesis} />;
       case 'publications': return <PublicationsTab thesis={thesis} />;
+      case 'preSubmission': return <PreSubmission thesis={thesis} milestones={milestones} onSubmit={fetchMyThesis} />;
       case 'sixMonthReports': return <SixMonthReportsTab thesis={thesis} milestones={milestones} onSubmit={submitMilestone} />;
       case 'chapterDrafts': return <ChapterDraftsTab thesis={thesis} milestones={milestones} onSubmit={submitMilestone} />;
       case 'researchOutputs': return <ResearchOutputsTab thesis={thesis} />;
       case 'changes': return <RequestChangesTab thesis={thesis} />;
       case 'certificates': return <CertificatesTab thesis={thesis} />;
+      case 'meetings': return <MeetingsTab thesis={thesis} />;
+      case 'documents': return <DocumentsTab thesis={thesis} />;
       case 'milestones':
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -3945,11 +5148,10 @@ const StudentDashboard = () => {
       default: return <div className="card"><h3 className="card-title">{titles[activeTab]}</h3><p style={{ color: '#6b7280', marginTop: 8 }}>Content coming soon.</p></div>;
     }
   };
-
   return (
     <div className="app-container">
       <div className="mobile-overlay" onClick={() => document.body.classList.remove('sidebar-mobile-open')} />
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} isVerified={thesis && thesis.status !== 'REGISTRATION_PENDING'} thesis={thesis} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} isVerified={thesis && thesis.status !== 'REGISTRATION_PENDING'} thesis={thesis} milestones={milestones} />
       <div className="main-content" style={{ display: 'flex', flexDirection: 'column' }}>
         {/* Floating warning banner */}
         {user && !user.profileCompleted && (

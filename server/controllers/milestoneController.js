@@ -44,6 +44,33 @@ const getMilestones = async (req, res) => {
           });
         }
       }
+
+      // Check Phase 5 Pre-Submission prerequisites:
+      // 1. Minimum 3 years (36 months) passed
+      const hasThreeYearsPassed = diffMonths >= 36;
+
+      // 2. All 6-month progress reports are approved
+      const reports = await Milestone.find({ thesisId: thesis._id, type: '6_MONTH_REPORT' });
+      const allReportsApproved = reports.length > 0 && reports.every(r => r.status === 'APPROVED');
+
+      // 3. Required publications are approved (at least 2 verified journals and 2 verified conferences)
+      const Publication = require('../models/Publication');
+      const verifiedJournals = await Publication.countDocuments({ thesisId: thesis._id, type: 'JOURNAL', status: 'VERIFIED' });
+      const verifiedConferences = await Publication.countDocuments({ thesisId: thesis._id, type: 'CONFERENCE', status: 'VERIFIED' });
+      const publicationsApproved = verifiedJournals >= 2 && verifiedConferences >= 2;
+
+      if (hasThreeYearsPassed && allReportsApproved && publicationsApproved) {
+        const preExists = await Milestone.findOne({ thesisId: thesis._id, type: 'PRE_SUBMISSION' });
+        if (!preExists) {
+          await Milestone.create({
+            thesisId: thesis._id,
+            type: 'PRE_SUBMISSION',
+            title: 'Pre-Submission Thesis & Plagiarism Clearance Package',
+            status: 'PENDING',
+            sequence: 99
+          });
+        }
+      }
     }
 
     const milestones = await Milestone.find({ thesisId: req.params.thesisId })
@@ -75,8 +102,20 @@ const submitDocument = async (req, res) => {
     }
     await thesis.save();
 
-    milestone.documentUrl = req.file ? `/uploads/${req.file.filename}` : req.body.documentUrl;
+    if (req.files) {
+      if (req.files['document'] && req.files['document'][0]) {
+        milestone.documentUrl = `/uploads/${req.files['document'][0].filename}`;
+      }
+      if (req.files['plagiarism'] && req.files['plagiarism'][0]) {
+        milestone.plagiarismReportUrl = `/uploads/${req.files['plagiarism'][0].filename}`;
+      }
+    } else if (req.file) {
+      milestone.documentUrl = `/uploads/${req.file.filename}`;
+    }
+
+    if (req.body.documentUrl) milestone.documentUrl = req.body.documentUrl;
     if (req.body.plagiarismReportUrl) milestone.plagiarismReportUrl = req.body.plagiarismReportUrl;
+
     milestone.status = 'SUBMITTED';
     milestone.submittedAt = new Date();
     await milestone.save();

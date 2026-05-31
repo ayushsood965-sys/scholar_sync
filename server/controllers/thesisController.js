@@ -260,6 +260,10 @@ const awardDegree = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized. This scholar belongs to another department.' });
     }
 
+    if (thesis.vivaStatus !== 'SUCCESSFUL') {
+      return res.status(400).json({ message: 'Ph.D. degree can only be awarded after a successful Viva-Voce defense.' });
+    }
+
     thesis.status = 'AWARDED';
     thesis.awardedAt = new Date();
     thesis.auditLog.push({ action: 'DEGREE_AWARDED', note: req.body.note || 'Degree awarded after successful viva' });
@@ -366,6 +370,58 @@ const drcApprove = async (req, res) => {
   }
 };
 
+// PUT /api/thesis/:id/schedule-seminar — HOD schedules pre-submission seminar
+const scheduleSeminar = async (req, res) => {
+  try {
+    const thesis = await Thesis.findById(req.params.id);
+    if (!thesis) return res.status(404).json({ message: 'Thesis not found' });
+
+    // HOD department check
+    if (req.user.role === 'HOD' && thesis.department !== req.user.department) {
+      return res.status(403).json({ message: 'Not authorized. This scholar belongs to another department.' });
+    }
+
+    const { scheduledDate, scheduledTime, venue, committeeMembers } = req.body;
+    if (!scheduledDate || !scheduledTime || !venue) {
+      return res.status(400).json({ message: 'Please fill in Scheduled Date, Time, and Venue.' });
+    }
+
+    const Milestone = require('../models/Milestone');
+    let milestone = await Milestone.findOne({ thesisId: thesis._id, type: 'PRE_SUBMISSION' });
+    if (!milestone) {
+      return res.status(400).json({ message: 'Pre-submission milestone not found. Candidate must upload the pre-submission package first.' });
+    }
+
+    milestone.dueDate = new Date(scheduledDate);
+    // Overwrite any previous schedule comments to keep it clean
+    milestone.comments = milestone.comments.filter(c => !c.text.startsWith('Pre-Submission Seminar scheduled'));
+    milestone.comments.push({
+      authorId: req.user._id,
+      authorName: req.user.name,
+      text: `Pre-Submission Seminar scheduled for ${new Date(scheduledDate).toLocaleDateString()} at ${scheduledTime} in ${venue}. Panel: ${committeeMembers || 'Department Board'}.`
+    });
+    await milestone.save();
+
+    thesis.auditLog.push({ 
+      action: 'SEMINAR_SCHEDULED', 
+      note: `Pre-submission seminar scheduled by HOD ${req.user.name} on ${new Date(scheduledDate).toLocaleDateString()} at ${scheduledTime} in ${venue}.` 
+    });
+    await thesis.save();
+
+    await createNotification({
+      recipient: thesis.scholarId,
+      title: '📆 Pre-Submission Seminar Scheduled!',
+      message: `Your pre-submission seminar presentation has been scheduled for ${new Date(scheduledDate).toLocaleDateString()} at ${scheduledTime} in ${venue}. Please prepare your slides and defense.`,
+      type: 'PENDING_ACTION',
+      link: 'overview'
+    });
+
+    res.json(thesis);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 // PUT /api/thesis/:id/seminar — HOD seminar clearance → PRE_SUBMISSION
 const seminarClear = async (req, res) => {
   try {
@@ -377,23 +433,76 @@ const seminarClear = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized. This scholar belongs to another department.' });
     }
 
+    // Publication requirement checks: at least 2 verified journals and 2 verified conferences
+    const Publication = require('../models/Publication');
+    const verifiedJournals = await Publication.countDocuments({
+      thesisId: thesis._id,
+      type: 'JOURNAL',
+      status: 'VERIFIED'
+    });
+    const verifiedConferences = await Publication.countDocuments({
+      thesisId: thesis._id,
+      type: 'CONFERENCE',
+      status: 'VERIFIED'
+    });
+
+    if (verifiedJournals < 2 || verifiedConferences < 2) {
+      return res.status(400).json({
+        message: `Cannot clear pre-submission seminar. The scholar must have at least 2 verified Journal publications (Current: ${verifiedJournals}/2) and 2 verified Conference presentations (Current: ${verifiedConferences}/2).`
+      });
+    }
+
     thesis.status = 'PRE_SUBMISSION';
-    thesis.auditLog.push({ action: 'SEMINAR_CLEARED', note: `Pre-submission seminar cleared by HOD ${req.user.name}` });
+    const notes = req.body.remarks || `Pre-submission seminar cleared by HOD ${req.user.name}`;
+    thesis.auditLog.push({ action: 'SEMINAR_CLEARED', note: notes });
     await thesis.save();
 
-    // Auto-create pre-submission milestone
-    await Milestone.create({
-      thesisId: thesis._id,
-      type: 'PRE_SUBMISSION',
-      title: 'Pre-Submission Package (Publications + Plagiarism Report + Rough Draft)',
-      status: 'PENDING',
-      sequence: 99,
-    });
+    // Mark pre-submission milestone as APPROVED
+    const Milestone = require('../models/Milestone');
+    let milestone = await Milestone.findOne({ thesisId: thesis._id, type: 'PRE_SUBMISSION' });
+    if (milestone) {
+      milestone.status = 'APPROVED';
+      milestone.reviewedAt = new Date();
+      if (req.body.remarks) {
+        milestone.comments.push({
+          authorId: req.user._id,
+          authorName: req.user.name,
+          text: req.body.remarks
+        });
+      }
+      await milestone.save();
+    } else {
+      await Milestone.create({
+        thesisId: thesis._id,
+        type: 'PRE_SUBMISSION',
+        title: 'Pre-Submission Thesis & Plagiarism Clearance Package',
+        status: 'APPROVED',
+        sequence: 99,
+        reviewedAt: new Date(),
+        comments: req.body.remarks ? [{
+          authorId: req.user._id,
+          authorName: req.user.name,
+          text: req.body.remarks
+        }] : []
+      });
+    }
+
+    // Auto-create final submission milestone (sequence 100) if it doesn't exist
+    const finalExists = await Milestone.findOne({ thesisId: thesis._id, type: 'FINAL_SUBMISSION' });
+    if (!finalExists) {
+      await Milestone.create({
+        thesisId: thesis._id,
+        type: 'FINAL_SUBMISSION',
+        title: 'Final Complete Thesis Submission Package',
+        status: 'PENDING',
+        sequence: 100,
+      });
+    }
 
     await createNotification({
       recipient: thesis.scholarId,
       title: '🎯 Pre-Submission Seminar Cleared!',
-      message: `Your pre-submission seminar and defense colloquium have been officially marked as cleared. Please prepare and upload your pre-submission package.`,
+      message: `Your pre-submission seminar and defense colloquium have been officially marked as cleared. Please prepare and upload your final thesis package.`,
       type: 'SUCCESSFUL_ACTION',
       link: 'overview'
     });
@@ -415,11 +524,151 @@ const finalApprove = async (req, res) => {
     thesis.auditLog.push({ action: 'FINAL_APPROVED', note: `Final digital approval by supervisor ${req.user.name}` });
     await thesis.save();
 
+    // Mark final submission milestone as APPROVED
+    const Milestone = require('../models/Milestone');
+    let milestone = await Milestone.findOne({ thesisId: thesis._id, type: 'FINAL_SUBMISSION' });
+    if (milestone) {
+      milestone.status = 'APPROVED';
+      milestone.reviewedAt = new Date();
+      milestone.comments.push({
+        authorId: req.user._id,
+        authorName: req.user.name,
+        text: `Approved and signed off for final evaluation by supervisor ${req.user.name}.`
+      });
+      await milestone.save();
+    }
+
     await createNotification({
       recipient: thesis.scholarId,
       title: '🚀 Thesis Final Digital Sign-off!',
       message: `Your supervisor has provided final digital sign-off and approval for your Ph.D. thesis. It has been officially SUBMITTED for external evaluation!`,
       type: 'SUCCESSFUL_ACTION',
+      link: 'overview'
+    });
+
+    res.json(thesis);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// PUT /api/thesis/:id/dispatch — HOD/Admin logs dispatch to external examiners
+const dispatchThesis = async (req, res) => {
+  try {
+    const { dispatchDate, dispatchMethod, dispatchTrackingNumber } = req.body;
+    if (!dispatchDate || !dispatchMethod) {
+      return res.status(400).json({ message: 'Dispatch date and method are required' });
+    }
+
+    const thesis = await Thesis.findById(req.params.id);
+    if (!thesis) return res.status(404).json({ message: 'Thesis not found' });
+
+    // HOD department check
+    if (req.user.role === 'HOD' && thesis.department !== req.user.department) {
+      return res.status(403).json({ message: 'Not authorized. This scholar belongs to another department.' });
+    }
+
+    thesis.dispatchDate = new Date(dispatchDate);
+    thesis.dispatchMethod = dispatchMethod;
+    thesis.dispatchTrackingNumber = dispatchTrackingNumber || '';
+    
+    thesis.auditLog.push({ 
+      action: 'THESIS_DISPATCHED', 
+      note: `Thesis dispatched to external examiners via ${dispatchMethod} (Ref: ${dispatchTrackingNumber || 'N/A'})` 
+    });
+    
+    await thesis.save();
+
+    await createNotification({
+      recipient: thesis.scholarId,
+      title: '📬 Thesis Dispatched for Evaluation',
+      message: `Your final Ph.D. thesis has been officially dispatched to external examiners via ${dispatchMethod}.`,
+      type: 'SUCCESSFUL_ACTION',
+      link: 'overview'
+    });
+
+    res.json(thesis);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// PUT /api/thesis/:id/schedule-viva — HOD/Admin schedules offline Viva-Voce defense
+const scheduleViva = async (req, res) => {
+  try {
+    const { vivaDate, vivaTime, vivaVenue, vivaPanel } = req.body;
+    if (!vivaDate || !vivaTime || !vivaVenue) {
+      return res.status(400).json({ message: 'Viva date, time, and venue are required' });
+    }
+
+    const thesis = await Thesis.findById(req.params.id);
+    if (!thesis) return res.status(404).json({ message: 'Thesis not found' });
+
+    // HOD department check
+    if (req.user.role === 'HOD' && thesis.department !== req.user.department) {
+      return res.status(403).json({ message: 'Not authorized. This scholar belongs to another department.' });
+    }
+
+    thesis.vivaDate = new Date(vivaDate);
+    thesis.vivaTime = vivaTime;
+    thesis.vivaVenue = vivaVenue;
+    thesis.vivaPanel = vivaPanel || '';
+    thesis.vivaStatus = 'SCHEDULED';
+
+    thesis.auditLog.push({ 
+      action: 'VIVA_SCHEDULED', 
+      note: `Viva-Voce scheduled for ${new Date(vivaDate).toLocaleDateString()} at ${vivaTime} in ${vivaVenue}` 
+    });
+
+    await thesis.save();
+
+    await createNotification({
+      recipient: thesis.scholarId,
+      title: '📅 Viva-Voce Defense Scheduled!',
+      message: `Your final Viva-Voce defense has been scheduled for ${new Date(vivaDate).toLocaleDateString()} at ${vivaTime} in ${vivaVenue}.`,
+      type: 'SUCCESSFUL_ACTION',
+      link: 'overview'
+    });
+
+    res.json(thesis);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// PUT /api/thesis/:id/record-viva — HOD/Admin records Viva-Voce outcome
+const recordViva = async (req, res) => {
+  try {
+    const { vivaStatus, remarks } = req.body;
+    if (!vivaStatus || !['SUCCESSFUL', 'UNSUCCESSFUL'].includes(vivaStatus)) {
+      return res.status(400).json({ message: 'Valid Viva-Voce status is required (SUCCESSFUL/UNSUCCESSFUL)' });
+    }
+
+    const thesis = await Thesis.findById(req.params.id);
+    if (!thesis) return res.status(404).json({ message: 'Thesis not found' });
+
+    // HOD department check
+    if (req.user.role === 'HOD' && thesis.department !== req.user.department) {
+      return res.status(403).json({ message: 'Not authorized. This scholar belongs to another department.' });
+    }
+
+    thesis.vivaStatus = vivaStatus;
+    thesis.vivaRemarks = remarks || '';
+
+    thesis.auditLog.push({ 
+      action: 'VIVA_OUTCOME_LOGGED', 
+      note: `Viva-Voce defense recorded as ${vivaStatus}. Remarks: ${remarks || 'None'}` 
+    });
+
+    await thesis.save();
+
+    await createNotification({
+      recipient: thesis.scholarId,
+      title: vivaStatus === 'SUCCESSFUL' ? '🎉 Viva-Voce Defense Successful!' : '⚠️ Viva-Voce Defense Revisions Required',
+      message: vivaStatus === 'SUCCESSFUL'
+        ? `Congratulations! Your Viva-Voce panel has cleared your defense successfully. Your degree will be awarded shortly.`
+        : `Your Viva-Voce panel has requested corrections: "${remarks || 'See HOD details'}"`,
+      type: vivaStatus === 'SUCCESSFUL' ? 'SUCCESSFUL_ACTION' : 'PENDING_ACTION',
       link: 'overview'
     });
 
@@ -475,9 +724,166 @@ const toggleAnnualRAC = async (req, res) => {
   }
 };
 
+// PUT /api/thesis/:id/transfer — Transfer Scholar
+const transferThesis = async (req, res) => {
+  try {
+    const thesis = await Thesis.findById(req.params.id);
+    if (!thesis) return res.status(404).json({ message: 'Thesis not found' });
+
+    // Validate that thesis is not SUBMITTED or AWARDED
+    if (['SUBMITTED', 'AWARDED'].includes(thesis.status)) {
+      return res.status(400).json({ message: 'Cannot transfer a scholar whose thesis is already submitted or awarded.' });
+    }
+
+    const User = require('../models/User');
+    const scholar = await User.findById(thesis.scholarId);
+    if (!scholar) return res.status(404).json({ message: 'Scholar user not found' });
+
+    if (req.user.role === 'ADMIN') {
+      // Super Admin (Global Transfer)
+      const { targetDepartment, targetSupervisorId, targetHodId } = req.body;
+
+      if (!targetDepartment || !targetSupervisorId || !targetHodId) {
+        return res.status(400).json({ message: 'Transfer failed. Department, Supervisor, and HOD are all required fields.' });
+      }
+
+      const targetSupervisor = await User.findById(targetSupervisorId);
+      if (!targetSupervisor) return res.status(404).json({ message: 'Target supervisor not found.' });
+      if (!targetSupervisor.isVerified) return res.status(400).json({ message: 'Target supervisor is not verified.' });
+      if (targetSupervisor.department !== targetDepartment) {
+        return res.status(400).json({ message: 'Target supervisor must belong to the selected department.' });
+      }
+
+      const targetHod = await User.findById(targetHodId);
+      if (!targetHod) return res.status(404).json({ message: 'Target HOD not found.' });
+      if (!targetHod.isVerified) return res.status(400).json({ message: 'Target HOD is not verified.' });
+      if (targetHod.department !== targetDepartment) {
+        return res.status(400).json({ message: 'Target HOD must belong to the selected department.' });
+      }
+
+      const oldDept = thesis.department;
+      const oldSupervisorId = thesis.supervisorId;
+
+      // Apply complete transfer
+      thesis.department = targetDepartment;
+      thesis.supervisorId = targetSupervisor._id;
+      scholar.department = targetDepartment;
+
+      thesis.auditLog.push({
+        action: 'GLOBAL_TRANSFERRED',
+        note: `Globally transferred from department ${oldDept} to ${targetDepartment} by Admin ${req.user.name}. New Supervisor: ${targetSupervisor.name}, New HOD: ${targetHod.name}.`
+      });
+
+      await thesis.save();
+      await scholar.save();
+
+      // Notifications
+      await createNotification({
+        recipient: thesis.scholarId,
+        title: '🔄 Global Transfer Executed',
+        message: `Your research profile has been globally transferred to the ${targetDepartment} department under supervisor ${targetSupervisor.name}.`,
+        type: 'SYSTEM_ALERT',
+        link: 'overview'
+      });
+
+      await createNotification({
+        recipient: targetSupervisor._id,
+        title: '🔄 Scholar Assigned (Global Transfer)',
+        message: `Admin ${req.user.name} has globally transferred scholar ${scholar.name} to your supervision in the ${targetDepartment} department.`,
+        type: 'PENDING_ACTION',
+        link: 'overview'
+      });
+
+      await createNotification({
+        recipient: targetHod._id,
+        title: '🔄 Scholar Transferred In (Global Transfer)',
+        message: `Scholar ${scholar.name} has been globally transferred into your department by Admin ${req.user.name}.`,
+        type: 'PENDING_ACTION',
+        link: 'overview'
+      });
+
+      if (oldSupervisorId) {
+        await createNotification({
+          recipient: oldSupervisorId,
+          title: '🔄 Scholar Transferred Out',
+          message: `Scholar ${scholar.name} has been globally transferred to another department and is no longer under your supervision.`,
+          type: 'SYSTEM_ALERT',
+          link: 'overview'
+        });
+      }
+
+    } else if (req.user.role === 'HOD' || req.user.role === 'FACULTY') {
+      // Intra-department transfer (Supervisor Transfer)
+      const { targetUserId } = req.body;
+      if (!targetUserId) {
+        return res.status(400).json({ message: 'Target supervisor is required for transfer.' });
+      }
+
+      const targetUser = await User.findById(targetUserId);
+      if (!targetUser) return res.status(404).json({ message: 'Target supervisor not found.' });
+      if (!targetUser.isVerified) return res.status(400).json({ message: 'Target supervisor is not verified.' });
+
+      // Enforce HOD & Faculty department boundaries
+      if (thesis.department !== req.user.department) {
+        return res.status(403).json({ message: 'Not authorized. Scholar belongs to another department.' });
+      }
+      if (targetUser.department !== thesis.department) {
+        return res.status(400).json({ message: 'Cannot transfer scholar to a supervisor outside your department.' });
+      }
+
+      if (req.user.role === 'FACULTY' && (!thesis.supervisorId || thesis.supervisorId.toString() !== req.user._id.toString())) {
+        return res.status(403).json({ message: 'Not authorized. You are not the assigned supervisor.' });
+      }
+
+      const oldSupervisorId = thesis.supervisorId;
+      thesis.supervisorId = targetUser._id;
+
+      thesis.auditLog.push({
+        action: 'SUPERVISOR_TRANSFERRED',
+        note: `Supervision transferred from ${oldSupervisorId ? 'previous supervisor' : 'none'} to ${targetUser.name} by ${req.user.role} ${req.user.name}.`
+      });
+
+      await thesis.save();
+
+      // Notifications
+      await createNotification({
+        recipient: thesis.scholarId,
+        title: '🔄 Supervisor Changed',
+        message: `Your supervision has been officially transferred to ${targetUser.name}.`,
+        type: 'SYSTEM_ALERT',
+        link: 'overview'
+      });
+
+      await createNotification({
+        recipient: targetUser._id,
+        title: '🔄 New Scholar Assigned',
+        message: `${req.user.name} has transferred supervision of scholar ${scholar.name} to you.`,
+        type: 'PENDING_ACTION',
+        link: 'overview'
+      });
+
+      if (oldSupervisorId && oldSupervisorId.toString() !== targetUser._id.toString()) {
+        await createNotification({
+          recipient: oldSupervisorId,
+          title: '🔄 Supervision Transferred',
+          message: `Your assigned scholar ${scholar.name} has been transferred to ${targetUser.name}. You are no longer their supervisor.`,
+          type: 'SYSTEM_ALERT',
+          link: 'overview'
+        });
+      }
+    } else {
+      return res.status(403).json({ message: 'Only Admin, Faculty, or HOD can initiate transfers.' });
+    }
+
+    res.json(thesis);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 module.exports = {
   createThesis, getMyThesis, getAllTheses, getThesisById,
   verifyEnrollment, assignSupervisor, clearCoursework, awardDegree, updateAuditLog,
-  getAssignedTheses, getDeptTheses, drcApprove, seminarClear, finalApprove,
-  toggleAnnualRAC
+  getAssignedTheses, getDeptTheses, drcApprove, scheduleSeminar, seminarClear, finalApprove,
+  toggleAnnualRAC, dispatchThesis, scheduleViva, recordViva, transferThesis
 };

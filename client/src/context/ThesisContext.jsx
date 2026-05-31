@@ -137,6 +137,11 @@ export const ThesisProvider = ({ children }) => {
     setAllTheses(prev => prev.map(t => t._id === id ? data : t));
     return data;
   };
+  const scheduleSeminar = async (id, payload) => {
+    const { data } = await axios.put(`${API}/thesis/${id}/schedule-seminar`, payload, getAuthHeader());
+    setAllTheses(prev => prev.map(t => t._id === id ? data : t));
+    return data;
+  };
   const seminarClear = async (id) => {
     const { data } = await axios.put(`${API}/thesis/${id}/seminar`, {}, getAuthHeader());
     setAllTheses(prev => prev.map(t => t._id === id ? data : t));
@@ -156,6 +161,27 @@ export const ThesisProvider = ({ children }) => {
     setAllTheses(prev => prev.map(t => t._id === id ? data : t));
     return data;
   };
+  const dispatchThesis = async (id, payload) => {
+    const { data } = await axios.put(`${API}/thesis/${id}/dispatch`, payload, getAuthHeader());
+    setAllTheses(prev => prev.map(t => t._id === id ? data : t));
+    return data;
+  };
+  const scheduleViva = async (id, payload) => {
+    const { data } = await axios.put(`${API}/thesis/${id}/schedule-viva`, payload, getAuthHeader());
+    setAllTheses(prev => prev.map(t => t._id === id ? data : t));
+    return data;
+  };
+  const recordViva = async (id, payload) => {
+    const { data } = await axios.put(`${API}/thesis/${id}/record-viva`, payload, getAuthHeader());
+    setAllTheses(prev => prev.map(t => t._id === id ? data : t));
+    return data;
+  };
+  const transferScholar = async (id, payload) => {
+    const body = typeof payload === 'object' ? payload : { targetUserId: payload };
+    const { data } = await axios.put(`${API}/thesis/${id}/transfer`, body, getAuthHeader());
+    setAllTheses(prev => prev.map(t => t._id === id ? data : t));
+    return data;
+  };
 
   return (
     <ThesisContext.Provider value={{
@@ -163,8 +189,8 @@ export const ThesisProvider = ({ children }) => {
       fetchMyThesis, createThesis, submitMilestone,
       fetchAllTheses, fetchThesisById, verifyEnrollment, assignSupervisor,
       clearCoursework, awardDegree, updateAuditLog,
-      fetchAssignedTheses, fetchDeptTheses, drcApprove, seminarClear, finalApprove, reviewMilestone,
-      toggleAnnualRAC
+      fetchAssignedTheses, fetchDeptTheses, drcApprove, scheduleSeminar, seminarClear, finalApprove, reviewMilestone,
+      toggleAnnualRAC, dispatchThesis, scheduleViva, recordViva, transferScholar
     }}>
       {children}
     </ThesisContext.Provider>

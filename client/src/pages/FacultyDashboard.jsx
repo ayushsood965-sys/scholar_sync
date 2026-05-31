@@ -494,9 +494,17 @@ const FacultyDocumentEvaluationModal = ({ doc, onClose, onRefresh }) => {
 // ── Thesis Detail + Milestone Review Panel ──
 const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onFinalApprove, onClearCoursework, onVerify, onAssign, subRole, onClose, onToggleAnnualRAC, onRefresh, selectedEvalDoc, setSelectedEvalDoc }) => {
   const toast = useToast();
+  const { user } = useContext(AuthContext);
+  const { transferScholar } = useContext(ThesisContext);
   const [remarks, setRemarks] = useState({});
   const [loading, setLoading] = useState(false);
   const [showProfileDetails, setShowProfileDetails] = useState(false);
+
+  // Transfer variables
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferTargetId, setTransferTargetId] = useState('');
+  const [transferLoading, setTransferLoading] = useState(false);
+  const [allFaculties, setAllFaculties] = useState([]);
 
   // Active Research panel variables
   const [activeResearchTab, setActiveResearchTab] = useState('reports');
@@ -520,6 +528,10 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
   const [showOfflineDrc, setShowOfflineDrc] = useState(false);
   const [offlineDrcForm, setOfflineDrcForm] = useState({ conductedDate: '', venue: '', committeeMembers: '', remarks: '', status: 'APPROVED' });
 
+  // Seminar scheduling variables
+  const [showSeminarSchedule, setShowSeminarSchedule] = useState(false);
+  const [seminarForm, setSeminarForm] = useState({ scheduledDate: '', scheduledTime: '', venue: '', committeeMembers: '' });
+
   // Faculty and assignment variables
   const [faculty, setFaculty] = useState([]);
   const [selSupervisor, setSelSupervisor] = useState(thesis.supervisorId?._id || '');
@@ -534,6 +546,35 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
     }
     setPubsLoading(false);
   };
+
+  const handleTransferSubmit = async (e) => {
+    e.preventDefault();
+    if (!transferTargetId) return toast.warning('Please select a faculty member to transfer this scholar to.');
+    setTransferLoading(true);
+    try {
+      await transferScholar(thesis._id, transferTargetId);
+      toast.success('Scholar transferred successfully!');
+      setShowTransferModal(false);
+      onClose(); // Close the modal since we lost supervision
+      if (onRefresh) await onRefresh();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to transfer scholar.');
+    } finally {
+      setTransferLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showTransferModal && thesis?.department) {
+      axios.get(`${API}/auth/faculty`, getAuthHeader())
+        .then(r => {
+          // Filter to only Verified faculties and HODs in the same department, excluding current supervisor
+          const eligible = r.data.filter(f => f.isVerified && f.department === thesis.department && f._id !== user._id);
+          setAllFaculties(eligible);
+        })
+        .catch(() => {});
+    }
+  }, [showTransferModal, thesis?.department, user._id]);
 
   const handleVerifyPublication = async (pubId, status) => {
     const rText = pubRemarks[pubId]?.trim() || '';
@@ -695,13 +736,33 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
     }
   };
 
+  const handleSeminarScheduleSubmit = async (e) => {
+    e.preventDefault();
+    if (!seminarForm.scheduledDate || !seminarForm.scheduledTime || !seminarForm.venue) {
+      return toast.warning('Please fill in Date, Time, and Venue');
+    }
+    setLoading(true);
+    try {
+      if (onScheduleSeminar) {
+        await onScheduleSeminar(seminarForm);
+        toast.success('Pre-Submission Seminar scheduled successfully!');
+        setShowSeminarSchedule(false);
+        setSeminarForm({ scheduledDate: '', scheduledTime: '', venue: '', committeeMembers: '' });
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to schedule seminar');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const synopsisMilestone = milestones.find(m => m.type === 'SYNOPSIS');
   const finalSubMilestone = milestones.find(m => m.type === 'FINAL_SUBMISSION');
   const isSynopsisPendingUpload = thesis.status === 'SYNOPSIS_PENDING' && (!synopsisMilestone || synopsisMilestone.status === 'PENDING');
   const isFinalPendingUpload = thesis.status === 'PRE_SUBMISSION' && (!finalSubMilestone || finalSubMilestone.status === 'PENDING');
   const pendingMilestones = milestones.filter(m => m.status === 'SUBMITTED' || m.status === 'REVISION_REQUIRED');
   const showProgressTabs = thesis.status !== 'REGISTRATION_PENDING' && thesis.status !== 'COURSEWORK';
-  const corePendingMilestones = milestones.filter(m => (m.type === 'SYNOPSIS' || m.type === 'FINAL_SUBMISSION') && (m.status === 'SUBMITTED' || m.status === 'REVISION_REQUIRED'));
+  const corePendingMilestones = milestones.filter(m => (m.type === 'SYNOPSIS' || m.type === 'FINAL_SUBMISSION' || m.type === 'PRE_SUBMISSION') && (m.status === 'SUBMITTED' || m.status === 'REVISION_REQUIRED'));
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: 20 }}>
@@ -720,36 +781,77 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20, flexShrink: 0, alignItems: 'center' }}>
           <h3 style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--color-text, #1f2937)', margin: 0 }}>{thesis.scholarId?.name} — {thesis.title?.substring(0, 50)}</h3>
-          <button 
-            onClick={onClose} 
-            style={{ 
-              background: 'var(--color-bg, #F1F5F9)', 
-              border: 'none', 
-              width: '36px', 
-              height: '36px', 
-              borderRadius: '50%', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              fontSize: '1rem', 
-              cursor: 'pointer', 
-              color: 'var(--color-text, #475569)', 
-              transition: 'all 0.2s',
-              flexShrink: 0,
-              marginLeft: 12
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--color-border, #E2E8F0)';
-              e.currentTarget.style.transform = 'rotate(90deg)';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--color-bg, #F1F5F9)';
-              e.currentTarget.style.transform = 'none';
-            }}
-          >
-            ✕
-          </button>
+          
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            {/* Show Transfer button only if current user is the supervisor and thesis is not submitted/awarded */}
+            {thesis.supervisorId?._id === user._id && !['SUBMITTED', 'AWARDED'].includes(thesis.status) && (
+              <button
+                onClick={() => setShowTransferModal(true)}
+                className="btn-outline"
+                style={{ borderColor: '#F59E0B', color: '#B45309', padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3v18"/><path d="m10 18-7 3 7 3"/><path d="M7 21h10"/><path d="m14 6 7-3-7-3"/><path d="M17 3H7"/></svg>
+                Transfer
+              </button>
+            )}
+
+            <button 
+              onClick={onClose} 
+              style={{ 
+                background: 'var(--color-bg, #F1F5F9)', 
+                border: 'none', 
+                borderRadius: '50%', 
+                width: 32, 
+                height: 32, 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                cursor: 'pointer',
+                color: 'var(--color-text, #475569)',
+                transition: 'background-color 0.2s'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#E2E8F0'}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'var(--color-bg, #F1F5F9)'}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+          </div>
         </div>
+
+        {/* Transfer Modal overlay */}
+        {showTransferModal && (
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.95)', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 16 }}>
+            <form onSubmit={handleTransferSubmit} style={{ background: '#FFFBEB', border: '1px solid #FDE68A', padding: 24, borderRadius: 12, width: '400px', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)' }}>
+              <div style={{ fontWeight: 800, fontSize: '1.1rem', color: '#92400E', marginBottom: 8 }}>Transfer Supervision</div>
+              <p style={{ fontSize: '0.8rem', color: '#B45309', marginBottom: 16 }}>
+                Warning: This action will permanently transfer this scholar's supervision to another verified faculty or HOD within the department of {thesis.department}.
+              </p>
+              
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#92400E', display: 'block', marginBottom: 4 }}>Select New Supervisor</label>
+                <select 
+                  className="form-input" 
+                  value={transferTargetId} 
+                  onChange={(e) => setTransferTargetId(e.target.value)} 
+                  required
+                  style={{ width: '100%', padding: '8px', fontSize: '0.9rem', borderColor: '#FCD34D' }}
+                >
+                  <option value="">-- Select Verified Faculty/HOD --</option>
+                  {allFaculties.map(f => (
+                    <option key={f._id} value={f._id}>{f.name} ({f.role === 'HOD' || f.subRole === 'HOD' ? 'HOD' : 'Faculty'})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                <button type="button" className="btn-outline" onClick={() => setShowTransferModal(false)} style={{ borderColor: '#F59E0B', color: '#B45309' }}>Cancel</button>
+                <button type="submit" className="btn-primary" disabled={transferLoading} style={{ background: '#D97706' }}>
+                  {transferLoading ? 'Transferring...' : 'Confirm Transfer'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
         <div style={{ flex: 1, overflowY: 'auto', paddingRight: '8px' }} className="custom-scrollbar">
 
           {/* Collapsible Scholar Profile & Academic Profile */}
@@ -1228,19 +1330,94 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
                   </label>
                 </div>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid #F1F5F9', paddingTop: 10 }}>
-                <button 
-                  className="btn-primary" 
-                  onClick={() => act(onSeminar)} 
-                  disabled={loading} 
-                  style={{ padding: '6px 14px', fontSize: '0.82rem', background: '#EA580C', fontWeight: 600 }}
-                >
-                  ✓ Seminar Cleared → Move to Pre-Submission
-                </button>
-              </div>
+              {(() => {
+                const verifiedJournalsCount = publications.filter(p => p.type === 'JOURNAL' && p.status === 'VERIFIED').length;
+                const verifiedConferencesCount = publications.filter(p => p.type === 'CONFERENCE' && p.status === 'VERIFIED').length;
+                const cannotClearSeminar = verifiedJournalsCount < 2 || verifiedConferencesCount < 2;
+                const preMilestone = milestones.find(m => m.type === 'PRE_SUBMISSION');
+                const hasUploadedDocs = preMilestone && preMilestone.status === 'SUBMITTED';
+
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, borderTop: '1px solid #F1F5F9', paddingTop: 10 }}>
+                    {cannotClearSeminar && (
+                      <div style={{ 
+                        background: 'rgba(239, 68, 68, 0.08)', 
+                        border: '1px solid rgba(239, 68, 68, 0.25)', 
+                        padding: '12px 16px', 
+                        borderRadius: 10, 
+                        fontSize: '0.82rem', 
+                        color: '#EF4444',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 4
+                      }}>
+                        <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span>⚠️ Pre-Submission Prerequisites Locked</span>
+                        </div>
+                        <div>This scholar does not meet publication prerequisites. At least 2 verified Journal publications and 2 verified Conference presentations are required.</div>
+                        <div style={{ marginTop: 2, fontWeight: 700, fontSize: '0.8rem', color: '#B91C1C' }}>
+                          Current Progress: Journals: {verifiedJournalsCount}/2 | Conferences: {verifiedConferencesCount}/2
+                        </div>
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                      {hasUploadedDocs && (
+                        <button 
+                          className="btn-outline" 
+                          onClick={() => setShowSeminarSchedule(!showSeminarSchedule)} 
+                          style={{ padding: '8px 18px', fontSize: '0.82rem', borderColor: '#3B82F6', color: '#3B82F6', fontWeight: 600 }}
+                        >
+                          📅 {showSeminarSchedule ? 'Cancel Scheduling' : 'Schedule Seminar'}
+                        </button>
+                      )}
+                      <button 
+                        className="btn-primary" 
+                        onClick={() => act(onSeminar)} 
+                        disabled={loading || cannotClearSeminar || !hasUploadedDocs} 
+                        style={{ 
+                          padding: '8px 18px', 
+                          fontSize: '0.82rem', 
+                          background: cannotClearSeminar || !hasUploadedDocs ? '#94A3B8' : '#EA580C', 
+                          cursor: cannotClearSeminar || !hasUploadedDocs ? 'not-allowed' : 'pointer',
+                          fontWeight: 600,
+                          opacity: cannotClearSeminar || !hasUploadedDocs ? 0.7 : 1
+                        }}
+                      >
+                        ✓ Seminar Cleared → Move to Pre-Submission
+                      </button>
+                    </div>
+                    {showSeminarSchedule && hasUploadedDocs && (
+                      <form onSubmit={handleSeminarScheduleSubmit} style={{ background: '#F0F9FF', border: '1px solid #BAE6FD', padding: 16, borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 10, width: '100%', marginTop: 8 }}>
+                        <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#0369A1' }}>Schedule Pre-Submission Seminar</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                          <div>
+                            <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#0284C7', display: 'block', marginBottom: 4 }}>Meeting Date</label>
+                            <input type="date" className="form-input" style={{ width: '100%', padding: '6px' }} value={seminarForm.scheduledDate} onChange={e => setSeminarForm({...seminarForm, scheduledDate: e.target.value})} required />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#0284C7', display: 'block', marginBottom: 4 }}>Meeting Time</label>
+                            <input type="text" className="form-input" style={{ width: '100%', padding: '6px' }} placeholder="e.g. 11:00 AM" value={seminarForm.scheduledTime} onChange={e => setSeminarForm({...seminarForm, scheduledTime: e.target.value})} required />
+                          </div>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#0284C7', display: 'block', marginBottom: 4 }}>Venue</label>
+                          <input type="text" className="form-input" style={{ width: '100%', padding: '6px' }} placeholder="e.g. Committee Room 1" value={seminarForm.venue} onChange={e => setSeminarForm({...seminarForm, venue: e.target.value})} required />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#0284C7', display: 'block', marginBottom: 4 }}>Committee Panel Members</label>
+                          <input type="text" className="form-input" style={{ width: '100%', padding: '6px' }} placeholder="e.g. Dr. A. Sen (HOD), Prof. M. Roy" value={seminarForm.committeeMembers} onChange={e => setSeminarForm({...seminarForm, committeeMembers: e.target.value})} />
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+                          <button type="submit" className="btn-primary" disabled={loading} style={{ padding: '6px 14px', fontSize: '0.75rem', background: '#0284C7' }}>Schedule Seminar</button>
+                        </div>
+                      </form>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           )}
-          {subRole !== 'HOD' && thesis.status === 'PRE_SUBMISSION' && milestones.find(m => m.type === 'FINAL_SUBMISSION' && m.status === 'SUBMITTED') && (
+          {subRole !== 'HOD' && thesis.status === 'PRE_SUBMISSION' && milestones.find(m => m.type === 'FINAL_SUBMISSION' && (m.status === 'SUBMITTED' || m.status === 'APPROVED')) && (
             <button className="btn-primary" onClick={() => act(onFinalApprove)} disabled={loading} style={{ padding: '5px 14px', fontSize: '0.85rem', background: '#8B5CF6' }}>✓ Final Digital Approval → SUBMITTED</button>
           )}
 
@@ -1318,7 +1495,7 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
                       gap: '8px',
                       textAlign: 'left'
                     }}>
-                      <span>ℹ️ {m.type === 'SYNOPSIS' ? 'Research Synopsis' : m.title || 'Document'} has been sent to candidate for correction. Awaiting updated submission.</span>
+                      <span>ℹ️ {m.type === 'SYNOPSIS' ? 'Research Synopsis' : m.type === 'PRE_SUBMISSION' ? 'Pre-Submission Package' : m.title || 'Document'} has been sent to candidate for correction. Awaiting updated submission.</span>
                     </div>
                   )}
                 </div>
@@ -3284,7 +3461,7 @@ const FacultyDashboard = () => {
   const toast = useToast();
   const [activeTab, setActiveTab] = useState('overview');
   const { user, fetchMe } = useContext(AuthContext);
-  const { allTheses, loading, fetchAssignedTheses, fetchDeptTheses, fetchThesisById, reviewMilestone, drcApprove, seminarClear, finalApprove, clearCoursework, verifyEnrollment, assignSupervisor, toggleAnnualRAC } = useContext(ThesisContext);
+  const { allTheses, loading, fetchAssignedTheses, fetchDeptTheses, fetchThesisById, reviewMilestone, drcApprove, scheduleSeminar, seminarClear, finalApprove, clearCoursework, verifyEnrollment, assignSupervisor, toggleAnnualRAC } = useContext(ThesisContext);
   const [selectedThesisId, setSelectedThesisId] = useState(null);
   const [selectedThesisData, setSelectedThesisData] = useState(null);
   const [selectedEvalDoc, setSelectedEvalDoc] = useState(null);
@@ -3433,6 +3610,7 @@ const FacultyDashboard = () => {
           milestones={selectedThesisData.milestones}
           onReview={handleReview}
           onDRC={() => handleHODAction(drcApprove)}
+          onScheduleSeminar={(payload) => handleHODAction(() => scheduleSeminar(selectedThesisId, payload))}
           onSeminar={() => handleHODAction(seminarClear)}
           onFinalApprove={() => handleHODAction(finalApprove)}
           onClearCoursework={() => handleHODAction(clearCoursework)}

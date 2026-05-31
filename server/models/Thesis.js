@@ -19,6 +19,19 @@ const thesisSchema = new mongoose.Schema(
     startDate: { type: Date, default: null },
     submittedAt: { type: Date, default: null },
     awardedAt: { type: Date, default: null },
+    dispatchDate: { type: Date, default: null },
+    dispatchMethod: { type: String, default: '' },
+    dispatchTrackingNumber: { type: String, default: '' },
+    vivaDate: { type: Date, default: null },
+    vivaTime: { type: String, default: '' },
+    vivaVenue: { type: String, default: '' },
+    vivaPanel: { type: String, default: '' },
+    vivaStatus: {
+      type: String,
+      enum: ['NOT_SCHEDULED', 'SCHEDULED', 'SUCCESSFUL', 'UNSUCCESSFUL'],
+      default: 'NOT_SCHEDULED',
+    },
+    vivaRemarks: { type: String, default: '' },
     auditLog: [
       {
         action: String,

@@ -10,6 +10,8 @@ const departmentRoutes = require('./routes/departmentRoutes');
 const lifecycleRoutes = require('./routes/lifecycleRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const publicationRoutes = require('./routes/publicationRoutes');
+const meetingRoutes = require('./routes/meetingRoutes');
+const additionalDocumentRoutes = require('./routes/additionalDocumentRoutes');
 const fs = require('fs');
 
 const User = require('./models/User');
@@ -125,6 +127,8 @@ app.use('/api/departments', departmentRoutes);
 app.use('/api/lifecycle', lifecycleRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/publications', publicationRoutes);
+app.use('/api/meetings', meetingRoutes);
+app.use('/api/additional-documents', additionalDocumentRoutes);
 
 // -------------------------------------------------------------
 // SYSTEM UTILITY ROUTES (/clear-all & /seed)
