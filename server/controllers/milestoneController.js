@@ -1,5 +1,6 @@
 const Milestone = require('../models/Milestone');
 const Thesis = require('../models/Thesis');
+const User = require('../models/User');
 const RACReview = require('../models/RACReview');
 const { createNotification } = require('./notificationController');
 
@@ -24,8 +25,13 @@ const getMilestones = async (req, res) => {
   try {
     const thesis = await Thesis.findById(req.params.thesisId);
     if (thesis && ['ACTIVE_RESEARCH', 'PRE_SUBMISSION', 'SUBMITTED', 'AWARDED'].includes(thesis.status) && thesis.startDate) {
+      // Use admissionDate from scholar profile if available, else fall back to thesis.startDate
+      const scholar = await User.findById(thesis.scholarId);
+      const admissionDate = scholar?.profile?.admissionDate ? new Date(scholar.profile.admissionDate) : null;
+      const referenceDate = admissionDate && !isNaN(admissionDate.getTime()) ? admissionDate : new Date(thesis.startDate);
+
       // Calculate how many 6-month periods have elapsed/started
-      const diffMs = new Date() - new Date(thesis.startDate);
+      const diffMs = new Date() - referenceDate;
       const diffMonths = diffMs / (1000 * 60 * 60 * 24 * 30.4375); // average days per month
       const activePeriods = Math.max(1, Math.ceil(diffMonths / 6));
 
@@ -33,7 +39,7 @@ const getMilestones = async (req, res) => {
         // Check if this milestone already exists
         const exists = await Milestone.findOne({ thesisId: thesis._id, type: '6_MONTH_REPORT', sequence: i });
         if (!exists) {
-          const meta = getPeriodMeta(thesis.startDate, i);
+          const meta = getPeriodMeta(referenceDate, i);
           await Milestone.create({
             thesisId: thesis._id,
             type: '6_MONTH_REPORT',
@@ -46,7 +52,7 @@ const getMilestones = async (req, res) => {
       }
 
       // Check Phase 5 Pre-Submission prerequisites:
-      // 1. Minimum 3 years (36 months) passed
+      // 1. Minimum 3 years (36 months) passed since admission/start
       const hasThreeYearsPassed = diffMonths >= 36;
 
       // 2. All 6-month progress reports are approved

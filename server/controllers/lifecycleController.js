@@ -711,11 +711,11 @@ const submitDRCResult = async (req, res) => {
           }
 
           // Auto-create first 6-month progress report milestone
-          const existingReport = await Milestone.findOne({ thesisId: thesis._id, type: 'PROGRESS_REPORT' });
+          const existingReport = await Milestone.findOne({ thesisId: thesis._id, type: '6_MONTH_REPORT' });
           if (!existingReport) {
             await Milestone.create({
               thesisId: thesis._id,
-              type: 'PROGRESS_REPORT',
+              type: '6_MONTH_REPORT',
               title: '6-Month Progress Report #1',
               status: 'PENDING',
               sequence: 1,
@@ -823,11 +823,11 @@ const recordOfflineDRC = async (req, res) => {
         }
 
         // Auto-create first 6-month progress report milestone
-        const existingReport = await Milestone.findOne({ thesisId: thesis._id, type: 'PROGRESS_REPORT' });
+        const existingReport = await Milestone.findOne({ thesisId: thesis._id, type: '6_MONTH_REPORT' });
         if (!existingReport) {
           await Milestone.create({
             thesisId: thesis._id,
-            type: 'PROGRESS_REPORT',
+            type: '6_MONTH_REPORT',
             title: '6-Month Progress Report #1',
             status: 'PENDING',
             sequence: 1,

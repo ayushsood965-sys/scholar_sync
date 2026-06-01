@@ -836,9 +836,76 @@ const transferThesis = async (req, res) => {
   }
 };
 
+// PUT /api/thesis/:id/force-pre-submission — HOD force-moves scholar to PRE_SUBMISSION (bypasses all checks)
+const forcePreSubmission = async (req, res) => {
+  try {
+    const thesis = await Thesis.findById(req.params.id);
+    if (!thesis) return res.status(404).json({ message: 'Thesis not found' });
+
+    // Only HOD can force this
+    if (req.user.role !== 'HOD') {
+      return res.status(403).json({ message: 'Only the HOD can force-advance a scholar to Pre-Submission.' });
+    }
+
+    // Department check
+    if (thesis.department !== req.user.department) {
+      return res.status(403).json({ message: 'Not authorized. This scholar belongs to another department.' });
+    }
+
+    // Must be in ACTIVE_RESEARCH
+    if (thesis.status !== 'ACTIVE_RESEARCH') {
+      return res.status(400).json({ message: `Scholar is currently in ${thesis.status}. This action is only available during ACTIVE_RESEARCH phase.` });
+    }
+
+    thesis.status = 'PRE_SUBMISSION';
+    thesis.auditLog.push({
+      action: 'FORCE_PRE_SUBMISSION',
+      note: `HOD ${req.user.name} force-advanced scholar to Pre-Submission phase (bypassing prerequisite checks).${req.body.remarks ? ' Remarks: ' + req.body.remarks : ''}`
+    });
+    await thesis.save();
+
+    // Auto-create PRE_SUBMISSION milestone if it doesn't exist
+    const Milestone = require('../models/Milestone');
+    let preMilestone = await Milestone.findOne({ thesisId: thesis._id, type: 'PRE_SUBMISSION' });
+    if (!preMilestone) {
+      await Milestone.create({
+        thesisId: thesis._id,
+        type: 'PRE_SUBMISSION',
+        title: 'Pre-Submission Thesis & Plagiarism Clearance Package',
+        status: 'PENDING',
+        sequence: 99
+      });
+    }
+
+    // Auto-create FINAL_SUBMISSION milestone if it doesn't exist
+    const finalExists = await Milestone.findOne({ thesisId: thesis._id, type: 'FINAL_SUBMISSION' });
+    if (!finalExists) {
+      await Milestone.create({
+        thesisId: thesis._id,
+        type: 'FINAL_SUBMISSION',
+        title: 'Final Complete Thesis Submission Package',
+        status: 'PENDING',
+        sequence: 100,
+      });
+    }
+
+    await createNotification({
+      recipient: thesis.scholarId,
+      title: '🚀 Advanced to Pre-Submission Phase!',
+      message: `The HOD has advanced your thesis to the Pre-Submission phase. Please prepare and upload your rough thesis draft and plagiarism clearance report.`,
+      type: 'SUCCESSFUL_ACTION',
+      link: 'overview'
+    });
+
+    res.json(thesis);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 module.exports = {
   createThesis, getMyThesis, getAllTheses, getThesisById,
   verifyEnrollment, assignSupervisor, clearCoursework, awardDegree, updateAuditLog,
   getAssignedTheses, getDeptTheses, drcApprove, scheduleSeminar, seminarClear, finalApprove,
-  dispatchThesis, scheduleViva, recordViva, transferThesis
+  dispatchThesis, scheduleViva, recordViva, transferThesis, forcePreSubmission
 };

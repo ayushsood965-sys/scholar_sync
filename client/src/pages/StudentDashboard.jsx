@@ -186,7 +186,7 @@ const MilestoneTimeline = ({ thesis, milestones = [] }) => {
     }
 
     if (currentStatus === 'ACTIVE_RESEARCH') {
-      const reports = milestones?.filter(m => m.type === 'PROGRESS_REPORT') || [];
+      const reports = milestones?.filter(m => m.type === '6_MONTH_REPORT' || m.type === 'PROGRESS_REPORT') || [];
       const approvedCount = reports.filter(r => r.status === 'APPROVED').length;
       
       const subSteps = [
@@ -948,30 +948,114 @@ const MilestoneCard = ({ milestone, onSubmit, isLocked }) => {
 };
 
 // ── Active Research Phase ──
-const ActiveResearch = ({ thesis, milestones, onSubmit }) => (
-  <div>
-    <div className="card" style={{ marginBottom: 16 }}>
-      <h3 className="card-title">Research Timeline</h3>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 16 }}>
-        {[{ label: 'Start Date', value: thesis.startDate ? new Date(thesis.startDate).toLocaleDateString() : 'N/A' },
-          { label: 'Supervisor', value: thesis.supervisorId?.name || 'N/A' },
-          { label: 'Department', value: thesis.department }].map(({ label, value }) => (
-          <div key={label} style={{ background: '#F0FDF4', padding: 12, borderRadius: 8 }}>
-            <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{label}</div>
-            <div style={{ fontWeight: 600, color: '#111827' }}>{value}</div>
-          </div>
-        ))}
+const ActiveResearch = ({ thesis, milestones, onSubmit, setActiveTab }) => {
+  const reports = milestones.filter(m => m.type === '6_MONTH_REPORT' || m.type === 'PROGRESS_REPORT');
+  const approvedCount = reports.filter(r => r.status === 'APPROVED').length;
+  const submittedCount = reports.filter(r => r.status === 'SUBMITTED').length;
+  const pendingCount = reports.filter(r => r.status === 'PENDING' || r.status === 'REVISION_REQUIRED').length;
+
+  return (
+    <div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h3 className="card-title">Research Timeline</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 16 }}>
+          {[{ label: 'Start Date', value: thesis.startDate ? new Date(thesis.startDate).toLocaleDateString() : 'N/A' },
+            { label: 'Supervisor', value: thesis.supervisorId?.name || 'N/A' },
+            { label: 'Department', value: thesis.department }].map(({ label, value }) => (
+            <div key={label} style={{ background: '#F0FDF4', padding: 12, borderRadius: 8 }}>
+              <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{label}</div>
+              <div style={{ fontWeight: 600, color: '#111827' }}>{value}</div>
+            </div>
+          ))}
+        </div>
       </div>
+
+      {/* Progress Reports Summary */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h3 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          📊 6-Month Progress Reports
+        </h3>
+        <p style={{ color: '#64748B', fontSize: '0.85rem', marginBottom: 20, lineHeight: 1.5 }}>
+          Your periodic 6-month progress reports are managed in the dedicated <strong>6-Month Reports</strong> section. Below is a summary of your current progress.
+        </p>
+
+        {reports.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: 32, color: '#64748B', background: '#F8FAFC', borderRadius: 12 }}>
+            ⏳ No progress report milestones assigned yet. They will be auto-generated based on your research timeline.
+          </div>
+        ) : (
+          <div>
+            {/* Stats Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
+              <div style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', padding: 16, borderRadius: 12, textAlign: 'center' }}>
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#065F46' }}>{approvedCount}</div>
+                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#065F46' }}>Approved</div>
+              </div>
+              <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', padding: 16, borderRadius: 12, textAlign: 'center' }}>
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1D4ED8' }}>{submittedCount}</div>
+                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#1D4ED8' }}>Under Review</div>
+              </div>
+              <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', padding: 16, borderRadius: 12, textAlign: 'center' }}>
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#D97706' }}>{pendingCount}</div>
+                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#D97706' }}>Pending</div>
+              </div>
+            </div>
+
+            {/* Report List Summary */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {reports.map(r => {
+                const statusColors = {
+                  APPROVED: { bg: '#D1FAE5', color: '#065F46' },
+                  SUBMITTED: { bg: '#DBEAFE', color: '#1D4ED8' },
+                  PENDING: { bg: '#FEF3C7', color: '#D97706' },
+                  REVISION_REQUIRED: { bg: '#FEE2E2', color: '#991B1B' }
+                };
+                const sc = statusColors[r.status] || statusColors.PENDING;
+                return (
+                  <div key={r._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#F8FAFC', borderRadius: 8, border: '1px solid #E2E8F0' }}>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '0.85rem', color: '#1E293B' }}>{r.title}</div>
+                      {r.dueDate && <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: 2 }}>Due: {new Date(r.dueDate).toLocaleDateString()}</div>}
+                    </div>
+                    <span style={{ padding: '3px 10px', borderRadius: 12, fontSize: '0.72rem', fontWeight: 700, background: sc.bg, color: sc.color }}>
+                      {r.status === 'REVISION_REQUIRED' ? 'REVISION' : r.status}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Navigate to 6-Month Reports */}
+        <div style={{ marginTop: 20, display: 'flex', justifyContent: 'center' }}>
+          <button
+            onClick={() => setActiveTab('sixMonthReports')}
+            className="btn-primary"
+            style={{ background: '#133A26', padding: '10px 24px', fontSize: '0.85rem', display: 'flex', gap: 8, alignItems: 'center', borderRadius: 10 }}
+          >
+            📄 Go to 6-Month Reports to Submit
+          </button>
+        </div>
+      </div>
+
+      {/* Synopsis milestone if present */}
+      {milestones.filter(m => m.type === 'SYNOPSIS').map(m => (
+        <div key={m._id} className="card" style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontWeight: 700, color: '#111827' }}>{m.title}</div>
+              <div style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: 4 }}>Type: {m.type}</div>
+            </div>
+            <span style={{ padding: '4px 10px', borderRadius: 12, fontSize: '0.8rem', fontWeight: 600, background: '#D1FAE5', color: '#059669' }}>
+              {m.status}
+            </span>
+          </div>
+        </div>
+      ))}
     </div>
-    <h3 style={{ fontWeight: 700, color: '#111827', marginBottom: 12 }}>Progress Milestones</h3>
-    {milestones.filter(m => m.type === 'PROGRESS_REPORT' || m.type === 'SYNOPSIS').map(m => (
-      <MilestoneCard key={m._id} milestone={m} onSubmit={onSubmit} isLocked={false} />
-    ))}
-    {milestones.filter(m => m.type === 'PROGRESS_REPORT' || m.type === 'SYNOPSIS').length === 0 && (
-      <div className="card" style={{ textAlign: 'center', color: '#6b7280', padding: 32 }}>No milestones yet. Your supervisor will create progress report milestones.</div>
-    )}
-  </div>
-);
+  );
+};
 
 // ── Pre-Submission Phase ──
 const PreSubmission = ({ thesis, milestones = [], onSubmit }) => {
@@ -1443,7 +1527,9 @@ const OverviewPage = ({ thesis, milestones, setActiveTab, user }) => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {/* Prerequisite 1: Time */}
             {(() => {
-              const diffMs = thesis.startDate ? (new Date() - new Date(thesis.startDate)) : 0;
+              const admDate = user?.profile?.admissionDate ? new Date(user.profile.admissionDate) : null;
+              const refDate = admDate && !isNaN(admDate.getTime()) ? admDate : (thesis.startDate ? new Date(thesis.startDate) : null);
+              const diffMs = refDate ? (new Date() - refDate) : 0;
               const diffYears = Math.min(3, +(diffMs / (1000 * 60 * 60 * 24 * 365.25)).toFixed(2));
               const isTimeMet = diffYears >= 3;
               return (
@@ -1578,7 +1664,7 @@ const OverviewPage = ({ thesis, milestones, setActiveTab, user }) => {
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {[
-                { key: 'milestones', label: '🚀 Upload Milestone Document' },
+                { key: 'sixMonthReports', label: '📄 Submit 6-Month Progress Report' },
                 { key: 'rac', label: '📆 Submit RAC Progress Report' },
                 { key: 'publications', label: '🏆 Log Research Output' },
                 { key: 'profile', label: '👤 Complete/Edit Profile Details' }
@@ -3600,11 +3686,16 @@ const ChapterDraftsTab = ({ thesis, milestones = [], onSubmit }) => {
 
 
 const ProfileTab = () => {
-  const { user, updateProfile, uploadAvatar, uploadProfileDocument } = useContext(AuthContext);
+  const { user, updateProfile, uploadAvatar, uploadProfileDocument, fetchMe } = useContext(AuthContext);
   const { thesis, createThesis, fetchMyThesis } = useContext(ThesisContext);
   const toast = useToast();
   const [subTab, setSubTab] = useState('general'); // general | academic | guide
   const [loading, setLoading] = useState(false);
+
+  // Fetch fresh user data from server on mount to avoid stale localStorage cache
+  useEffect(() => {
+    fetchMe();
+  }, []);
   const [registering, setRegistering] = useState(false);
   const [avatarLoading, setAvatarLoading] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState('');
@@ -5270,7 +5361,7 @@ const StudentDashboard = () => {
             {(() => {
               if (thesis.status === 'COURSEWORK') return <CourseworkPhase thesis={thesis} />;
               if (thesis.status === 'SYNOPSIS_PENDING') return <SynopsisPhase thesis={thesis} milestones={milestones} onSubmit={submitMilestone} />;
-              if (thesis.status === 'ACTIVE_RESEARCH') return <ActiveResearch thesis={thesis} milestones={milestones} onSubmit={submitMilestone} />;
+              if (thesis.status === 'ACTIVE_RESEARCH') return <ActiveResearch thesis={thesis} milestones={milestones} onSubmit={submitMilestone} setActiveTab={setActiveTab} />;
               if (thesis.status === 'PRE_SUBMISSION') return <PreSubmission thesis={thesis} milestones={milestones} onSubmit={submitMilestone} />;
               if (thesis.status === 'SUBMITTED' || thesis.status === 'AWARDED') return <SubmittedView thesis={thesis} />;
               return <div className="card" style={{ padding: 32, color: '#6b7280' }}>No milestones yet.</div>;

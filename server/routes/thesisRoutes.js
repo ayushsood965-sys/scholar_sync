@@ -5,7 +5,7 @@ const {
   createThesis, getMyThesis, getAllTheses, getThesisById,
   verifyEnrollment, assignSupervisor, clearCoursework, awardDegree, updateAuditLog,
   getAssignedTheses, getDeptTheses, drcApprove, scheduleSeminar, seminarClear, finalApprove,
-  dispatchThesis, scheduleViva, recordViva, transferThesis
+  dispatchThesis, scheduleViva, recordViva, transferThesis, forcePreSubmission
 } = require('../controllers/thesisController');
 
 // Scholar
@@ -23,6 +23,7 @@ router.put('/:id/dispatch', protect, authorize('ADMIN', 'HOD'), dispatchThesis);
 router.put('/:id/schedule-viva', protect, authorize('ADMIN', 'HOD'), scheduleViva);
 router.put('/:id/record-viva', protect, authorize('ADMIN', 'HOD'), recordViva);
 router.put('/:id/transfer', protect, authorize('ADMIN', 'HOD', 'FACULTY'), transferThesis);
+router.put('/:id/force-pre-submission', protect, authorize('HOD', 'FACULTY'), forcePreSubmission);
 
 // Faculty
 router.get('/assigned', protect, authorize('FACULTY'), getAssignedTheses);

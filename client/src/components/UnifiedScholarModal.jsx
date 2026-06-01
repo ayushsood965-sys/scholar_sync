@@ -264,7 +264,7 @@ const DocEvalModal = ({ doc, onClose, onRefresh }) => {
 // ══════════════════════════════════════════════════════════
 // MAIN: Unified Scholar Modal
 // ══════════════════════════════════════════════════════════
-const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, onReview, onDRC, onSeminar, onFinalApprove, onClearCoursework, onVerify, onAssign }) => {
+const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, onReview, onDRC, onSeminar, onFinalApprove, onClearCoursework, onVerify, onAssign, onForcePreSubmission }) => {
   const toast = useToast();
   const { user } = useContext(AuthContext);
   const { transferScholar } = useContext(ThesisContext);
@@ -544,6 +544,9 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
         )}
         {subRole !== 'HOD' && thesis.status === 'PRE_SUBMISSION' && milestones.find(m => m.type === 'FINAL_SUBMISSION' && (m.status === 'SUBMITTED' || m.status === 'APPROVED')) && (
           <button className="btn-primary" onClick={() => act(onFinalApprove)} disabled={loading} style={{ padding: '5px 14px', fontSize: '0.82rem', background: '#8B5CF6' }}>✓ Final Approval → SUBMITTED</button>
+        )}
+        {subRole === 'HOD' && thesis.status === 'ACTIVE_RESEARCH' && (
+          <button className="btn-primary" onClick={() => act(onForcePreSubmission)} disabled={loading} style={{ padding: '5px 14px', fontSize: '0.82rem', background: '#EA580C' }}>🚀 Advance to Pre-Submission</button>
         )}
       </div>
 
@@ -1042,7 +1045,44 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
                   </div>
                   <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: '0.72rem', fontWeight: 700, background: doc.status === 'REVIEWED' ? '#D1FAE5' : '#FEF3C7', color: doc.status === 'REVIEWED' ? '#065F46' : '#D97706' }}>{doc.status}</span>
                 </div>
-                {doc.documentUrl && <a href={`${API_BASE_URL}${doc.documentUrl}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.78rem', color: '#3B82F6', fontWeight: 600, marginTop: 6, display: 'inline-block' }}>📄 View</a>}
+                {doc.documentUrl && <a href={`${API_BASE_URL}${doc.documentUrl}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.78rem', color: '#3B82F6', fontWeight: 600, marginTop: 6, display: 'inline-block' }}>📄 View Document</a>}
+                {doc.status === 'REVIEWED' && doc.remarks && (
+                  <div style={{ marginTop: 8, background: '#F0FDF4', borderLeft: '3px solid #10B981', padding: '8px 12px', borderRadius: 6, fontSize: '0.8rem', color: '#065F46' }}>
+                    <strong>Review Remarks:</strong> {doc.remarks}
+                  </div>
+                )}
+                {doc.status === 'SUBMITTED' && (
+                  <div style={{ marginTop: 10 }}>
+                    <textarea
+                      className="form-input"
+                      placeholder="Add review remarks..."
+                      rows="2"
+                      value={remarks[`doc_${doc._id}`] || ''}
+                      onChange={e => setRemarks(r => ({ ...r, [`doc_${doc._id}`]: e.target.value }))}
+                      style={{ marginBottom: 8, resize: 'vertical', width: '100%' }}
+                    />
+                    <button
+                      className="btn-primary"
+                      disabled={loading || !(remarks[`doc_${doc._id}`] || '').trim()}
+                      onClick={async () => {
+                        setLoading(true);
+                        try {
+                          await axios.put(`${API}/additional-documents/${doc._id}/review`, { remarks: remarks[`doc_${doc._id}`] }, getAuthHeader());
+                          toast.success('Document marked as reviewed!');
+                          setRemarks(r => ({ ...r, [`doc_${doc._id}`]: '' }));
+                          fetchAdditionalDocs();
+                        } catch (err) {
+                          toast.error(err.response?.data?.message || 'Failed to review document.');
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
+                      style={{ padding: '6px 14px', fontSize: '0.82rem', background: !(remarks[`doc_${doc._id}`] || '').trim() ? '#94A3B8' : '#059669', cursor: !(remarks[`doc_${doc._id}`] || '').trim() ? 'not-allowed' : 'pointer' }}
+                    >
+                      <CheckCircle2 size={14} style={{ marginRight: 4 }} />✓ Mark as Reviewed
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </>

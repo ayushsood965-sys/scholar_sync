@@ -178,6 +178,11 @@ export const ThesisProvider = ({ children }) => {
     setAllTheses(prev => prev.map(t => t._id === id ? data : t));
     return data;
   };
+  const forcePreSubmission = async (id) => {
+    const { data } = await axios.put(`${API}/thesis/${id}/force-pre-submission`, {}, getAuthHeader());
+    setAllTheses(prev => prev.map(t => t._id === id ? data : t));
+    return data;
+  };
 
   return (
     <ThesisContext.Provider value={{
@@ -186,7 +191,7 @@ export const ThesisProvider = ({ children }) => {
       fetchAllTheses, fetchThesisById, verifyEnrollment, assignSupervisor,
       clearCoursework, awardDegree, updateAuditLog,
       fetchAssignedTheses, fetchDeptTheses, drcApprove, scheduleSeminar, seminarClear, finalApprove, reviewMilestone,
-      dispatchThesis, scheduleViva, recordViva, transferScholar
+      dispatchThesis, scheduleViva, recordViva, transferScholar, forcePreSubmission
     }}>
       {children}
     </ThesisContext.Provider>
