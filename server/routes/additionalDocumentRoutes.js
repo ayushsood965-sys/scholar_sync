@@ -7,6 +7,7 @@ const {
   uploadDocument,
   getMyDocuments,
   getForwardedDocuments,
+  getDocumentsByThesis,
   reviewDocument
 } = require('../controllers/additionalDocumentController');
 
@@ -19,6 +20,7 @@ const upload = multer({ storage });
 router.post('/', protect, upload.single('document'), uploadDocument);
 router.get('/me', protect, getMyDocuments);
 router.get('/forwarded', protect, getForwardedDocuments);
+router.get('/thesis/:thesisId', protect, getDocumentsByThesis);
 router.put('/:id/review', protect, reviewDocument);
 
 module.exports = router;

@@ -14,6 +14,7 @@ import { useToast } from '../context/ToastContext';
 import ProfileOnboardingModal from '../components/ProfileOnboardingModal';
 import NotificationPanel from '../components/NotificationPanel';
 import ThemeToggle from '../components/ThemeToggle';
+import UnifiedScholarModal from '../components/UnifiedScholarModal';
 
 const Sidebar = ({ activeTab, setActiveTab, subRole, isVerified }) => {
   const { logout } = useContext(AuthContext);
@@ -22,7 +23,6 @@ const Sidebar = ({ activeTab, setActiveTab, subRole, isVerified }) => {
     { key: 'overview', label: 'Dashboard', Icon: Home },
     { key: 'profile', label: 'Profile', Icon: User },
     { key: 'scholars', label: 'My Scholars', Icon: Users },
-    { key: 'rac', label: 'RAC Progress', Icon: Layers },
     { key: 'reviews', label: 'Pending Reviews', Icon: FileText },
     { key: 'defaulters', label: 'Defaulter Scholars', Icon: AlertTriangle },
   ];
@@ -30,9 +30,7 @@ const Sidebar = ({ activeTab, setActiveTab, subRole, isVerified }) => {
     { key: 'overview', label: 'Dashboard', Icon: Home },
     { key: 'profile', label: 'Profile', Icon: User },
     { key: 'registrations', label: 'Registration Requests', Icon: ShieldCheck },
-    { key: 'drc', label: 'DRC Approvals', Icon: CheckCircle2 },
-    { key: 'dept', label: 'Department Theses', Icon: Users },
-    { key: 'rac', label: 'RAC Progress', Icon: Layers },
+    { key: 'dept', label: 'Department Scholars', Icon: Users },
     { key: 'requests', label: 'Change Requests', Icon: Edit },
     { key: 'defaulters', label: 'Defaulter Scholars', Icon: AlertTriangle },
   ];
@@ -3464,7 +3462,6 @@ const FacultyDashboard = () => {
   const { allTheses, loading, fetchAssignedTheses, fetchDeptTheses, fetchThesisById, reviewMilestone, drcApprove, scheduleSeminar, seminarClear, finalApprove, clearCoursework, verifyEnrollment, assignSupervisor, toggleAnnualRAC } = useContext(ThesisContext);
   const [selectedThesisId, setSelectedThesisId] = useState(null);
   const [selectedThesisData, setSelectedThesisData] = useState(null);
-  const [selectedEvalDoc, setSelectedEvalDoc] = useState(null);
 
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(user && !user.profileCompleted);
 
@@ -3505,7 +3502,7 @@ const FacultyDashboard = () => {
     if (subRole === 'HOD') fetchDeptTheses(); else fetchAssignedTheses();
   };
 
-  const titles = { overview: 'Faculty Dashboard', registrations: 'Registration Requests', scholars: 'My Scholars', rac: 'RAC Progress Schedule', reviews: 'Pending Reviews', dept: 'Department Theses', drc: 'DRC & Seminar Approvals', requests: 'Student Change Requests Desk', profile: 'My Profile', defaulters: 'Progress Report Defaulters' };
+  const titles = { overview: 'Faculty Dashboard', registrations: 'Registration Requests', scholars: 'My Scholars', reviews: 'Pending Reviews', dept: 'Department Scholars', requests: 'Student Change Requests Desk', profile: 'My Profile', defaulters: 'Progress Report Defaulters' };
 
   const renderContent = () => {
     if (!user?.isVerified) {
@@ -3543,9 +3540,7 @@ const FacultyDashboard = () => {
       case 'overview': return <OverviewPage theses={allTheses} user={user} onSelect={handleSelectThesis} setActiveTab={setActiveTab} />;
       case 'registrations': return <ScholarList theses={allTheses.filter(t => t.status === 'REGISTRATION_PENDING')} onSelect={handleSelectThesis} title="Scholars Awaiting Registration Approval" />;
       case 'scholars': return <ScholarList theses={allTheses} onSelect={handleSelectThesis} title="My Assigned Scholars" />;
-      case 'rac': return <SupervisorRACConsole theses={allTheses} />;
-      case 'dept': return <ScholarList theses={allTheses} onSelect={handleSelectThesis} title="All Department Theses" />;
-      case 'drc': return <DRCPage theses={allTheses} onSelect={handleSelectThesis} />;
+      case 'dept': return <ScholarList theses={allTheses} onSelect={handleSelectThesis} title="All Department Scholars" />;
       case 'reviews': return <PendingReviewsQueue theses={allTheses} user={user} />;
       case 'requests': return <HODChangeRequestsTab user={user} />;
       case 'defaulters': return <FacultyDefaultersPage user={user} subRole={subRole} />;
@@ -3604,13 +3599,12 @@ const FacultyDashboard = () => {
           {renderContent()}
         </div>
       </div>
-      {selectedThesisId && selectedThesisData && (
-        <ThesisReviewPanel
+      {selectedThesisId && selectedThesisData && createPortal(
+        <UnifiedScholarModal
           thesis={selectedThesisData.thesis}
           milestones={selectedThesisData.milestones}
           onReview={handleReview}
           onDRC={() => handleHODAction(drcApprove)}
-          onScheduleSeminar={(payload) => handleHODAction(() => scheduleSeminar(selectedThesisId, payload))}
           onSeminar={() => handleHODAction(seminarClear)}
           onFinalApprove={() => handleHODAction(finalApprove)}
           onClearCoursework={() => handleHODAction(clearCoursework)}
@@ -3621,23 +3615,9 @@ const FacultyDashboard = () => {
           onRefresh={async () => {
             const data = await fetchThesisById(selectedThesisId);
             setSelectedThesisData(data);
-          }}
-          onClose={() => { setSelectedThesisId(null); setSelectedThesisData(null); }}
-          selectedEvalDoc={selectedEvalDoc}
-          setSelectedEvalDoc={setSelectedEvalDoc}
-        />
-      )}
-      {selectedEvalDoc && createPortal(
-        <FacultyDocumentEvaluationModal 
-          doc={selectedEvalDoc} 
-          onClose={() => setSelectedEvalDoc(null)} 
-          onRefresh={async () => {
-            if (selectedThesisId) {
-              const data = await fetchThesisById(selectedThesisId);
-              setSelectedThesisData(data);
-            }
             if (subRole === 'HOD') fetchDeptTheses(); else fetchAssignedTheses();
-          }} 
+          }}
+          onClose={handleClosePanel}
         />,
         document.body
       )}

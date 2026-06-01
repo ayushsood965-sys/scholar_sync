@@ -11,6 +11,7 @@ import { API_BASE_URL, API_URL } from '../config';
 import ProfileOnboardingModal from '../components/ProfileOnboardingModal';
 import NotificationPanel from '../components/NotificationPanel';
 import ThemeToggle from '../components/ThemeToggle';
+import UnifiedScholarModal from '../components/UnifiedScholarModal';
 
 const API = API_URL;
 const getAuthHeader = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
@@ -4164,8 +4165,6 @@ const Sidebar = ({ activeTab, setActiveTab, isVerified }) => {
     { key: 'profile', label: 'My Profile', Icon: User },
     { key: 'scholars', label: 'Manage Scholars', Icon: GraduationCap },
     ...(user?.role === 'ADMIN' ? [{ key: 'global_transfers', label: 'Global Transfers', Icon: Layers }] : []),
-    { key: 'lifecycle', label: 'RAC Reviews', Icon: Layers },
-    { key: 'documents', label: 'Document Review Manager', Icon: FileText },
     { key: 'defaulters', label: 'Defaulter Tracking', Icon: Clock },
     { key: 'requests', label: 'Change Requests', Icon: Edit },
     { key: 'evaluation', label: 'External Evaluation', Icon: FileText },
@@ -4222,7 +4221,8 @@ const AdminDashboard = () => {
   const toast = useToast();
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedThesisId, setSelectedThesisId] = useState(null);
-  const { allTheses, fetchAllTheses, verifyEnrollment, assignSupervisor, clearCoursework, awardDegree, updateAuditLog, drcApprove, seminarClear } = useContext(ThesisContext);
+  const [selectedThesisData, setSelectedThesisData] = useState(null);
+  const { allTheses, fetchAllTheses, verifyEnrollment, assignSupervisor, clearCoursework, awardDegree, updateAuditLog, drcApprove, seminarClear, fetchThesisById, toggleAnnualRAC, reviewMilestone, finalApprove } = useContext(ThesisContext);
   const { user, fetchMe } = useContext(AuthContext);
 
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(user && !user.profileCompleted);
@@ -4231,6 +4231,36 @@ const AdminDashboard = () => {
     fetchAllTheses(); 
     fetchMe();
   }, []);
+
+  // Fetch thesis data when a thesis is selected
+  const handleSelectThesis = async (thesisId) => {
+    setSelectedThesisId(thesisId);
+    try {
+      const data = await fetchThesisById(thesisId);
+      setSelectedThesisData(data);
+    } catch (err) {
+      setSelectedThesisId(null);
+    }
+  };
+
+  const handleClosePanel = () => {
+    setSelectedThesisId(null);
+    setSelectedThesisData(null);
+  };
+
+  const handleReview = async (milestoneId, action, comment) => {
+    await reviewMilestone(milestoneId, action, comment);
+    const data = await fetchThesisById(selectedThesisId);
+    setSelectedThesisData(data);
+    fetchAllTheses();
+  };
+
+  const handleHODAction = async (fn) => {
+    await fn(selectedThesisId);
+    const data = await fetchThesisById(selectedThesisId);
+    setSelectedThesisData(data);
+    fetchAllTheses();
+  };
 
   const handleAction = async (id, action, payload) => {
     if (action === 'verify') await verifyEnrollment(id);
@@ -4289,11 +4319,9 @@ const AdminDashboard = () => {
     }
 
     switch (activeTab) {
-      case 'overview': return <OverviewPage theses={allTheses} onSelectThesis={setSelectedThesisId} user={user} setActiveTab={setActiveTab} />;
-      case 'scholars': return <ManageScholars theses={allTheses} onSelectThesis={setSelectedThesisId} onAction={handleAction} />;
+      case 'overview': return <OverviewPage theses={allTheses} onSelectThesis={handleSelectThesis} user={user} setActiveTab={setActiveTab} />;
+      case 'scholars': return <ManageScholars theses={allTheses} onSelectThesis={handleSelectThesis} onAction={handleAction} />;
       case 'global_transfers': return <GlobalTransfersTab theses={allTheses} onRefresh={fetchAllTheses} />;
-      case 'lifecycle': return <PhDLifecycleConsole theses={allTheses} fetchAllTheses={fetchAllTheses} />;
-      case 'documents': return <HODDocumentManager theses={allTheses} />;
       case 'requests': return <HODChangeRequestsTab user={user} />;
       case 'users': return <ManageUsers />;
       case 'defaulters': return <DefaultersTab />;
@@ -4353,7 +4381,28 @@ const AdminDashboard = () => {
           {renderContent()}
         </div>
       </div>
-      {selectedThesisId && <ScholarDetail thesisId={selectedThesisId} onClose={() => setSelectedThesisId(null)} onAction={handleAction} />}
+      {selectedThesisId && selectedThesisData && createPortal(
+        <UnifiedScholarModal
+          thesis={selectedThesisData.thesis}
+          milestones={selectedThesisData.milestones}
+          onReview={handleReview}
+          onDRC={() => handleHODAction(drcApprove)}
+          onSeminar={() => handleHODAction(seminarClear)}
+          onFinalApprove={() => handleHODAction(finalApprove)}
+          onClearCoursework={() => handleHODAction(clearCoursework)}
+          onVerify={() => handleHODAction(verifyEnrollment)}
+          onAssign={(supervisorId) => handleHODAction(() => assignSupervisor(selectedThesisId, supervisorId))}
+          onToggleAnnualRAC={() => handleHODAction(toggleAnnualRAC)}
+          subRole="HOD"
+          onRefresh={async () => {
+            const data = await fetchThesisById(selectedThesisId);
+            setSelectedThesisData(data);
+            fetchAllTheses();
+          }}
+          onClose={handleClosePanel}
+        />,
+        document.body
+      )}
       <ProfileOnboardingModal isOpen={isOnboardingOpen} onClose={() => setIsOnboardingOpen(false)} />
     </div>
   );

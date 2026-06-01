@@ -103,9 +103,24 @@ const reviewDocument = async (req, res) => {
   }
 };
 
+// GET /api/additional-documents/thesis/:thesisId — Faculty/HOD views documents for a specific thesis
+const getDocumentsByThesis = async (req, res) => {
+  try {
+    const { thesisId } = req.params;
+    const docs = await AdditionalDocument.find({ thesisId })
+      .populate('scholarId', 'name email username profile')
+      .populate('forwardedTo', 'name email role subRole')
+      .sort({ createdAt: -1 });
+    res.json(docs);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 module.exports = {
   uploadDocument,
   getMyDocuments,
   getForwardedDocuments,
+  getDocumentsByThesis,
   reviewDocument
 };
