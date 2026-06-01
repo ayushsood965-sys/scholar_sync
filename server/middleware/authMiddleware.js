@@ -23,7 +23,13 @@ const protect = async (req, res, next) => {
 
 const authorize = (...roles) => {
   return (req, res, next) => {
-    if (!req.user || !roles.includes(req.user.role)) {
+    if (!req.user) {
+      return res.status(403).json({ message: 'Role is not authorized' });
+    }
+    // HOD is a superset of FACULTY — allow HOD wherever FACULTY is permitted
+    const userRole = req.user.role;
+    const allowed = roles.includes(userRole) || (userRole === 'HOD' && roles.includes('FACULTY'));
+    if (!allowed) {
       return res.status(403).json({ message: 'Role is not authorized' });
     }
     next();

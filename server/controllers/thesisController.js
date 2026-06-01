@@ -899,6 +899,7 @@ const forcePreSubmission = async (req, res) => {
 
     res.json(thesis);
   } catch (err) {
+    console.error('forcePreSubmission error:', err);
     res.status(500).json({ message: err.message });
   }
 };

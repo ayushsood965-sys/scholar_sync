@@ -1114,9 +1114,19 @@ const PreSubmission = ({ thesis, milestones = [], onSubmit }) => {
 
     setSubmittingFinal(true);
     try {
-      await onSubmit(finalMilestone._id, fileFinalThesis);
+      const formData = new FormData();
+      formData.append('document', fileFinalThesis);
+
+      await axios.post(`${API_URL}/milestones/${finalMilestone._id}/submit`, formData, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
       toast.success('Final Ph.D. thesis uploaded successfully! Awaiting supervisor digital sign-off.');
       setFileFinalThesis(null);
+      if (onSubmit) await onSubmit();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Error uploading final thesis.');
     } finally {

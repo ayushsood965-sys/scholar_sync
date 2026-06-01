@@ -546,7 +546,18 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
           <button className="btn-primary" onClick={() => act(onFinalApprove)} disabled={loading} style={{ padding: '5px 14px', fontSize: '0.82rem', background: '#8B5CF6' }}>✓ Final Approval → SUBMITTED</button>
         )}
         {subRole === 'HOD' && thesis.status === 'ACTIVE_RESEARCH' && (
-          <button className="btn-primary" onClick={() => act(onForcePreSubmission)} disabled={loading} style={{ padding: '5px 14px', fontSize: '0.82rem', background: '#EA580C' }}>🚀 Advance to Pre-Submission</button>
+          <button className="btn-primary" onClick={async () => {
+            setLoading(true);
+            try {
+              await axios.put(`${API}/thesis/${thesis._id}/force-pre-submission`, {}, getAuthHeader());
+              toast.success('Scholar advanced to Pre-Submission phase!');
+              if (onRefresh) await onRefresh();
+            } catch (e) {
+              toast.error(e.response?.data?.message || e.message || 'Failed to advance scholar.');
+            } finally {
+              setLoading(false);
+            }
+          }} disabled={loading} style={{ padding: '5px 14px', fontSize: '0.82rem', background: '#EA580C' }}>🚀 Advance to Pre-Submission</button>
         )}
       </div>
 
@@ -995,13 +1006,68 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
         {/* Core pending documents for review */}
         {corePendingMilestones.length > 0 && corePendingMilestones.map(m => (
           <div key={m._id} className="usm-card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
               <div style={{ fontWeight: 700 }}>{m.title}</div>
-              <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: '0.72rem', fontWeight: 700, background: m.status === 'SUBMITTED' ? '#DBEAFE' : '#FEE2E2', color: m.status === 'SUBMITTED' ? '#1D4ED8' : '#991B1B' }}>{m.status}</span>
+              <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: '0.72rem', fontWeight: 700, background: m.status === 'SUBMITTED' ? '#DBEAFE' : m.status === 'APPROVED' ? '#D1FAE5' : '#FEE2E2', color: m.status === 'SUBMITTED' ? '#1D4ED8' : m.status === 'APPROVED' ? '#065F46' : '#991B1B' }}>{m.status}</span>
             </div>
-            {m.documentUrl && <a href={`${API_BASE_URL}${m.documentUrl}`} target="_blank" rel="noreferrer" style={{ color: '#10B981', fontSize: '0.82rem', display: 'block', marginBottom: 10, fontWeight: 600 }}>📄 View Document</a>}
+
+            {/* Documents Table */}
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12, fontSize: '0.82rem' }}>
+              <thead>
+                <tr style={{ background: '#F8FAFC', borderBottom: '2px solid #E2E8F0' }}>
+                  <th style={{ textAlign: 'left', padding: '8px 12px', fontWeight: 700, color: '#475569' }}>Document</th>
+                  <th style={{ textAlign: 'center', padding: '8px 12px', fontWeight: 700, color: '#475569' }}>Status</th>
+                  <th style={{ textAlign: 'center', padding: '8px 12px', fontWeight: 700, color: '#475569' }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* Thesis / Synopsis Document */}
+                <tr style={{ borderBottom: '1px solid #F1F5F9' }}>
+                  <td style={{ padding: '10px 12px' }}>
+                    <div style={{ fontWeight: 600, color: '#1E293B' }}>📄 {m.type === 'PRE_SUBMISSION' ? 'Rough Thesis Draft' : m.type === 'SYNOPSIS' ? 'Synopsis Document' : 'Thesis Document'}</div>
+                  </td>
+                  <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                    {m.documentUrl ? (
+                      <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: '0.72rem', fontWeight: 700, background: '#D1FAE5', color: '#065F46' }}>Uploaded</span>
+                    ) : (
+                      <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: '0.72rem', fontWeight: 700, background: '#FEF3C7', color: '#D97706' }}>Not Uploaded</span>
+                    )}
+                  </td>
+                  <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                    {m.documentUrl ? (
+                      <a href={`${API_BASE_URL}${m.documentUrl}`} target="_blank" rel="noreferrer" style={{ color: '#3B82F6', fontWeight: 600, fontSize: '0.8rem', textDecoration: 'none' }}>📥 View</a>
+                    ) : (
+                      <span style={{ color: '#94A3B8', fontSize: '0.8rem' }}>—</span>
+                    )}
+                  </td>
+                </tr>
+                {/* Plagiarism Report (only for PRE_SUBMISSION and FINAL_SUBMISSION) */}
+                {(m.type === 'PRE_SUBMISSION' || m.type === 'FINAL_SUBMISSION') && (
+                  <tr style={{ borderBottom: '1px solid #F1F5F9' }}>
+                    <td style={{ padding: '10px 12px' }}>
+                      <div style={{ fontWeight: 600, color: '#1E293B' }}>🔍 Turnitin Plagiarism Report</div>
+                    </td>
+                    <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                      {m.plagiarismReportUrl ? (
+                        <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: '0.72rem', fontWeight: 700, background: '#D1FAE5', color: '#065F46' }}>Uploaded</span>
+                      ) : (
+                        <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: '0.72rem', fontWeight: 700, background: '#FEF3C7', color: '#D97706' }}>Not Uploaded</span>
+                      )}
+                    </td>
+                    <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                      {m.plagiarismReportUrl ? (
+                        <a href={`${API_BASE_URL}${m.plagiarismReportUrl}`} target="_blank" rel="noreferrer" style={{ color: '#3B82F6', fontWeight: 600, fontSize: '0.8rem', textDecoration: 'none' }}>📥 View</a>
+                      ) : (
+                        <span style={{ color: '#94A3B8', fontSize: '0.8rem' }}>—</span>
+                      )}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+
             {m.comments?.length > 0 && <div style={{ background: '#FFFBEB', borderLeft: '3px solid #F59E0B', padding: 8, borderRadius: 6, marginBottom: 8, fontSize: '0.8rem', color: '#92400E' }}>Previous feedback: "{m.comments[m.comments.length - 1].text}"</div>}
-            <textarea className="form-input" placeholder="Add remarks..." rows="2" value={remarks[m._id] || ''} onChange={e => setRemarks(r => ({ ...r, [m._id]: e.target.value }))} style={{ marginBottom: 8, resize: 'vertical' }} disabled={m.status === 'REVISION_REQUIRED'} />
+            <textarea className="form-input" placeholder="Add evaluation remarks..." rows="2" value={remarks[m._id] || ''} onChange={e => setRemarks(r => ({ ...r, [m._id]: e.target.value }))} style={{ marginBottom: 8, resize: 'vertical' }} disabled={m.status === 'REVISION_REQUIRED'} />
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn-primary" onClick={() => act(() => onReview(m._id, 'APPROVE', remarks[m._id]))} disabled={loading || m.status === 'REVISION_REQUIRED'} style={{ flex: 1, padding: '6px', fontSize: '0.82rem', background: '#059669', ...(m.status === 'REVISION_REQUIRED' ? { opacity: 0.5, cursor: 'not-allowed' } : {}) }}><CheckCircle2 size={14} style={{ marginRight: 4 }} />Approve</button>
               <button onClick={() => act(() => onReview(m._id, 'REVISION', remarks[m._id]))} disabled={loading || m.status === 'REVISION_REQUIRED'} style={{ flex: 1, padding: '6px', fontSize: '0.82rem', border: '1px solid #F87171', color: '#DC2626', background: 'none', borderRadius: 6, cursor: m.status === 'REVISION_REQUIRED' ? 'not-allowed' : 'pointer', ...(m.status === 'REVISION_REQUIRED' ? { opacity: 0.5 } : {}) }}><XCircle size={14} style={{ marginRight: 4 }} />Request Revision</button>
