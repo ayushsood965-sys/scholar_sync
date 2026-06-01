@@ -678,51 +678,6 @@ const recordViva = async (req, res) => {
   }
 };
 
-// PUT /api/thesis/:id/annual-rac — HOD/Admin/Faculty logs annual RAC cleared
-const toggleAnnualRAC = async (req, res) => {
-  try {
-    const thesis = await Thesis.findById(req.params.id);
-    if (!thesis) return res.status(404).json({ message: 'Thesis not found' });
-
-    // Department match check for HODs
-    if (req.user.role === 'HOD' && thesis.department !== req.user.department) {
-      return res.status(403).json({ message: 'Not authorized. This scholar belongs to another department.' });
-    }
-
-    // Supervisor check for faculty (ensures they are either HOD or their supervisor)
-    if (req.user.role === 'FACULTY' && req.user.subRole !== 'HOD' && thesis.supervisorId?.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Not authorized. You are not the supervisor of this scholar.' });
-    }
-
-    thesis.annualRACCleared = !thesis.annualRACCleared;
-    
-    const roleStr = req.user.role === 'HOD' || req.user.subRole === 'HOD' ? 'HOD' : 'Supervisor';
-    const note = thesis.annualRACCleared 
-      ? `Annual RAC clearance recorded by ${roleStr} ${req.user.name}`
-      : `Annual RAC clearance rescinded by ${roleStr} ${req.user.name}`;
-      
-    thesis.auditLog.push({ 
-      action: 'ANNUAL_RAC_TOGGLED', 
-      note
-    });
-    
-    await thesis.save();
-
-    await createNotification({
-      recipient: thesis.scholarId,
-      title: thesis.annualRACCleared ? '✅ Annual RAC Cleared!' : '⚠️ Annual RAC Clear Rescinded',
-      message: thesis.annualRACCleared 
-        ? `Your ${roleStr === 'HOD' ? 'Head of Department' : 'Faculty Supervisor'} (${req.user.name}) has officially logged your Annual RAC clearance.`
-        : `Your Annual RAC clearance status has been updated by ${roleStr === 'HOD' ? 'HOD' : 'Supervisor'} (${req.user.name}).`,
-      type: thesis.annualRACCleared ? 'SUCCESSFUL_ACTION' : 'PENDING_ACTION',
-      link: 'overview'
-    });
-
-    res.json(thesis);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
 
 // PUT /api/thesis/:id/transfer — Transfer Scholar
 const transferThesis = async (req, res) => {
@@ -885,5 +840,5 @@ module.exports = {
   createThesis, getMyThesis, getAllTheses, getThesisById,
   verifyEnrollment, assignSupervisor, clearCoursework, awardDegree, updateAuditLog,
   getAssignedTheses, getDeptTheses, drcApprove, scheduleSeminar, seminarClear, finalApprove,
-  toggleAnnualRAC, dispatchThesis, scheduleViva, recordViva, transferThesis
+  dispatchThesis, scheduleViva, recordViva, transferThesis
 };

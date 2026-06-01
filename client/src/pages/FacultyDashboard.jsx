@@ -490,7 +490,7 @@ const FacultyDocumentEvaluationModal = ({ doc, onClose, onRefresh }) => {
 };
 
 // ── Thesis Detail + Milestone Review Panel ──
-const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onFinalApprove, onClearCoursework, onVerify, onAssign, subRole, onClose, onToggleAnnualRAC, onRefresh, selectedEvalDoc, setSelectedEvalDoc }) => {
+const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onFinalApprove, onClearCoursework, onVerify, onAssign, subRole, onClose, onRefresh, selectedEvalDoc, setSelectedEvalDoc }) => {
   const toast = useToast();
   const { user } = useContext(AuthContext);
   const { transferScholar } = useContext(ThesisContext);
@@ -1280,54 +1280,7 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
               <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#1E293B' }}>
                 Active Research Monitoring (HOD Desk)
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white', padding: 12, borderRadius: 8, border: '1px solid #F1F5F9' }}>
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: '0.82rem', color: '#334155' }}>Annual RAC Clearance Status</div>
-                  <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: 2 }}>
-                    Must be cleared annually by the HOD based on progress reports.
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{
-                    fontSize: '0.72rem',
-                    fontWeight: 700,
-                    padding: '3px 8px',
-                    borderRadius: 12,
-                    background: thesis.annualRACCleared ? '#D1FAE5' : '#FEE2E2',
-                    color: thesis.annualRACCleared ? '#065F46' : '#991B1B'
-                  }}>
-                    {thesis.annualRACCleared ? 'CLEARED' : 'PENDING'}
-                  </span>
-                  <label style={{ position: 'relative', display: 'inline-block', width: 44, height: 24, cursor: 'pointer' }}>
-                    <input 
-                      type="checkbox" 
-                      checked={!!thesis.annualRACCleared} 
-                      onChange={() => act(onToggleAnnualRAC)} 
-                      disabled={loading}
-                      style={{ opacity: 0, width: 0, height: 0 }}
-                    />
-                    <span style={{
-                      position: 'absolute',
-                      cursor: 'pointer',
-                      top: 0, left: 0, right: 0, bottom: 0,
-                      backgroundColor: thesis.annualRACCleared ? '#059669' : '#CBD5E1',
-                      transition: '0.3s',
-                      borderRadius: 24,
-                    }}>
-                      <span style={{
-                        position: 'absolute',
-                        content: '""',
-                        height: 18, width: 18,
-                        left: thesis.annualRACCleared ? 22 : 4,
-                        bottom: 3,
-                        backgroundColor: 'white',
-                        transition: '0.3s',
-                        borderRadius: '50%'
-                      }} />
-                    </span>
-                  </label>
-                </div>
-              </div>
+
               {(() => {
                 const verifiedJournalsCount = publications.filter(p => p.type === 'JOURNAL' && p.status === 'VERIFIED').length;
                 const verifiedConferencesCount = publications.filter(p => p.type === 'CONFERENCE' && p.status === 'VERIFIED').length;
@@ -1759,14 +1712,16 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
                         <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: '0.72rem', fontWeight: 700, background: p.status === 'VERIFIED' ? '#D1FAE5' : p.status === 'REJECTED' ? '#FEE2E2' : '#FEF3C7', color: p.status === 'VERIFIED' ? '#065F46' : p.status === 'REJECTED' ? '#991B1B' : p.status === 'QA_APPROVED' ? '#92400E' : '#92400E' }}>{p.status}</span>
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 10px', fontSize: '0.78rem', color: 'var(--color-text-secondary, #64748B)', margin: '6px 0' }}>
-                        <div><strong>Journal/Publisher:</strong> {p.journalName}</div>
+                        <div><strong>{p.type === 'PATENT' ? 'Patent Office/Org:' : 'Journal/Publisher:'}</strong> {p.journalName}</div>
                         <div><strong>Type:</strong> {p.type}</div>
-                        <div><strong>ISSN:</strong> {p.issn || 'N/A'}</div>
-                        <div><strong>Date:</strong> {p.publicationDate ? new Date(p.publicationDate).toLocaleDateString() : 'N/A'}</div>
-                        {p.doiUrl && <div style={{ gridColumn: 'span 2' }}><strong>DOI:</strong> <a href={p.paperLink || `https://doi.org/${p.doiUrl}`} target="_blank" rel="noreferrer" style={{ color: '#2563EB', textDecoration: 'underline' }}>{p.doiUrl}</a></div>}
+                        <div><strong>{p.type === 'PATENT' ? 'Patent Number:' : 'ISSN:'}</strong> {p.issn || 'N/A'}</div>
+                        <div><strong>{p.type === 'PATENT' ? 'Filing/Award Date:' : 'Date:'}</strong> {p.publicationDate ? new Date(p.publicationDate).toLocaleDateString() : 'N/A'}</div>
+                        {p.doiUrl && <div style={{ gridColumn: 'span 2' }}><strong>{p.type === 'PATENT' ? 'Patent ID/Ref:' : 'DOI:'}</strong> <a href={p.paperLink || `https://doi.org/${p.doiUrl}`} target="_blank" rel="noreferrer" style={{ color: '#2563EB', textDecoration: 'underline' }}>{p.doiUrl}</a></div>}
                       </div>
                       {p.documentUrl && (
-                        <a href={`${API_BASE_URL}${p.documentUrl}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.82rem', color: '#3B82F6', fontWeight: 600, display: 'inline-block', marginBottom: 8 }}>📄 View Publication Proof</a>
+                        <a href={`${API_BASE_URL}${p.documentUrl}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.82rem', color: '#3B82F6', fontWeight: 600, display: 'inline-block', marginBottom: 8 }}>
+                          {p.type === 'PATENT' ? '📄 View Patent Proof' : '📄 View Publication Proof'}
+                        </a>
                       )}
                       {p.remarks && (
                         <div style={{ background: '#FFFBEB', borderLeft: '3px solid #F59E0B', padding: '6px 10px', borderRadius: 6, fontSize: '0.8rem', color: '#92400E', margin: '8px 0' }}>
@@ -1815,12 +1770,7 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
                       {thesis.enrollmentVerified ? 'Verified ✅' : 'Pending ⏳'}
                     </div>
                   </div>
-                  <div style={{ background: 'var(--color-bg, #F8FAFC)', border: '1px solid var(--color-border, #E2E8F0)', padding: 12, borderRadius: 10, textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-text-muted, #64748B)' }}>Annual RAC Status</div>
-                    <div style={{ fontSize: '0.9rem', fontWeight: 700, marginTop: 4, color: thesis.annualRACCleared ? '#059669' : '#D97706' }}>
-                      {thesis.annualRACCleared ? 'Cleared ✅' : 'Pending ⏳'}
-                    </div>
-                  </div>
+
                   <div style={{ background: 'var(--color-bg, #F8FAFC)', border: '1px solid var(--color-border, #E2E8F0)', padding: 12, borderRadius: 10, textAlign: 'center' }}>
                     <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-text-muted, #64748B)' }}>Research Start Date</div>
                     <div style={{ fontSize: '0.85rem', fontWeight: 700, marginTop: 4, color: 'var(--color-text, #1E293B)' }}>
@@ -2700,6 +2650,62 @@ const RACReviewModal = ({ rac, onClose, onSave }) => {
             <span style={{ color: 'var(--color-text-secondary, #64748B)', fontWeight: 600 }}>Assigned Committee Members:</span>
             <div style={{ fontWeight: 700, marginTop: 2, color: 'var(--color-text, #0F172A)' }}>{rac.committeeMembers || 'Pending'}</div>
           </div>
+          {(rac.submissions && rac.submissions.length > 0) || rac.progressReportUrl || rac.studentRemarks ? (
+            <div style={{ gridColumn: 'span 2', marginTop: 4, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span style={{ color: 'var(--color-text-secondary, #64748B)', fontWeight: 600 }}>Candidate Submissions History:</span>
+              <div style={{ width: '100%', overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem', background: '#ffffff', borderRadius: 8, overflow: 'hidden', border: '1px solid #CBD5E1', minWidth: 480 }}>
+                  <thead>
+                    <tr style={{ background: '#F1F5F9', borderBottom: '1px solid #CBD5E1', textAlign: 'left' }}>
+                      <th style={{ padding: '6px 10px', fontWeight: 700, color: '#475569', width: '15%' }}>Submission</th>
+                      <th style={{ padding: '6px 10px', fontWeight: 700, color: '#475569', width: '25%' }}>Date & Time</th>
+                      <th style={{ padding: '6px 10px', fontWeight: 700, color: '#475569', width: '25%' }}>Attached File</th>
+                      <th style={{ padding: '6px 10px', fontWeight: 700, color: '#475569', width: '35%' }}>Remarks</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rac.submissions && rac.submissions.length > 0 ? (
+                      rac.submissions.map((sub, idx) => (
+                        <tr key={sub._id || idx} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                          <td style={{ padding: '6px 10px', fontWeight: 600, color: '#1E3A8A' }}>#{idx + 1}</td>
+                          <td style={{ padding: '6px 10px', color: '#64748B' }}>{new Date(sub.uploadedAt).toLocaleString()}</td>
+                          <td style={{ padding: '6px 10px' }}>
+                            {sub.progressReportUrl ? (
+                              <a href={`${API_BASE_URL}${sub.progressReportUrl}`} target="_blank" rel="noreferrer" style={{ color: '#2563EB', fontWeight: 600, textDecoration: 'underline' }}>
+                                📄 View File
+                              </a>
+                            ) : (
+                              <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>No file</span>
+                            )}
+                          </td>
+                          <td style={{ padding: '6px 10px', color: '#334155' }}>
+                            {sub.studentRemarks || <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>No remarks</span>}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr style={{ borderBottom: '1px solid #F1F5F9' }}>
+                        <td style={{ padding: '6px 10px', fontWeight: 600, color: '#1E3A8A' }}>#1</td>
+                        <td style={{ padding: '6px 10px', color: '#64748B' }}>—</td>
+                        <td style={{ padding: '6px 10px' }}>
+                          {rac.progressReportUrl ? (
+                            <a href={`${API_BASE_URL}${rac.progressReportUrl}`} target="_blank" rel="noreferrer" style={{ color: '#2563EB', fontWeight: 600, textDecoration: 'underline' }}>
+                              📄 View File
+                            </a>
+                          ) : (
+                            <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>No file</span>
+                          )}
+                        </td>
+                        <td style={{ padding: '6px 10px', color: '#334155' }}>
+                          {rac.studentRemarks || <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>No remarks</span>}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -2707,8 +2713,8 @@ const RACReviewModal = ({ rac, onClose, onSave }) => {
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Committee Recommendation</label>
               <select className="form-input" value={status} onChange={e => setStatus(e.target.value)} required>
-                <option value="SATISFACTORY">Satisfactory (Approved)</option>
-                <option value="UNSATISFACTORY">Unsatisfactory (Fail / Needs Correction)</option>
+                <option value="SATISFACTORY">Give Clearance (Satisfactory)</option>
+                <option value="UNSATISFACTORY">Reject (Unsatisfactory)</option>
               </select>
             </div>
             <div>
@@ -2718,13 +2724,13 @@ const RACReviewModal = ({ rac, onClose, onSave }) => {
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Research Progress & Methodology Evaluation</label>
-            <textarea className="form-input" style={{ width: '100%', resize: 'vertical' }} rows="3" placeholder="Detail the candidate's research updates, literature coverage, and experiment design comments..." value={researchProgress} onChange={e => setResearchProgress(e.target.value)} required />
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Research Progress & Methodology Evaluation (Optional)</label>
+            <textarea className="form-input" style={{ width: '100%', resize: 'vertical' }} rows="3" placeholder="Detail the candidate's research updates, literature coverage, and experiment design comments..." value={researchProgress} onChange={e => setResearchProgress(e.target.value)} />
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Milestone Targets for the Next 6 Months</label>
-            <textarea className="form-input" style={{ width: '100%', resize: 'vertical' }} rows="2" placeholder="List specific targets to achieve before the next RAC session (e.g. complete Chapter 2, publish 1 paper)..." value={nextMilestones} onChange={e => setNextMilestones(e.target.value)} required />
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Milestone Targets for the Next 6 Months (Optional)</label>
+            <textarea className="form-input" style={{ width: '100%', resize: 'vertical' }} rows="2" placeholder="List specific targets to achieve before the next RAC session (e.g. complete Chapter 2, publish 1 paper)..." value={nextMilestones} onChange={e => setNextMilestones(e.target.value)} />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -2867,53 +2873,111 @@ const SupervisorRACConsole = ({ theses }) => {
             <div style={{ flex: 2.2, textAlign: 'center' }}>Grading Actions & Remarks</div>
           </div>
           {racs.map(r => (
-            <div key={r._id} className="file-item">
-              <div style={{ flex: 2 }}>
-                <div style={{ fontWeight: 700 }}>{r.scholar?.name || 'Scholar'}</div>
-                <div style={{ fontSize: '0.75rem', color: '#64748B', maxWidth: 180, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.title}</div>
+            <div key={r._id} className="file-item" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                <div style={{ flex: 2 }}>
+                  <div style={{ fontWeight: 700 }}>{r.scholar?.name || 'Scholar'}</div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748B', maxWidth: 180, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.title}</div>
+                </div>
+                <div style={{ flex: 1, fontWeight: 600, color: '#1E3A8A' }}>RAC-{r.racNumber}</div>
+                <div style={{ flex: 1.5, fontSize: '0.85rem' }}>{new Date(r.scheduledDate).toLocaleDateString()}</div>
+                <div style={{ flex: 1.8 }}>
+                  {r.progressReportUrl ? (
+                    <a href={`${API_BASE_URL}${r.progressReportUrl}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.85rem', color: '#2563EB', fontWeight: 600, textDecoration: 'underline' }}>
+                      📄 View Progress Report
+                    </a>
+                  ) : (
+                    <span style={{ fontSize: '0.8rem', color: '#94A3B8', fontStyle: 'italic' }}>Pending submission</span>
+                  )}
+                </div>
+                <div style={{ flex: 1.2 }}>
+                  <span style={{ 
+                    padding: '4px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 600,
+                    background: r.status === 'SATISFACTORY' ? '#D1FAE5' : r.status === 'UNSATISFACTORY' ? '#FEE2E2' : '#FEF3C7',
+                    color: r.status === 'SATISFACTORY' ? '#065F46' : r.status === 'UNSATISFACTORY' ? '#991B1B' : '#D97706'
+                  }}>
+                    {r.status === 'SATISFACTORY' ? 'CLEARED' : r.status === 'UNSATISFACTORY' ? 'REJECTED' : r.status}
+                  </span>
+                </div>
+                <div style={{ flex: 2.2, display: 'flex', flexDirection: 'column', gap: 6, justifyContent: 'center', alignItems: 'center' }}>
+                  <button 
+                    onClick={() => setSelectedRAC(r)}
+                    className={r.status === 'SCHEDULED' ? "btn-primary" : "btn-outline"}
+                    style={{ 
+                      padding: '6px 14px', 
+                      fontSize: '0.8rem', 
+                      background: r.status === 'SCHEDULED' ? 'var(--color-primary, #059669)' : 'transparent',
+                      borderColor: 'var(--color-primary, #059669)',
+                      color: r.status === 'SCHEDULED' ? '#ffffff' : 'var(--color-primary, #059669)',
+                      border: r.status === 'SCHEDULED' ? 'none' : '1px solid var(--color-primary, #059669)'
+                    }}
+                  >
+                    {r.status === 'SCHEDULED' ? 'Review Meeting' : 'Edit Review'}
+                  </button>
+                  {r.status !== 'SCHEDULED' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary, #64748B)', maxWidth: 180, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Remarks: {r.remarks || 'None'}</span>
+                      <span style={{ fontSize: '0.72rem', color: '#065F46', background: '#D1FAE5', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>Evaluated ✓</span>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div style={{ flex: 1, fontWeight: 600, color: '#1E3A8A' }}>RAC-{r.racNumber}</div>
-              <div style={{ flex: 1.5, fontSize: '0.85rem' }}>{new Date(r.scheduledDate).toLocaleDateString()}</div>
-              <div style={{ flex: 1.8 }}>
-                {r.progressReportUrl ? (
-                  <a href={r.progressReportUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.85rem', color: '#2563EB', fontWeight: 600, textDecoration: 'underline' }}>
-                    📄 View Progress Report
-                  </a>
-                ) : (
-                  <span style={{ fontSize: '0.8rem', color: '#94A3B8', fontStyle: 'italic' }}>Pending submission</span>
-                )}
-              </div>
-              <div style={{ flex: 1.2 }}>
-                <span style={{ 
-                  padding: '4px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 600,
-                  background: r.status === 'SATISFACTORY' ? '#D1FAE5' : r.status === 'UNSATISFACTORY' ? '#FEE2E2' : '#FEF3C7',
-                  color: r.status === 'SATISFACTORY' ? '#065F46' : r.status === 'UNSATISFACTORY' ? '#991B1B' : '#D97706'
-                }}>
-                  {r.status}
-                </span>
-              </div>
-              <div style={{ flex: 2.2, display: 'flex', flexDirection: 'column', gap: 6, justifyContent: 'center', alignItems: 'center' }}>
-                <button 
-                  onClick={() => setSelectedRAC(r)}
-                  className={r.status === 'SCHEDULED' ? "btn-primary" : "btn-outline"}
-                  style={{ 
-                    padding: '6px 14px', 
-                    fontSize: '0.8rem', 
-                    background: r.status === 'SCHEDULED' ? 'var(--color-primary, #059669)' : 'transparent',
-                    borderColor: 'var(--color-primary, #059669)',
-                    color: r.status === 'SCHEDULED' ? '#ffffff' : 'var(--color-primary, #059669)',
-                    border: r.status === 'SCHEDULED' ? 'none' : '1px solid var(--color-primary, #059669)'
-                  }}
-                >
-                  {r.status === 'SCHEDULED' ? 'Review Meeting' : 'Edit Review'}
-                </button>
-                {r.status !== 'SCHEDULED' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary, #64748B)', maxWidth: 180, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Remarks: {r.remarks || 'None'}</span>
-                    <span style={{ fontSize: '0.72rem', color: '#065F46', background: '#D1FAE5', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>Evaluated ✓</span>
+              {(r.submissions && r.submissions.length > 0) || r.progressReportUrl || r.studentRemarks ? (
+                <div style={{ width: '100%', marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6, alignSelf: 'flex-start' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569' }}>Candidate Submissions History:</span>
+                  <div style={{ width: '100%', overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem', background: '#ffffff', borderRadius: 8, overflow: 'hidden', border: '1px solid #CBD5E1', minWidth: 480 }}>
+                      <thead>
+                        <tr style={{ background: '#F1F5F9', borderBottom: '1px solid #CBD5E1', textAlign: 'left' }}>
+                          <th style={{ padding: '6px 10px', fontWeight: 700, color: '#475569', width: '15%' }}>Submission</th>
+                          <th style={{ padding: '6px 10px', fontWeight: 700, color: '#475569', width: '25%' }}>Date & Time</th>
+                          <th style={{ padding: '6px 10px', fontWeight: 700, color: '#475569', width: '25%' }}>Attached File</th>
+                          <th style={{ padding: '6px 10px', fontWeight: 700, color: '#475569', width: '35%' }}>Remarks</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {r.submissions && r.submissions.length > 0 ? (
+                          r.submissions.map((sub, idx) => (
+                            <tr key={sub._id || idx} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                              <td style={{ padding: '6px 10px', fontWeight: 600, color: '#1E3A8A' }}>#{idx + 1}</td>
+                              <td style={{ padding: '6px 10px', color: '#64748B' }}>{new Date(sub.uploadedAt).toLocaleString()}</td>
+                              <td style={{ padding: '6px 10px' }}>
+                                {sub.progressReportUrl ? (
+                                  <a href={`${API_BASE_URL}${sub.progressReportUrl}`} target="_blank" rel="noreferrer" style={{ color: '#2563EB', fontWeight: 600, textDecoration: 'underline' }}>
+                                    📄 View File
+                                  </a>
+                                ) : (
+                                  <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>No file</span>
+                                )}
+                              </td>
+                              <td style={{ padding: '6px 10px', color: '#334155' }}>
+                                {sub.studentRemarks || <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>No remarks</span>}
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr style={{ borderBottom: '1px solid #F1F5F9' }}>
+                            <td style={{ padding: '6px 10px', fontWeight: 600, color: '#1E3A8A' }}>#1</td>
+                            <td style={{ padding: '6px 10px', color: '#64748B' }}>—</td>
+                            <td style={{ padding: '6px 10px' }}>
+                              {r.progressReportUrl ? (
+                                <a href={`${API_BASE_URL}${r.progressReportUrl}`} target="_blank" rel="noreferrer" style={{ color: '#2563EB', fontWeight: 600, textDecoration: 'underline' }}>
+                                  📄 View File
+                                </a>
+                              ) : (
+                                <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>No file</span>
+                              )}
+                            </td>
+                            <td style={{ padding: '6px 10px', color: '#334155' }}>
+                              {r.studentRemarks || <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>No remarks</span>}
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
                   </div>
-                )}
-              </div>
+                </div>
+              ) : null}
             </div>
           ))}
         </div>
@@ -3459,7 +3523,7 @@ const FacultyDashboard = () => {
   const toast = useToast();
   const [activeTab, setActiveTab] = useState('overview');
   const { user, fetchMe } = useContext(AuthContext);
-  const { allTheses, loading, fetchAssignedTheses, fetchDeptTheses, fetchThesisById, reviewMilestone, drcApprove, scheduleSeminar, seminarClear, finalApprove, clearCoursework, verifyEnrollment, assignSupervisor, toggleAnnualRAC } = useContext(ThesisContext);
+  const { allTheses, loading, fetchAssignedTheses, fetchDeptTheses, fetchThesisById, reviewMilestone, drcApprove, scheduleSeminar, seminarClear, finalApprove, clearCoursework, verifyEnrollment, assignSupervisor } = useContext(ThesisContext);
   const [selectedThesisId, setSelectedThesisId] = useState(null);
   const [selectedThesisData, setSelectedThesisData] = useState(null);
 
@@ -3610,7 +3674,7 @@ const FacultyDashboard = () => {
           onClearCoursework={() => handleHODAction(clearCoursework)}
           onVerify={() => handleHODAction(verifyEnrollment)}
           onAssign={(supervisorId) => handleHODAction(() => assignSupervisor(selectedThesisId, supervisorId))}
-          onToggleAnnualRAC={() => handleHODAction(toggleAnnualRAC)}
+
           subRole={subRole}
           onRefresh={async () => {
             const data = await fetchThesisById(selectedThesisId);

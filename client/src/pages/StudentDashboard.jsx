@@ -349,8 +349,7 @@ const Sidebar = ({ activeTab, setActiveTab, isVerified, thesis, milestones }) =>
     { key: 'rac', label: 'RAC Progress', Icon: Layers },
     { key: 'sixMonthReports', label: '6-Month Reports', Icon: Calendar },
     { key: 'chapterDrafts', label: 'Chapter Drafts', Icon: FileText },
-    { key: 'researchOutputs', label: 'Research Outputs', Icon: Award },
-    { key: 'publications', label: 'Publications', Icon: File },
+    { key: 'publications', label: 'Research Outputs', Icon: Award },
     { key: 'preSubmission', label: 'Pre-Submission', Icon: ClipboardList },
     { key: 'meetings', label: 'Meetings', Icon: Calendar },
     { key: 'documents', label: 'Documents', Icon: FileText },
@@ -383,7 +382,6 @@ const Sidebar = ({ activeTab, setActiveTab, isVerified, thesis, milestones }) =>
               'rac', 
               'sixMonthReports', 
               'chapterDrafts', 
-              'researchOutputs', 
               'publications', 
               'meetings', 
               'documents', 
@@ -1582,7 +1580,7 @@ const OverviewPage = ({ thesis, milestones, setActiveTab, user }) => {
               {[
                 { key: 'milestones', label: '🚀 Upload Milestone Document' },
                 { key: 'rac', label: '📆 Submit RAC Progress Report' },
-                { key: 'publications', label: '📚 Log Research Publication' },
+                { key: 'publications', label: '🏆 Log Research Output' },
                 { key: 'profile', label: '👤 Complete/Edit Profile Details' }
               ].map(({ key, label }) => (
                 <button
@@ -1651,7 +1649,8 @@ const RACProgressTab = ({ thesis }) => {
   const toast = useToast();
   const [racs, setRacs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [reportUrl, setReportUrl] = useState('');
+  const [studentRemarks, setStudentRemarks] = useState('');
+  const [attachedFile, setAttachedFile] = useState(null);
   const [uploadingId, setUploadingId] = useState(null);
 
   const fetchRACs = async () => {
@@ -1665,15 +1664,26 @@ const RACProgressTab = ({ thesis }) => {
   useEffect(() => { fetchRACs(); }, []);
 
   const handleReportUpload = async (racId) => {
-    if (!reportUrl) return toast.warning('Please enter report URL or document link.');
     try {
-      await axios.put(`${API}/lifecycle/rac/${racId}/report`, { progressReportUrl: reportUrl }, getAuthHeader());
-      toast.success('Progress report submitted successfully!');
+      const formData = new FormData();
+      if (attachedFile) {
+        formData.append('document', attachedFile);
+      }
+      formData.append('studentRemarks', studentRemarks);
+
+      await axios.put(`${API}/lifecycle/rac/${racId}/report`, formData, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      toast.success('RAC progress remarks & document updated successfully!');
       setUploadingId(null);
-      setReportUrl('');
+      setStudentRemarks('');
+      setAttachedFile(null);
       fetchRACs();
     } catch (err) {
-      toast.error('Upload failed.');
+      console.error(err);
+      toast.error(err.response?.data?.message || err.message || 'Submission failed.');
     }
   };
 
@@ -1711,37 +1721,116 @@ const RACProgressTab = ({ thesis }) => {
                     background: r.status === 'SATISFACTORY' ? '#D1FAE5' : r.status === 'UNSATISFACTORY' ? '#FEE2E2' : '#FEF3C7',
                     color: r.status === 'SATISFACTORY' ? '#065F46' : r.status === 'UNSATISFACTORY' ? '#991B1B' : '#D97706'
                   }}>
-                    {r.status}
+                    {r.status === 'SATISFACTORY' ? 'CLEARED' : r.status === 'UNSATISFACTORY' ? 'REJECTED' : r.status}
                   </span>
                 </div>
                 <div style={{ flex: 2, fontSize: '0.85rem', color: '#475569' }}>{r.remarks || '—'}</div>
                 <div style={{ flex: 2, display: 'flex', justifyContent: 'center' }}>
                   {r.status === 'SCHEDULED' ? (
                     <button 
-                      onClick={() => setUploadingId(uploadingId === r._id ? null : r._id)}
+                      onClick={() => {
+                        const nextId = uploadingId === r._id ? null : r._id;
+                        setUploadingId(nextId);
+                        setStudentRemarks('');
+                        setAttachedFile(null);
+                      }}
                       className="btn-primary" 
                       style={{ padding: '6px 12px', fontSize: '0.75rem', background: '#2563EB' }}
                     >
-                      {r.progressReportUrl ? 'Update Report' : 'Submit Report'}
+                      Action
                     </button>
                   ) : r.progressReportUrl ? (
-                    <a href={r.progressReportUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: '#2563EB', fontWeight: 600, textDecoration: 'underline' }}>
+                    <a href={`${API_BASE_URL}${r.progressReportUrl}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: '#2563EB', fontWeight: 600, textDecoration: 'underline' }}>
                       📄 View Report
                     </a>
                   ) : '—'}
                 </div>
               </div>
+              {(r.submissions && r.submissions.length > 0) || r.progressReportUrl || r.studentRemarks ? (
+                <div style={{ width: '100%', marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6, alignSelf: 'flex-start' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569' }}>Uploaded Reports & Remarks History:</span>
+                  <div style={{ width: '100%', overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', background: '#ffffff', borderRadius: 8, overflow: 'hidden', border: '1px solid #E2E8F0', minWidth: 500 }}>
+                      <thead>
+                        <tr style={{ background: '#F1F5F9', borderBottom: '1px solid #E2E8F0', textAlign: 'left' }}>
+                          <th style={{ padding: '8px 12px', fontWeight: 700, color: '#475569', width: '15%' }}>Submission</th>
+                          <th style={{ padding: '8px 12px', fontWeight: 700, color: '#475569', width: '25%' }}>Date & Time</th>
+                          <th style={{ padding: '8px 12px', fontWeight: 700, color: '#475569', width: '25%' }}>Attached File</th>
+                          <th style={{ padding: '8px 12px', fontWeight: 700, color: '#475569', width: '35%' }}>Remarks</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {r.submissions && r.submissions.length > 0 ? (
+                          r.submissions.map((sub, idx) => (
+                            <tr key={sub._id || idx} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                              <td style={{ padding: '8px 12px', fontWeight: 600, color: '#1E3A8A' }}>#{idx + 1}</td>
+                              <td style={{ padding: '8px 12px', color: '#64748B' }}>{new Date(sub.uploadedAt).toLocaleString()}</td>
+                              <td style={{ padding: '8px 12px' }}>
+                                {sub.progressReportUrl ? (
+                                  <a href={`${API_BASE_URL}${sub.progressReportUrl}`} target="_blank" rel="noreferrer" style={{ color: '#2563EB', fontWeight: 600, textDecoration: 'underline' }}>
+                                    📄 View File
+                                  </a>
+                                ) : (
+                                  <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>No file</span>
+                                )}
+                              </td>
+                              <td style={{ padding: '8px 12px', color: '#334155' }}>
+                                {sub.studentRemarks || <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>No remarks</span>}
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr style={{ borderBottom: '1px solid #F1F5F9' }}>
+                            <td style={{ padding: '8px 12px', fontWeight: 600, color: '#1E3A8A' }}>#1</td>
+                            <td style={{ padding: '8px 12px', color: '#64748B' }}>—</td>
+                            <td style={{ padding: '8px 12px' }}>
+                              {r.progressReportUrl ? (
+                                <a href={`${API_BASE_URL}${r.progressReportUrl}`} target="_blank" rel="noreferrer" style={{ color: '#2563EB', fontWeight: 600, textDecoration: 'underline' }}>
+                                  📄 View File
+                                </a>
+                              ) : (
+                                <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>No file</span>
+                              )}
+                            </td>
+                            <td style={{ padding: '8px 12px', color: '#334155' }}>
+                              {r.studentRemarks || <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>No remarks</span>}
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : null}
               {uploadingId === r._id && (
-                <div style={{ display: 'flex', gap: 10, background: '#F8FAFC', padding: 12, borderRadius: 8, border: '1px dashed #CBD5E1' }}>
-                  <input 
-                    type="text" 
-                    placeholder="Paste report document URL or drive link here..." 
-                    className="form-input" 
-                    value={reportUrl} 
-                    onChange={e => setReportUrl(e.target.value)} 
-                    style={{ flex: 1, fontSize: '0.85rem' }} 
-                  />
-                  <button onClick={() => handleReportUpload(r._id)} className="btn-primary" style={{ background: '#059669', fontSize: '0.85rem' }}>Submit</button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, background: '#F8FAFC', padding: 16, borderRadius: 10, border: '1px dashed #CBD5E1', marginTop: 4 }}>
+                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <div style={{ flex: 1, minWidth: 250 }}>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: 4 }}>Remarks (Optional)</label>
+                      <input 
+                        type="text" 
+                        placeholder="please enter the remarks and hit submit." 
+                        className="form-input" 
+                        value={studentRemarks} 
+                        onChange={e => setStudentRemarks(e.target.value)} 
+                        style={{ width: '100%', fontSize: '0.85rem' }} 
+                      />
+                    </div>
+                    <div style={{ minWidth: 200 }}>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: 4 }}>Attach File (Optional)</label>
+                      <input 
+                        type="file" 
+                        className="form-input" 
+                        accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" 
+                        onChange={e => setAttachedFile(e.target.files[0])} 
+                        style={{ width: '100%', fontSize: '0.85rem', padding: '4px' }} 
+                      />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                    <button onClick={() => { setUploadingId(null); setStudentRemarks(''); setAttachedFile(null); }} className="btn-outline" style={{ padding: '6px 12px', fontSize: '0.75rem' }}>Cancel</button>
+                    <button onClick={() => handleReportUpload(r._id)} className="btn-primary" style={{ background: '#059669', padding: '6px 16px', fontSize: '0.75rem' }}>Submit</button>
+                  </div>
                 </div>
               )}
             </div>
@@ -1752,7 +1841,7 @@ const RACProgressTab = ({ thesis }) => {
   );
 };
 
-const PublicationsTab = ({ thesis }) => {
+const ResearchOutputsTab = ({ thesis }) => {
   const toast = useToast();
   const [pubs, setPubs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1781,8 +1870,10 @@ const PublicationsTab = ({ thesis }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.title.trim() || !form.journalName.trim()) return toast.warning('Please enter paper title and publisher details.');
-    if (!file) return toast.warning('Please upload a PDF proof of acceptance.');
+    if (!form.title.trim() || !form.journalName.trim()) {
+      return toast.warning(form.type === 'PATENT' ? 'Please enter patent title and office details.' : 'Please enter paper title and publisher details.');
+    }
+    if (!file) return toast.warning('Please upload a PDF proof document.');
     
     setSubmitting(true);
     try {
@@ -1804,13 +1895,13 @@ const PublicationsTab = ({ thesis }) => {
         }
       });
 
-      toast.success('Scientific Publication logged successfully & pending verification!');
+      toast.success(`${form.type === 'PATENT' ? 'Patent' : 'Scientific Publication'} logged successfully & pending verification!`);
       setShowForm(false);
       setForm({ title: '', journalName: '', issn: '', publicationDate: '', paperLink: '', type: 'JOURNAL', doiUrl: '' });
       setFile(null);
       fetchPubs();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Error logging publication.');
+      toast.error(err.response?.data?.message || 'Error logging research output.');
     } finally {
       setSubmitting(false);
     }
@@ -1818,6 +1909,22 @@ const PublicationsTab = ({ thesis }) => {
 
   const verifiedJournals = pubs.filter(p => p.type === 'JOURNAL' && p.status === 'VERIFIED').length;
   const verifiedConferences = pubs.filter(p => p.type === 'CONFERENCE' && p.status === 'VERIFIED').length;
+  const loggedPatents = pubs.filter(p => p.type === 'PATENT').length;
+
+  const isPatent = form.type === 'PATENT';
+  const titleLabel = isPatent ? 'Patent Title *' : 'Paper Title *';
+  const titlePlaceholder = isPatent ? 'e.g. System and Method for Adaptive Threat Detection' : 'e.g. A Deep Learning Approach to Cybersecurity';
+  const journalLabel = isPatent ? 'Patent Office / Issuing Organization *' : 'Journal / Publisher / Conference Name *';
+  const journalPlaceholder = isPatent ? 'e.g. Indian Patent Office (IPO) / USPTO' : 'e.g. IEEE Transactions on Forensics';
+  const issnLabel = isPatent ? 'Patent / Application Number' : 'ISSN / ISBN';
+  const issnPlaceholder = isPatent ? 'e.g. 202611012345' : 'e.g. 1549-3652';
+  const dateLabel = isPatent ? 'Date of Filing / Award *' : 'Date of Acceptance/Print *';
+  const linkLabel = isPatent ? 'Patent URL / Link' : 'Paper/Publisher Link';
+  const linkPlaceholder = isPatent ? 'e.g. https://ipindiaservices.gov.in/...' : 'e.g. https://ieeexplore.ieee.org/document/...';
+  const doiLabel = isPatent ? 'Patent ID / App Ref Number' : 'DOI URL / Number';
+  const doiPlaceholder = isPatent ? 'e.g. PAT/2026/7890' : 'e.g. 10.1109/TIFS.2026.12345';
+  const proofLabel = isPatent ? 'Upload Patent Proof / Certificate (PDF format) *' : 'Upload Proof of Acceptance (PDF format) *';
+  const typeLabel = isPatent ? 'Research Output Type *' : 'Publication / Presentation Type *';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -1829,12 +1936,12 @@ const PublicationsTab = ({ thesis }) => {
         border: '1px solid rgba(16, 185, 129, 0.15)' 
       }}>
         <h4 style={{ margin: '0 0 12px 0', fontSize: '0.95rem', fontWeight: 800, color: 'var(--color-text, #0F172A)', display: 'flex', alignItems: 'center', gap: 8 }}>
-          📚 Pre-Submission Publication Prerequisites
+          🏆 Pre-Submission Research Output Prerequisites
         </h4>
         <p style={{ color: 'var(--color-text-secondary, #475569)', fontSize: '0.82rem', lineHeight: 1.4, margin: '0 0 16px 0' }}>
-          To unlock the Pre-Submission Seminar phase, you are required to have published at least 2 papers in verified peer-reviewed journals (UGC-CARE listed) and presented at least 2 papers at scientific conferences.
+          To unlock the Pre-Submission Seminar phase, you are required to have published at least 2 papers in verified peer-reviewed journals (UGC-CARE listed) and presented at least 2 papers at scientific conferences. Patents can be logged optionally to build your doctoral research outputs portfolio.
         </p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
           <div style={{ 
             background: 'var(--color-surface, #ffffff)', 
             border: '1px solid var(--color-border, #E2E8F0)',
@@ -1896,68 +2003,101 @@ const PublicationsTab = ({ thesis }) => {
               <div style={{ width: `${Math.min((verifiedConferences / 2) * 100, 100)}%`, height: '100%', background: verifiedConferences >= 2 ? '#10B981' : '#F59E0B', borderRadius: 3 }} />
             </div>
           </div>
+
+          <div style={{ 
+            background: 'var(--color-surface, #ffffff)', 
+            border: '1px solid var(--color-border, #E2E8F0)',
+            padding: 16, 
+            borderRadius: 12,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 6
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #64748B)' }}>Logged Patents</span>
+              <span style={{ 
+                fontSize: '0.72rem', 
+                fontWeight: 700, 
+                padding: '2px 8px', 
+                borderRadius: 12, 
+                background: '#DBEAFE',
+                color: '#1E40AF'
+              }}>
+                OPTIONAL
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+              <span style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--color-text, #0F172A)' }}>{loggedPatents}</span>
+              <span style={{ fontSize: '0.9rem', color: 'var(--color-text-secondary, #64748B)', fontWeight: 500 }}>uploaded</span>
+            </div>
+            <div style={{ width: '100%', height: 6, background: 'var(--color-bg, #F1F5F9)', borderRadius: 3, overflow: 'hidden', marginTop: 4 }}>
+              <div style={{ width: '100%', height: '100%', background: '#3B82F6', borderRadius: 3 }} />
+            </div>
+          </div>
         </div>
       </div>
 
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div>
-            <h3 className="card-title" style={{ margin: 0 }}>Research Publications Log</h3>
+            <h3 className="card-title" style={{ margin: 0 }}>Research Outputs Log</h3>
             <p style={{ color: 'var(--color-text-secondary, #64748B)', fontSize: '0.85rem', marginTop: 4 }}>
-              Log and track peer-reviewed journal papers and scientific presentations completed during your active Ph.D. tenure.
+              Log and track peer-reviewed journal papers, scientific conference presentations, and patents completed during your active Ph.D. tenure.
             </p>
           </div>
           <button onClick={() => setShowForm(!showForm)} className="btn-primary" style={{ background: 'var(--color-primary, #059669)', display: 'flex', gap: 6, alignItems: 'center' }}>
-            <Plus size={16} /> Log Paper / Presentation
+            <Plus size={16} /> Log Research Output
           </button>
         </div>
 
         {showForm && (
           <form onSubmit={handleSubmit} style={{ background: 'var(--color-bg, #F8FAFC)', padding: 20, borderRadius: 12, border: '1px solid var(--color-border, #E2E8F0)', marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <h4 style={{ margin: 0, color: 'var(--color-text, #0F172A)' }}>Log New Scientific Publication / Conference</h4>
+            <h4 style={{ margin: 0, color: 'var(--color-text, #0F172A)' }}>Log New Research Output</h4>
             
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>{typeLabel}</label>
+              <select className="form-input" required value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} style={{ maxWidth: '400px' }}>
+                <option value="JOURNAL">Journal Publication</option>
+                <option value="CONFERENCE">Conference Presentation</option>
+                <option value="PATENT">Patent</option>
+              </select>
+            </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Paper Title *</label>
-                <input type="text" className="form-input" required value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="e.g. A Deep Learning Approach to Cybersecurity" />
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>{titleLabel}</label>
+                <input type="text" className="form-input" required value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder={titlePlaceholder} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Journal / Publisher / Conference Name *</label>
-                <input type="text" className="form-input" required value={form.journalName} onChange={e => setForm({ ...form, journalName: e.target.value })} placeholder="e.g. IEEE Transactions on Forensics" />
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>{journalLabel}</label>
+                <input type="text" className="form-input" required value={form.journalName} onChange={e => setForm({ ...form, journalName: e.target.value })} placeholder={journalPlaceholder} />
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Publication / Presentation Type *</label>
-                <select className="form-input" required value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}>
-                  <option value="JOURNAL">Journal Publication</option>
-                  <option value="CONFERENCE">Conference Presentation</option>
-                </select>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>{issnLabel}</label>
+                <input type="text" className="form-input" value={form.issn} onChange={e => setForm({ ...form, issn: e.target.value })} placeholder={issnPlaceholder} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>ISSN / ISBN</label>
-                <input type="text" className="form-input" value={form.issn} onChange={e => setForm({ ...form, issn: e.target.value })} placeholder="e.g. 1549-3652" />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Date of Acceptance/Print *</label>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>{dateLabel}</label>
                 <input type="date" className="form-input" required value={form.publicationDate} onChange={e => setForm({ ...form, publicationDate: e.target.value })} />
               </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Paper/Publisher Link</label>
-                <input type="text" className="form-input" value={form.paperLink} onChange={e => setForm({ ...form, paperLink: e.target.value })} placeholder="e.g. https://ieeexplore.ieee.org/document/..." />
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>{linkLabel}</label>
+                <input type="text" className="form-input" value={form.paperLink} onChange={e => setForm({ ...form, paperLink: e.target.value })} placeholder={linkPlaceholder} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>DOI URL / Number</label>
-                <input type="text" className="form-input" value={form.doiUrl} onChange={e => setForm({ ...form, doiUrl: e.target.value })} placeholder="e.g. 10.1109/TIFS.2026.12345" />
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>{doiLabel}</label>
+                <input type="text" className="form-input" value={form.doiUrl} onChange={e => setForm({ ...form, doiUrl: e.target.value })} placeholder={doiPlaceholder} />
               </div>
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Upload Proof of Acceptance (PDF format) *</label>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>{proofLabel}</label>
               <input type="file" className="form-input" required accept=".pdf" onChange={e => setFile(e.target.files[0])} />
             </div>
 
@@ -1971,16 +2111,16 @@ const PublicationsTab = ({ thesis }) => {
         )}
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: 20 }}>Loading publications...</div>
+          <div style={{ textAlign: 'center', padding: 20 }}>Loading research outputs...</div>
         ) : pubs.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '36px', color: 'var(--color-text-secondary, #64748B)', background: 'var(--color-bg, #F8FAFC)', borderRadius: 8 }}>
-            No research papers or presentations logged yet.
+            No research outputs logged yet.
           </div>
         ) : (
           <div className="file-list" style={{ overflowX: 'auto' }}>
             <div className="file-header" style={{ minWidth: 700 }}>
-              <div style={{ flex: 2.2 }}>Paper Title</div>
-              <div style={{ flex: 1.5 }}>Journal/Conference</div>
+              <div style={{ flex: 2.2 }}>Title</div>
+              <div style={{ flex: 1.5 }}>Journal/Publisher/Office</div>
               <div style={{ flex: 1 }}>Type</div>
               <div style={{ flex: 1 }}>Date</div>
               <div style={{ flex: 1 }}>Status</div>
@@ -1994,8 +2134,8 @@ const PublicationsTab = ({ thesis }) => {
                   <div style={{ flex: 1 }}>
                     <span style={{ 
                       padding: '2px 6px', borderRadius: 4, fontSize: '0.7rem', fontWeight: 700,
-                      background: p.type === 'JOURNAL' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(139, 92, 246, 0.1)',
-                      color: p.type === 'JOURNAL' ? '#2563EB' : '#7C3AED'
+                      background: p.type === 'JOURNAL' ? 'rgba(59, 130, 246, 0.1)' : p.type === 'CONFERENCE' ? 'rgba(139, 92, 246, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                      color: p.type === 'JOURNAL' ? '#2563EB' : p.type === 'CONFERENCE' ? '#7C3AED' : '#059669'
                     }}>
                       {p.type}
                     </span>
@@ -2011,7 +2151,7 @@ const PublicationsTab = ({ thesis }) => {
                     </span>
                   </div>
                   <div style={{ flex: 1.8, display: 'flex', gap: 12, justifyContent: 'center' }}>
-                    {p.paperLink && <a href={p.paperLink} target="_blank" rel="noreferrer" title="View Publisher Page" style={{ fontSize: '0.82rem', color: '#2563EB', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}><File size={16} /> Link</a>}
+                    {p.paperLink && <a href={p.paperLink} target="_blank" rel="noreferrer" title={p.type === 'PATENT' ? 'View Patent URL' : 'View Publisher Page'} style={{ fontSize: '0.82rem', color: '#2563EB', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}><File size={16} /> Link</a>}
                     {p.documentUrl && <a href={`${API_BASE_URL}${p.documentUrl}`} target="_blank" rel="noreferrer" title="View Proof PDF" style={{ fontSize: '0.82rem', color: '#059669', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}><Upload size={16} /> PDF</a>}
                   </div>
                 </div>
@@ -3287,169 +3427,6 @@ const ChapterDraftsTab = ({ thesis, milestones = [], onSubmit }) => {
   );
 };
 
-const ResearchOutputsTab = ({ thesis }) => {
-  const toast = useToast();
-  const [pubs, setPubs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ title: '', journalName: '', issn: '', publicationDate: '', paperLink: '', type: 'JOURNAL', doiUrl: '' });
-  const [file, setFile] = useState(null);
-  const [submitting, setSubmitting] = useState(false);
-
-  const fetchPubs = async () => {
-    try {
-      const res = await axios.get(`${API_URL}/publications/thesis/${thesis._id}`, getAuthHeader());
-      setPubs(res.data);
-    } catch (err) {}
-    setLoading(false);
-  };
-
-  useEffect(() => { fetchPubs(); }, []);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!form.title.trim() || !form.journalName.trim()) return toast.warning('Please enter paper title and publisher details.');
-    setSubmitting(true);
-    try {
-      const formData = new FormData();
-      formData.append('thesisId', thesis._id);
-      formData.append('title', form.title);
-      formData.append('journalName', form.journalName);
-      formData.append('issn', form.issn);
-      formData.append('publicationDate', form.publicationDate);
-      formData.append('paperLink', form.paperLink);
-      formData.append('type', form.type);
-      formData.append('doiUrl', form.doiUrl);
-      if (file) formData.append('document', file);
-
-      await axios.post(`${API_URL}/publications`, formData, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'multipart/form-data'
-        }
-      });
-
-      toast.success('Scientific Publication logged successfully & pending verification!');
-      setShowForm(false);
-      setForm({ title: '', journalName: '', issn: '', publicationDate: '', paperLink: '', type: 'JOURNAL', doiUrl: '' });
-      setFile(null);
-      fetchPubs();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Error logging publication.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <div className="card">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <div>
-          <h3 className="card-title" style={{ margin: 0 }}>Research Outputs Vault</h3>
-          <p style={{ color: '#64748B', fontSize: '0.85rem', marginTop: 4 }}>
-            Log peer-reviewed journal articles, conference papers, and patents logged during your doctoral tenure.
-          </p>
-        </div>
-        <button onClick={() => setShowForm(!showForm)} className="btn-primary" style={{ background: '#059669', display: 'flex', gap: 6, alignItems: 'center' }}>
-          <Plus size={16} /> Log Paper
-        </button>
-      </div>
-
-      {showForm && (
-        <form onSubmit={handleSubmit} style={{ background: '#F8FAFC', padding: 20, borderRadius: 12, border: '1px solid #E2E8F0', marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <h4 style={{ margin: 0, color: '#0F172A' }}>Log Scientific Output</h4>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Paper Title *</label>
-              <input type="text" className="form-input" required value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Enter exact title of publication" />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Journal / Conference Name *</label>
-              <input type="text" className="form-input" required value={form.journalName} onChange={e => setForm({ ...form, journalName: e.target.value })} placeholder="e.g. IEEE Transactions on Software Engineering" />
-            </div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Publication Type</label>
-              <select className="form-input" value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}>
-                <option value="JOURNAL">Peer-Reviewed Journal</option>
-                <option value="CONFERENCE">International Conference</option>
-              </select>
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>ISSN / ISBN</label>
-              <input type="text" className="form-input" value={form.issn} onChange={e => setForm({ ...form, issn: e.target.value })} placeholder="e.g. 1234-567X" />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Publication Date *</label>
-              <input type="date" className="form-input" required value={form.publicationDate} onChange={e => setForm({ ...form, publicationDate: e.target.value })} />
-            </div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>DOI URL / Paper Link</label>
-              <input type="text" className="form-input" value={form.paperLink} onChange={e => setForm({ ...form, paperLink: e.target.value })} placeholder="e.g. https://doi.org/10.1145/..." />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Exact DOI String</label>
-              <input type="text" className="form-input" value={form.doiUrl} onChange={e => setForm({ ...form, doiUrl: e.target.value })} placeholder="e.g. 10.1145/12345" />
-            </div>
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Upload Publication Proof (PDF copy of article) *</label>
-            <input type="file" accept=".pdf" required onChange={e => setFile(e.target.files[0])} style={{ fontSize: '0.85rem' }} />
-          </div>
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-            <button type="button" onClick={() => setShowForm(false)} className="btn-outline" style={{ padding: '8px 16px' }}>Cancel</button>
-            <button type="submit" className="btn-primary" disabled={submitting} style={{ background: '#133A26', padding: '8px 16px' }}>
-              {submitting ? 'Submitting...' : 'Log Research Output'}
-            </button>
-          </div>
-        </form>
-      )}
-
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: 20 }}>Loading outputs...</div>
-      ) : pubs.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '36px', color: '#64748B', background: '#F8FAFC', borderRadius: 8 }}>
-          No peer-reviewed papers or outputs logged in this vault yet.
-        </div>
-      ) : (
-        <div className="file-list">
-          <div className="file-header">
-            <div style={{ flex: 2.5 }}>Paper Title</div>
-            <div style={{ flex: 1.5 }}>Journal/Conference</div>
-            <div style={{ flex: 1 }}>ISSN</div>
-            <div style={{ flex: 1.2 }}>DOI</div>
-            <div style={{ flex: 1 }}>Status</div>
-            <div style={{ flex: 1, textAlign: 'center' }}>Links</div>
-          </div>
-          {pubs.map(p => (
-            <div key={p._id} className="file-item">
-              <div style={{ flex: 2.5, fontWeight: 700 }}>{p.title}</div>
-              <div style={{ flex: 1.5, fontSize: '0.85rem' }}>{p.journalName} <span style={{ fontSize: '0.72rem', background: '#F1F5F9', padding: '2px 6px', borderRadius: 4, marginLeft: 4 }}>{p.type}</span></div>
-              <div style={{ flex: 1, fontSize: '0.85rem', color: '#64748B' }}>{p.issn || '—'}</div>
-              <div style={{ flex: 1.2, fontSize: '0.8rem', color: '#0F172A', fontFamily: 'monospace' }}>{p.doiUrl || '—'}</div>
-              <div style={{ flex: 1 }}>
-                <span style={{
-                  padding: '4px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 600,
-                  background: p.status === 'VERIFIED' ? '#D1FAE5' : p.status === 'REJECTED' ? '#FEE2E2' : '#FEF3C7',
-                  color: p.status === 'VERIFIED' ? '#065F46' : p.status === 'REJECTED' ? '#991B1B' : '#D97706'
-                }}>
-                  {p.status}
-                </span>
-              </div>
-              <div style={{ flex: 1, display: 'flex', gap: 8, justifyContent: 'center' }}>
-                {(p.paperLink || p.doiUrl) && <a href={p.paperLink || `https://doi.org/${p.doiUrl}`} target="_blank" rel="noreferrer" title="Publisher Link" style={{ color: '#2563EB' }}><File size={16} /></a>}
-                {p.documentUrl && <a href={`${API_BASE_URL}${p.documentUrl}`} target="_blank" rel="noreferrer" title="View Article PDF" style={{ color: '#059669' }}><Upload size={16} /></a>}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
 
 const ProfileTab = () => {
   const { user, updateProfile, uploadAvatar, uploadProfileDocument } = useContext(AuthContext);
@@ -5072,10 +5049,9 @@ const StudentDashboard = () => {
     overview: 'Student Dashboard', 
     thesis: 'My Thesis', 
     rac: 'RAC Progress', 
-    publications: 'Publications', 
+    publications: 'Research Outputs', 
     sixMonthReports: '6-Month Progress Reports',
     chapterDrafts: 'Chapter Drafts Workspace',
-    researchOutputs: 'Research Outputs Vault',
     preSubmission: 'Pre-Submission Package',
     changes: 'Request Changes', 
     certificates: 'Certificates', 
@@ -5108,11 +5084,10 @@ const StudentDashboard = () => {
     switch (activeTab) {
       case 'overview': return <OverviewPage thesis={thesis} milestones={milestones} setActiveTab={setActiveTab} user={user} />;
       case 'rac': return <RACProgressTab thesis={thesis} />;
-      case 'publications': return <PublicationsTab thesis={thesis} />;
+      case 'publications': return <ResearchOutputsTab thesis={thesis} />;
       case 'preSubmission': return <PreSubmission thesis={thesis} milestones={milestones} onSubmit={fetchMyThesis} />;
       case 'sixMonthReports': return <SixMonthReportsTab thesis={thesis} milestones={milestones} onSubmit={submitMilestone} />;
       case 'chapterDrafts': return <ChapterDraftsTab thesis={thesis} milestones={milestones} onSubmit={submitMilestone} />;
-      case 'researchOutputs': return <ResearchOutputsTab thesis={thesis} />;
       case 'changes': return <RequestChangesTab thesis={thesis} />;
       case 'certificates': return <CertificatesTab thesis={thesis} />;
       case 'meetings': return <MeetingsTab thesis={thesis} />;

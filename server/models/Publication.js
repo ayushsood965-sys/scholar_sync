@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const PublicationSchema = new mongoose.Schema({
   scholarId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   thesisId: { type: mongoose.Schema.Types.ObjectId, ref: 'Thesis', required: true },
-  type: { type: String, enum: ['JOURNAL', 'CONFERENCE'], default: 'JOURNAL' },
+  type: { type: String, enum: ['JOURNAL', 'CONFERENCE', 'PATENT'], default: 'JOURNAL' },
   title: { type: String, required: true },
   journalName: { type: String, required: true },
   issn: { type: String },

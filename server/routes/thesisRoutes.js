@@ -4,7 +4,7 @@ const { protect, authorize } = require('../middleware/authMiddleware');
 const {
   createThesis, getMyThesis, getAllTheses, getThesisById,
   verifyEnrollment, assignSupervisor, clearCoursework, awardDegree, updateAuditLog,
-  getAssignedTheses, getDeptTheses, drcApprove, scheduleSeminar, seminarClear, finalApprove, toggleAnnualRAC,
+  getAssignedTheses, getDeptTheses, drcApprove, scheduleSeminar, seminarClear, finalApprove,
   dispatchThesis, scheduleViva, recordViva, transferThesis
 } = require('../controllers/thesisController');
 
@@ -19,7 +19,6 @@ router.put('/:id/assign', protect, authorize('ADMIN', 'HOD'), assignSupervisor);
 router.put('/:id/coursework', protect, authorize('ADMIN', 'HOD', 'FACULTY'), clearCoursework);
 router.put('/:id/award', protect, authorize('ADMIN', 'HOD'), awardDegree);
 router.put('/:id/audit', protect, authorize('ADMIN', 'HOD'), updateAuditLog);
-router.put('/:id/annual-rac', protect, authorize('ADMIN', 'HOD', 'FACULTY'), toggleAnnualRAC);
 router.put('/:id/dispatch', protect, authorize('ADMIN', 'HOD'), dispatchThesis);
 router.put('/:id/schedule-viva', protect, authorize('ADMIN', 'HOD'), scheduleViva);
 router.put('/:id/record-viva', protect, authorize('ADMIN', 'HOD'), recordViva);

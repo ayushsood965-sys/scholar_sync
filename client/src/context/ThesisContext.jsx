@@ -156,11 +156,7 @@ export const ThesisProvider = ({ children }) => {
     const { data } = await axios.put(`${API}/milestones/${milestoneId}/review`, { action, comment }, getAuthHeader());
     return data;
   };
-  const toggleAnnualRAC = async (id) => {
-    const { data } = await axios.put(`${API}/thesis/${id}/annual-rac`, {}, getAuthHeader());
-    setAllTheses(prev => prev.map(t => t._id === id ? data : t));
-    return data;
-  };
+
   const dispatchThesis = async (id, payload) => {
     const { data } = await axios.put(`${API}/thesis/${id}/dispatch`, payload, getAuthHeader());
     setAllTheses(prev => prev.map(t => t._id === id ? data : t));
@@ -190,7 +186,7 @@ export const ThesisProvider = ({ children }) => {
       fetchAllTheses, fetchThesisById, verifyEnrollment, assignSupervisor,
       clearCoursework, awardDegree, updateAuditLog,
       fetchAssignedTheses, fetchDeptTheses, drcApprove, scheduleSeminar, seminarClear, finalApprove, reviewMilestone,
-      toggleAnnualRAC, dispatchThesis, scheduleViva, recordViva, transferScholar
+      dispatchThesis, scheduleViva, recordViva, transferScholar
     }}>
       {children}
     </ThesisContext.Provider>

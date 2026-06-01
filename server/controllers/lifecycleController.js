@@ -46,13 +46,36 @@ const scheduleRAC = async (req, res) => {
 const uploadRACReport = async (req, res) => {
   try {
     const { id } = req.params;
-    const { progressReportUrl } = req.body;
+    const { studentRemarks } = req.body;
     const rac = await RACReview.findById(id);
     if (!rac) return res.status(404).json({ message: 'RAC meeting not found' });
 
-    rac.progressReportUrl = progressReportUrl;
-    await rac.save();
+    let fileUrl = '';
+    if (req.file) {
+      fileUrl = `/uploads/${req.file.filename}`;
+    } else if (req.body.progressReportUrl) {
+      fileUrl = req.body.progressReportUrl;
+    }
 
+    // Push new entry to submissions history array
+    if (!rac.submissions) {
+      rac.submissions = [];
+    }
+    rac.submissions.push({
+      progressReportUrl: fileUrl || undefined,
+      studentRemarks: studentRemarks || '',
+      uploadedAt: new Date()
+    });
+
+    // Synchronize latest values to legacy single fields for backward compatibility
+    if (fileUrl) {
+      rac.progressReportUrl = fileUrl;
+    }
+    if (studentRemarks !== undefined) {
+      rac.studentRemarks = studentRemarks;
+    }
+    
+    await rac.save();
     res.json(rac);
   } catch (err) {
     res.status(500).json({ message: err.message });

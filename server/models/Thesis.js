@@ -15,7 +15,6 @@ const thesisSchema = new mongoose.Schema(
     },
     courseworkCompleted: { type: Boolean, default: false },
     enrollmentVerified: { type: Boolean, default: false },
-    annualRACCleared: { type: Boolean, default: false },
     startDate: { type: Date, default: null },
     submittedAt: { type: Date, default: null },
     awardedAt: { type: Date, default: null },

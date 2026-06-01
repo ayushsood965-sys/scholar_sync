@@ -10,6 +10,14 @@ const RACReviewSchema = new mongoose.Schema({
   committeeMembers: { type: String, default: '' },
   progressReportUrl: { type: String },
   remarks: { type: String },
+  studentRemarks: { type: String, default: '' },
+  submissions: [
+    {
+      progressReportUrl: { type: String },
+      studentRemarks: { type: String },
+      uploadedAt: { type: Date, default: Date.now }
+    }
+  ],
 
   // New Phase 5 fields (for supervisor milestone reviews)
   milestoneId: { type: mongoose.Schema.Types.ObjectId, ref: 'Milestone', default: null },

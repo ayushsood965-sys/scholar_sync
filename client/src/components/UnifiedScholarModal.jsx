@@ -94,17 +94,60 @@ const RACReviewModal = ({ rac, onClose, onSave }) => {
           <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>Evaluate RAC-{rac.racNumber} Meeting</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-text-secondary, #64748B)' }}>×</button>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: 14, background: 'var(--color-bg, #F8FAFC)', borderRadius: 12, border: '1px solid var(--color-border, #E2E8F0)', fontSize: '0.82rem' }}>
           <div><span style={{ color: 'var(--color-text-secondary, #64748B)', fontWeight: 600 }}>Scheduled:</span><div style={{ fontWeight: 700, marginTop: 2 }}>{new Date(rac.scheduledDate).toLocaleDateString()}</div></div>
           <div><span style={{ color: 'var(--color-text-secondary, #64748B)', fontWeight: 600 }}>Committee:</span><div style={{ fontWeight: 700, marginTop: 2 }}>{rac.committeeMembers || 'Pending'}</div></div>
-        </div>
+          {rac.submissions && rac.submissions.length > 0 ? (
+            <div style={{ gridColumn: 'span 2', marginTop: 4, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span style={{ color: 'var(--color-text-secondary, #64748B)', fontWeight: 600 }}>Candidate Submissions History:</span>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
+                {rac.submissions.map((sub, idx) => (
+                  <div key={sub._id || idx} style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', padding: 10, borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 4, fontSize: '0.78rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #E2E8F0', paddingBottom: 2 }}>
+                      <span style={{ fontWeight: 700, color: '#1E3A8A' }}>Submission #{idx + 1}</span>
+                      <span style={{ fontSize: '0.68rem', color: '#64748B' }}>{new Date(sub.uploadedAt).toLocaleString()}</span>
+                    </div>
+                    {sub.progressReportUrl && (
+                      <div>
+                        <a href={`${API_BASE_URL}${sub.progressReportUrl}`} target="_blank" rel="noreferrer" style={{ color: '#2563EB', fontWeight: 600, textDecoration: 'underline' }}>
+                          📄 View File
+                        </a>
+                      </div>
+                    )}
+                    {sub.studentRemarks && (
+                      <div>
+                        <strong>Remarks:</strong> {sub.studentRemarks}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (rac.progressReportUrl || rac.studentRemarks) ? (
+            <div style={{ gridColumn: 'span 2', marginTop: 4, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span style={{ color: 'var(--color-text-secondary, #64748B)', fontWeight: 600 }}>Candidate Submission:</span>
+              <div style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', padding: 10, borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 4, fontSize: '0.78rem', maxWidth: 400 }}>
+                {rac.progressReportUrl && (
+                  <div>
+                    <a href={`${API_BASE_URL}${rac.progressReportUrl}`} target="_blank" rel="noreferrer" style={{ color: '#2563EB', fontWeight: 600, textDecoration: 'underline' }}>
+                      📄 View File
+                    </a>
+                  </div>
+                )}
+                {rac.studentRemarks && (
+                  <div>
+                    <strong>Remarks:</strong> {rac.studentRemarks}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : null}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Committee Recommendation</label>
               <select className="form-input" value={status} onChange={e => setStatus(e.target.value)} required>
-                <option value="SATISFACTORY">Satisfactory (Approved)</option>
-                <option value="UNSATISFACTORY">Unsatisfactory (Needs Correction)</option>
+                <option value="SATISFACTORY">Give Clearance (Satisfactory)</option>
+                <option value="UNSATISFACTORY">Reject (Unsatisfactory)</option>
               </select>
             </div>
             <div>
@@ -113,12 +156,12 @@ const RACReviewModal = ({ rac, onClose, onSave }) => {
             </div>
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Research Progress Evaluation</label>
-            <textarea className="form-input" style={{ width: '100%', resize: 'vertical' }} rows="3" placeholder="Detail research updates..." value={researchProgress} onChange={e => setResearchProgress(e.target.value)} required />
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Research Progress Evaluation (Optional)</label>
+            <textarea className="form-input" style={{ width: '100%', resize: 'vertical' }} rows="3" placeholder="Detail research updates..." value={researchProgress} onChange={e => setResearchProgress(e.target.value)} />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Next 6 Month Targets</label>
-            <textarea className="form-input" style={{ width: '100%', resize: 'vertical' }} rows="2" placeholder="List targets..." value={nextMilestones} onChange={e => setNextMilestones(e.target.value)} required />
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Next 6 Month Targets (Optional)</label>
+            <textarea className="form-input" style={{ width: '100%', resize: 'vertical' }} rows="2" placeholder="List targets..." value={nextMilestones} onChange={e => setNextMilestones(e.target.value)} />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
@@ -221,7 +264,7 @@ const DocEvalModal = ({ doc, onClose, onRefresh }) => {
 // ══════════════════════════════════════════════════════════
 // MAIN: Unified Scholar Modal
 // ══════════════════════════════════════════════════════════
-const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, onReview, onDRC, onSeminar, onFinalApprove, onClearCoursework, onVerify, onAssign, onToggleAnnualRAC }) => {
+const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, onReview, onDRC, onSeminar, onFinalApprove, onClearCoursework, onVerify, onAssign }) => {
   const toast = useToast();
   const { user } = useContext(AuthContext);
   const { transferScholar } = useContext(ThesisContext);
@@ -338,7 +381,8 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
   const corePendingMilestones = milestones.filter(m => (m.type === 'SYNOPSIS' || m.type === 'FINAL_SUBMISSION' || m.type === 'PRE_SUBMISSION') && (m.status === 'SUBMITTED' || m.status === 'REVISION_REQUIRED'));
   const verifiedJournals = publications.filter(p => p.type === 'JOURNAL' && p.status === 'VERIFIED').length;
   const verifiedConferences = publications.filter(p => p.type === 'CONFERENCE' && p.status === 'VERIFIED').length;
-  const pendingDocCount = corePendingMilestones.length + milestones.filter(m => m.status === 'SUBMITTED' && m.type === '6_MONTH_REPORT').length + publications.filter(p => p.status === 'PENDING').length;
+  const pendingOutputsCount = publications.filter(p => p.status === 'PENDING').length;
+  const pendingDocCount = corePendingMilestones.length + milestones.filter(m => m.status === 'SUBMITTED' && m.type === '6_MONTH_REPORT').length;
   const scheduledRacs = racReviews.filter(r => r.status === 'SCHEDULED').length;
 
   // ── Transfer ──
@@ -475,7 +519,7 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
     { key: 'rac', label: 'RAC', icon: '📋', badge: scheduledRacs || null, show: ['ACTIVE_RESEARCH', 'PRE_SUBMISSION', 'SUBMITTED', 'AWARDED'].includes(thesis.status) },
     { key: 'reports', label: 'Reports', icon: '📑', show: ['ACTIVE_RESEARCH', 'PRE_SUBMISSION', 'SUBMITTED', 'AWARDED'].includes(thesis.status) },
     { key: 'chapters', label: 'Chapters', icon: '📖', show: ['ACTIVE_RESEARCH', 'PRE_SUBMISSION', 'SUBMITTED', 'AWARDED'].includes(thesis.status) },
-    { key: 'publications', label: 'Publications', icon: '📰', show: ['ACTIVE_RESEARCH', 'PRE_SUBMISSION', 'SUBMITTED', 'AWARDED'].includes(thesis.status) },
+    { key: 'publications', label: 'Research Outputs', icon: '🏆', badge: pendingOutputsCount || null, show: ['ACTIVE_RESEARCH', 'PRE_SUBMISSION', 'SUBMITTED', 'AWARDED'].includes(thesis.status) },
     { key: 'documents', label: 'Documents', icon: '📄', badge: pendingDocCount || null },
     { key: 'changes', label: 'Changes', icon: '🔄' },
     { key: 'audit', label: 'Audit Log', icon: '📜' },
@@ -534,10 +578,7 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
           <div className="usm-stat-value" style={{ color: verifiedConferences >= 2 ? '#059669' : '#EF4444' }}>{verifiedConferences}/2</div>
           <div className="usm-stat-label">Conferences (Mandatory)</div>
         </div>
-        <div className="usm-stat-card">
-          <div className="usm-stat-value" style={{ color: thesis.annualRACCleared ? '#059669' : '#D97706' }}>{thesis.annualRACCleared ? '✅' : '⏳'}</div>
-          <div className="usm-stat-label">Annual RAC</div>
-        </div>
+
         <div className="usm-stat-card">
           <div className="usm-stat-value" style={{ color: '#3B82F6' }}>{racReviews.filter(r => r.status !== 'SCHEDULED').length}/{racReviews.length}</div>
           <div className="usm-stat-label">RAC Completed</div>
@@ -545,9 +586,20 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
       </div>
 
       {/* Pending alerts */}
-      {pendingDocCount > 0 && (
-        <div style={{ background: '#FFF9E6', borderLeft: '4px solid #F59E0B', padding: '10px 14px', borderRadius: 8, fontSize: '0.82rem', color: '#B45309', fontWeight: 600 }}>
-          ⚠️ {pendingDocCount} document(s) pending review — click the Documents tab to review.
+      {(pendingDocCount > 0 || pendingOutputsCount > 0) && (
+        <div style={{ background: '#FFF9E6', borderLeft: '4px solid #F59E0B', padding: '10px 14px', borderRadius: 8, fontSize: '0.82rem', color: '#B45309', fontWeight: 600, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {pendingDocCount > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>⚠️</span>
+              <span>{pendingDocCount} document(s) pending review — click the Documents tab to review.</span>
+            </div>
+          )}
+          {pendingOutputsCount > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>🏆</span>
+              <span>{pendingOutputsCount} research output(s) pending review — click the Research Outputs tab to review.</span>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -724,24 +776,7 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
         <button onClick={() => setShowRacSchedule(!showRacSchedule)} className="btn-primary" style={{ background: '#059669', padding: '6px 14px', fontSize: '0.78rem', display: 'flex', gap: 4, alignItems: 'center' }}><Plus size={14} /> Schedule RAC</button>
       </div>
 
-      {/* HOD: Annual RAC Clearance */}
-      {subRole === 'HOD' && (
-        <div className="usm-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ fontWeight: 600, fontSize: '0.82rem' }}>Annual RAC Clearance</div>
-            <div style={{ fontSize: '0.72rem', color: '#64748B', marginTop: 2 }}>Must be cleared annually by HOD.</div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '3px 8px', borderRadius: 12, background: thesis.annualRACCleared ? '#D1FAE5' : '#FEE2E2', color: thesis.annualRACCleared ? '#065F46' : '#991B1B' }}>{thesis.annualRACCleared ? 'CLEARED' : 'PENDING'}</span>
-            <label style={{ position: 'relative', display: 'inline-block', width: 44, height: 24, cursor: 'pointer' }}>
-              <input type="checkbox" checked={!!thesis.annualRACCleared} onChange={() => act(onToggleAnnualRAC)} disabled={loading} style={{ opacity: 0, width: 0, height: 0 }} />
-              <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: thesis.annualRACCleared ? '#059669' : '#CBD5E1', transition: '0.3s', borderRadius: 24 }}>
-                <span style={{ position: 'absolute', height: 18, width: 18, left: thesis.annualRACCleared ? 22 : 4, bottom: 3, backgroundColor: 'white', transition: '0.3s', borderRadius: '50%' }} />
-              </span>
-            </label>
-          </div>
-        </div>
-      )}
+
 
       {/* RAC Schedule Form */}
       {showRacSchedule && (
@@ -766,11 +801,67 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
         <div key={r._id} className="usm-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#1E3A8A' }}>RAC-{r.racNumber}</span>
-            <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: '0.72rem', fontWeight: 700, background: r.status === 'SATISFACTORY' ? '#D1FAE5' : r.status === 'UNSATISFACTORY' ? '#FEE2E2' : '#FEF3C7', color: r.status === 'SATISFACTORY' ? '#065F46' : r.status === 'UNSATISFACTORY' ? '#991B1B' : '#D97706' }}>{r.status}</span>
+            <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: '0.72rem', fontWeight: 700, background: r.status === 'SATISFACTORY' ? '#D1FAE5' : r.status === 'UNSATISFACTORY' ? '#FEE2E2' : '#FEF3C7', color: r.status === 'SATISFACTORY' ? '#065F46' : r.status === 'UNSATISFACTORY' ? '#991B1B' : '#D97706' }}>{r.status === 'SATISFACTORY' ? 'CLEARED' : r.status === 'UNSATISFACTORY' ? 'REJECTED' : r.status}</span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px', fontSize: '0.78rem', color: 'var(--color-text-secondary, #475569)' }}>
             <div><strong>Date:</strong> {new Date(r.scheduledDate).toLocaleDateString()}</div>
             <div><strong>Committee:</strong> {r.committeeMembers || 'Pending'}</div>
+            {(r.submissions && r.submissions.length > 0) || r.progressReportUrl || r.studentRemarks ? (
+              <div style={{ gridColumn: 'span 2', marginTop: 4, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontWeight: 700, color: 'var(--color-text-secondary, #475569)' }}>Candidate Submissions History:</span>
+                <div style={{ width: '100%', overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.74rem', background: '#ffffff', borderRadius: 8, overflow: 'hidden', border: '1px solid #CBD5E1', minWidth: 440 }}>
+                    <thead>
+                      <tr style={{ background: '#F1F5F9', borderBottom: '1px solid #CBD5E1', textAlign: 'left' }}>
+                        <th style={{ padding: '6px 10px', fontWeight: 700, color: '#475569', width: '15%' }}>Submission</th>
+                        <th style={{ padding: '6px 10px', fontWeight: 700, color: '#475569', width: '25%' }}>Date & Time</th>
+                        <th style={{ padding: '6px 10px', fontWeight: 700, color: '#475569', width: '25%' }}>Attached File</th>
+                        <th style={{ padding: '6px 10px', fontWeight: 700, color: '#475569', width: '35%' }}>Remarks</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {r.submissions && r.submissions.length > 0 ? (
+                        r.submissions.map((sub, idx) => (
+                          <tr key={sub._id || idx} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                            <td style={{ padding: '6px 10px', fontWeight: 600, color: '#1E3A8A' }}>#{idx + 1}</td>
+                            <td style={{ padding: '6px 10px', color: '#64748B' }}>{new Date(sub.uploadedAt).toLocaleString()}</td>
+                            <td style={{ padding: '6px 10px' }}>
+                              {sub.progressReportUrl ? (
+                                <a href={`${API_BASE_URL}${sub.progressReportUrl}`} target="_blank" rel="noreferrer" style={{ color: '#2563EB', fontWeight: 600, textDecoration: 'underline' }}>
+                                  📄 View File
+                                </a>
+                              ) : (
+                                <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>No file</span>
+                              )}
+                            </td>
+                            <td style={{ padding: '6px 10px', color: '#334155' }}>
+                              {sub.studentRemarks || <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>No remarks</span>}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr style={{ borderBottom: '1px solid #F1F5F9' }}>
+                          <td style={{ padding: '6px 10px', fontWeight: 600, color: '#1E3A8A' }}>#1</td>
+                          <td style={{ padding: '6px 10px', color: '#64748B' }}>—</td>
+                          <td style={{ padding: '6px 10px' }}>
+                            {r.progressReportUrl ? (
+                              <a href={`${API_BASE_URL}${r.progressReportUrl}`} target="_blank" rel="noreferrer" style={{ color: '#2563EB', fontWeight: 600, textDecoration: 'underline' }}>
+                                📄 View File
+                              </a>
+                            ) : (
+                              <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>No file</span>
+                            )}
+                          </td>
+                          <td style={{ padding: '6px 10px', color: '#334155' }}>
+                            {r.studentRemarks || <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>No remarks</span>}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
             {r.researchProgress && <div style={{ gridColumn: 'span 2' }}><strong>Progress:</strong> {r.researchProgress}</div>}
             {r.nextMilestones && <div style={{ gridColumn: 'span 2' }}><strong>Next Targets:</strong> {r.nextMilestones}</div>}
             {r.remarks && <div style={{ gridColumn: 'span 2' }}><strong>Remarks:</strong> {r.remarks}</div>}
@@ -837,17 +928,19 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
 
   const renderPublications = () => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div className="usm-section-title">📰 Research Outputs Vault</div>
+      <div className="usm-section-title">🏆 Research Outputs Vault</div>
       {/* Publication prerequisite banner */}
       <div className="usm-card" style={{ display: 'flex', justifyContent: 'space-around', padding: '12px 20px', textAlign: 'center' }}>
         <div><div style={{ fontSize: '1.2rem', fontWeight: 900, color: verifiedJournals >= 2 ? '#059669' : '#EF4444' }}>{verifiedJournals}/2</div><div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748B' }}>Journals {verifiedJournals >= 2 ? '✅' : '⚠️'}</div></div>
         <div style={{ width: 1, background: '#E2E8F0' }} />
         <div><div style={{ fontSize: '1.2rem', fontWeight: 900, color: verifiedConferences >= 2 ? '#059669' : '#EF4444' }}>{verifiedConferences}/2</div><div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748B' }}>Conferences {verifiedConferences >= 2 ? '✅' : '⚠️'}</div></div>
         <div style={{ width: 1, background: '#E2E8F0' }} />
+        <div><div style={{ fontSize: '1.2rem', fontWeight: 900, color: '#2563EB' }}>{publications.filter(p => p.type === 'PATENT').length}</div><div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748B' }}>Patents (Optional)</div></div>
+        <div style={{ width: 1, background: '#E2E8F0' }} />
         <div><div style={{ fontSize: '1.2rem', fontWeight: 900, color: '#3B82F6' }}>{publications.length}</div><div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748B' }}>Total Logged</div></div>
       </div>
       {pubsLoading ? <div style={{ textAlign: 'center', padding: 15, fontSize: '0.82rem' }}>Loading...</div> :
-       publications.length === 0 ? <div className="usm-card" style={{ textAlign: 'center', color: '#64748B', fontSize: '0.82rem', fontStyle: 'italic' }}>No publications logged.</div> :
+       publications.length === 0 ? <div className="usm-card" style={{ textAlign: 'center', color: '#64748B', fontSize: '0.82rem', fontStyle: 'italic' }}>No research outputs logged.</div> :
        publications.map(p => (
         <div key={p._id} className="usm-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
@@ -855,12 +948,16 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
             <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: '0.72rem', fontWeight: 700, background: p.status === 'VERIFIED' ? '#D1FAE5' : p.status === 'REJECTED' ? '#FEE2E2' : '#FEF3C7', color: p.status === 'VERIFIED' ? '#065F46' : p.status === 'REJECTED' ? '#991B1B' : '#92400E' }}>{p.status}</span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 10px', fontSize: '0.78rem', color: '#64748B', margin: '6px 0' }}>
-            <div><strong>Journal:</strong> {p.journalName}</div>
+            <div><strong>{p.type === 'PATENT' ? 'Patent Office/Org:' : 'Journal/Publisher:'}</strong> {p.journalName}</div>
             <div><strong>Type:</strong> {p.type}</div>
-            <div><strong>ISSN:</strong> {p.issn || 'N/A'}</div>
-            <div><strong>Date:</strong> {p.publicationDate ? new Date(p.publicationDate).toLocaleDateString() : 'N/A'}</div>
+            <div><strong>{p.type === 'PATENT' ? 'Patent Number:' : 'ISSN:'}</strong> {p.issn || 'N/A'}</div>
+            <div><strong>{p.type === 'PATENT' ? 'Filing/Award Date:' : 'Date:'}</strong> {p.publicationDate ? new Date(p.publicationDate).toLocaleDateString() : 'N/A'}</div>
           </div>
-          {(p.documentUrl || p.attachmentUrl) && <a href={`${API_BASE_URL}${p.documentUrl || p.attachmentUrl}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.82rem', color: '#3B82F6', fontWeight: 600, display: 'inline-block', marginBottom: 8 }}>📄 View Proof</a>}
+          {(p.documentUrl || p.attachmentUrl) && (
+            <a href={`${API_BASE_URL}${p.documentUrl || p.attachmentUrl}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.82rem', color: '#3B82F6', fontWeight: 600, display: 'inline-block', marginBottom: 8 }}>
+              {p.type === 'PATENT' ? '📄 View Patent Proof' : '📄 View Proof'}
+            </a>
+          )}
           {p.remarks && <div style={{ background: '#FFFBEB', borderLeft: '3px solid #F59E0B', padding: '6px 10px', borderRadius: 6, fontSize: '0.8rem', color: '#92400E', margin: '8px 0' }}><strong>Remarks:</strong> {p.remarks}</div>}
           {p.status === 'PENDING' && (
             <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
@@ -1012,7 +1109,7 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
       <div className="usm-stats">
         <div className="usm-stat-card"><div className="usm-stat-value" style={{ color: thesis.courseworkCompleted ? '#059669' : '#D97706', fontSize: '0.9rem' }}>{thesis.courseworkCompleted ? 'Completed ✅' : 'Pending ⏳'}</div><div className="usm-stat-label">Coursework</div></div>
         <div className="usm-stat-card"><div className="usm-stat-value" style={{ color: thesis.enrollmentVerified ? '#059669' : '#D97706', fontSize: '0.9rem' }}>{thesis.enrollmentVerified ? 'Verified ✅' : 'Pending ⏳'}</div><div className="usm-stat-label">Enrollment</div></div>
-        <div className="usm-stat-card"><div className="usm-stat-value" style={{ color: thesis.annualRACCleared ? '#059669' : '#D97706', fontSize: '0.9rem' }}>{thesis.annualRACCleared ? 'Cleared ✅' : 'Pending ⏳'}</div><div className="usm-stat-label">Annual RAC</div></div>
+
         <div className="usm-stat-card"><div className="usm-stat-value" style={{ fontSize: '0.85rem' }}>{thesis.startDate ? new Date(thesis.startDate).toLocaleDateString() : 'N/A ⏳'}</div><div className="usm-stat-label">Research Start</div></div>
       </div>
 
