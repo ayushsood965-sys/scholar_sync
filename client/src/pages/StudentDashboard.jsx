@@ -1414,7 +1414,7 @@ const OverviewPage = ({ thesis, milestones, setActiveTab, user }) => {
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, color: '#92400E', fontSize: '0.9rem' }}>⚠️ Upcoming Departmental Research Committee (DRC) Meeting Scheduled!</div>
+            <div style={{ fontWeight: 700, color: '#92400E', fontSize: '0.9rem' }}>⚠️ Upcoming Meeting: {activeDrc.title || 'DRC Meeting'} Scheduled!</div>
             <div style={{ fontSize: '0.8rem', color: '#B45309', marginTop: '4px' }}>
               <strong>Date:</strong> {new Date(activeDrc.scheduledDate).toLocaleDateString()} | <strong>Time:</strong> {activeDrc.scheduledTime} | <strong>Venue:</strong> {activeDrc.venue}
             </div>
@@ -2171,9 +2171,12 @@ const ResearchOutputsTab = ({ thesis }) => {
 
 const MeetingsTab = ({ thesis }) => {
   const toast = useToast();
+  const [meetingsSubTab, setMeetingsSubTab] = useState('guidance');
   const [meetings, setMeetings] = useState([]);
+  const [drcMeetings, setDrcMeetings] = useState([]);
   const [faculty, setFaculty] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [drcLoading, setDrcLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({ date: '', time: '', reason: '', attendees: [] });
@@ -2195,8 +2198,21 @@ const MeetingsTab = ({ thesis }) => {
     }
   };
 
+  const fetchDrcMeetings = async () => {
+    setDrcLoading(true);
+    try {
+      const res = await axios.get(`${API}/lifecycle/drc/thesis/${thesis._id}`, getAuthHeader());
+      setDrcMeetings(res.data);
+    } catch (err) {
+      toast.error('Failed to load DRC meetings.');
+    } finally {
+      setDrcLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchData();
+    fetchDrcMeetings();
   }, []);
 
   const handleCheckboxChange = (facultyId) => {
@@ -2236,128 +2252,283 @@ const MeetingsTab = ({ thesis }) => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <div>
-            <h3 className="card-title" style={{ margin: 0 }}>Meetings Scheduler Desk</h3>
+      {/* Sub-tab bar */}
+      <div style={{
+        display: 'flex',
+        background: 'var(--color-bg, #F1F5F9)',
+        padding: '4px',
+        borderRadius: '10px',
+        gap: '4px',
+        width: 'fit-content',
+        border: '1px solid var(--color-border, #E2E8F0)',
+        boxSizing: 'border-box'
+      }}>
+        <button
+          type="button"
+          onClick={() => setMeetingsSubTab('guidance')}
+          style={{
+            background: meetingsSubTab === 'guidance' ? '#3B82F6' : 'transparent',
+            border: 'none',
+            padding: '8px 16px',
+            fontSize: '0.85rem',
+            fontWeight: 700,
+            cursor: 'pointer',
+            borderRadius: '8px',
+            color: meetingsSubTab === 'guidance' ? '#ffffff' : 'var(--color-text-secondary, #475569)',
+            boxShadow: meetingsSubTab === 'guidance' ? '0 2px 4px rgba(59, 130, 246, 0.2)' : 'none',
+            transition: 'all 0.2s ease-in-out'
+          }}
+        >
+          Guidance Consultations
+        </button>
+        <button
+          type="button"
+          onClick={() => setMeetingsSubTab('drc')}
+          style={{
+            background: meetingsSubTab === 'drc' ? '#3B82F6' : 'transparent',
+            border: 'none',
+            padding: '8px 16px',
+            fontSize: '0.85rem',
+            fontWeight: 700,
+            cursor: 'pointer',
+            borderRadius: '8px',
+            color: meetingsSubTab === 'drc' ? '#ffffff' : 'var(--color-text-secondary, #475569)',
+            boxShadow: meetingsSubTab === 'drc' ? '0 2px 4px rgba(59, 130, 246, 0.2)' : 'none',
+            transition: 'all 0.2s ease-in-out'
+          }}
+        >
+          DRC Meetings
+        </button>
+      </div>
+
+      {meetingsSubTab === 'guidance' ? (
+        <div className="card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <div>
+              <h3 className="card-title" style={{ margin: 0 }}>Meetings Scheduler Desk</h3>
+              <p style={{ color: 'var(--color-text-secondary, #64748B)', fontSize: '0.85rem', marginTop: 4 }}>
+                Request custom research guidance and monitoring meetings. All meeting proposals route to your department Head (HOD) for administrative approval.
+              </p>
+            </div>
+            <button onClick={() => setShowModal(true)} className="btn-primary" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <Plus size={16} /> Request Meeting
+            </button>
+          </div>
+
+          {loading ? (
+            <div style={{ padding: 32, textAlign: 'center', color: '#64748B' }}>Loading schedules...</div>
+          ) : meetings.length === 0 ? (
+            <div style={{ padding: 48, textAlign: 'center', color: '#94A3B8' }}>
+              <Calendar size={48} style={{ margin: '0 auto 12px', opacity: 0.5 }} />
+              <p style={{ margin: 0, fontWeight: 600 }}>No proposed meetings found</p>
+              <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem' }}>Click "Request Meeting" to propose your first consultation session.</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {meetings.map((meeting) => {
+                const statusStyle = getStatusStyle(meeting.status);
+                return (
+                  <div
+                    key={meeting._id}
+                    style={{
+                      background: 'var(--color-surface, #ffffff)',
+                      border: `1px solid var(--color-border, #E2E8F0)`,
+                      borderRadius: 12,
+                      padding: 16,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 12,
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                        <div style={{
+                          background: 'var(--color-bg, #F1F5F9)',
+                          padding: '8px 12px',
+                          borderRadius: 8,
+                          textAlign: 'center',
+                          border: '1px solid var(--color-border, #E2E8F0)'
+                        }}>
+                          <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--color-text-secondary, #64748B)', textTransform: 'uppercase' }}>
+                            {new Date(meeting.date).toLocaleString('default', { month: 'short' })}
+                          </div>
+                          <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--color-text, #0F172A)' }}>
+                            {new Date(meeting.date).getDate()}
+                          </div>
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 700, color: 'var(--color-text, #0F172A)' }}>
+                            Suggested Time: {meeting.time}
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary, #64748B)' }}>
+                            Proposed: {new Date(meeting.createdAt).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </div>
+                      <span style={{
+                        padding: '4px 10px',
+                        borderRadius: 12,
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        background: statusStyle.bg,
+                        color: statusStyle.text,
+                        border: `1px solid ${statusStyle.border}`
+                      }}>
+                        {meeting.status}
+                      </span>
+                    </div>
+
+                    <div style={{ fontSize: '0.85rem', color: 'var(--color-text, #334155)', lineHeight: 1.4 }}>
+                      <strong>Agenda:</strong> {meeting.reason}
+                    </div>
+
+                    {meeting.attendees && meeting.attendees.length > 0 && (
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary, #64748B)', fontWeight: 600 }}>Invited Attendees:</span>
+                        {meeting.attendees.map(member => (
+                          <span
+                            key={member._id}
+                            style={{
+                              fontSize: '0.72rem',
+                              padding: '2px 8px',
+                              background: 'var(--color-bg, #F1F5F9)',
+                              border: '1px solid var(--color-border, #E2E8F0)',
+                              color: 'var(--color-text, #334155)',
+                              borderRadius: 6,
+                              fontWeight: 600
+                            }}
+                          >
+                            {member.name} {member.role === 'HOD' ? '(HOD)' : `(${member.subRole || 'Faculty'})`}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {meeting.remarks && (
+                      <div style={{
+                        background: meeting.status === 'APPROVED' ? 'rgba(16, 185, 129, 0.05)' : 'rgba(239, 68, 68, 0.05)',
+                        borderLeft: `3px solid ${statusStyle.text}`,
+                        padding: '10px 14px',
+                        borderRadius: '0 8px 8px 0',
+                        fontSize: '0.8rem',
+                        color: 'var(--color-text, #334155)',
+                        marginTop: 4
+                      }}>
+                        <strong>HOD Remarks:</strong> "{meeting.remarks}"
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="card">
+          <div style={{ marginBottom: 20 }}>
+            <h3 className="card-title" style={{ margin: 0 }}>Departmental Research Committee (DRC) Meetings</h3>
             <p style={{ color: 'var(--color-text-secondary, #64748B)', fontSize: '0.85rem', marginTop: 4 }}>
-              Request custom research guidance and monitoring meetings. All meeting proposals route to your department Head (HOD) for administrative approval.
+              View evaluation sessions and formal presentations scheduled by the department Head (HOD) for synopsis and periodic research milestones.
             </p>
           </div>
-          <button onClick={() => setShowModal(true)} className="btn-primary" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            <Plus size={16} /> Request Meeting
-          </button>
-        </div>
 
-        {loading ? (
-          <div style={{ padding: 32, textAlign: 'center', color: '#64748B' }}>Loading schedules...</div>
-        ) : meetings.length === 0 ? (
-          <div style={{ padding: 48, textAlign: 'center', color: '#94A3B8' }}>
-            <Calendar size={48} style={{ margin: '0 auto 12px', opacity: 0.5 }} />
-            <p style={{ margin: 0, fontWeight: 600 }}>No proposed meetings found</p>
-            <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem' }}>Click "Request Meeting" to propose your first consultation session.</p>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {meetings.map((meeting) => {
-              const statusStyle = getStatusStyle(meeting.status);
-              return (
-                <div
-                  key={meeting._id}
-                  style={{
-                    background: 'var(--color-surface, #ffffff)',
-                    border: `1px solid var(--color-border, #E2E8F0)`,
-                    borderRadius: 12,
-                    padding: 16,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 12,
-                    transition: 'all 0.2s ease'
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                      <div style={{
-                        background: 'var(--color-bg, #F1F5F9)',
-                        padding: '8px 12px',
-                        borderRadius: 8,
-                        textAlign: 'center',
-                        border: '1px solid var(--color-border, #E2E8F0)'
-                      }}>
-                        <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--color-text-secondary, #64748B)', textTransform: 'uppercase' }}>
-                          {new Date(meeting.date).toLocaleString('default', { month: 'short' })}
-                        </div>
-                        <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--color-text, #0F172A)' }}>
-                          {new Date(meeting.date).getDate()}
-                        </div>
-                      </div>
-                      <div>
-                        <div style={{ fontWeight: 700, color: 'var(--color-text, #0F172A)' }}>
-                          Suggested Time: {meeting.time}
-                        </div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary, #64748B)' }}>
-                          Proposed: {new Date(meeting.createdAt).toLocaleDateString()}
-                        </div>
-                      </div>
-                    </div>
-                    <span style={{
-                      padding: '4px 10px',
+          {drcLoading ? (
+            <div style={{ padding: 32, textAlign: 'center', color: '#64748B' }}>Loading DRC schedules...</div>
+          ) : drcMeetings.length === 0 ? (
+            <div style={{ padding: 48, textAlign: 'center', color: '#94A3B8' }}>
+              <Calendar size={48} style={{ margin: '0 auto 12px', opacity: 0.5 }} />
+              <p style={{ margin: 0, fontWeight: 600 }}>No DRC meetings scheduled yet</p>
+              <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem' }}>When the HOD schedules a DRC evaluation session, it will be displayed here.</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {drcMeetings.map((drc) => {
+                const statusStyle = getStatusStyle(drc.status);
+                return (
+                  <div
+                    key={drc._id}
+                    style={{
+                      background: 'var(--color-surface, #ffffff)',
+                      border: `1px solid var(--color-border, #E2E8F0)`,
                       borderRadius: 12,
-                      fontSize: '0.75rem',
-                      fontWeight: 700,
-                      background: statusStyle.bg,
-                      color: statusStyle.text,
-                      border: `1px solid ${statusStyle.border}`
-                    }}>
-                      {meeting.status}
-                    </span>
-                  </div>
-
-                  <div style={{ fontSize: '0.85rem', color: 'var(--color-text, #334155)', lineHeight: 1.4 }}>
-                    <strong>Agenda:</strong> {meeting.reason}
-                  </div>
-
-                  {meeting.attendees && meeting.attendees.length > 0 && (
-                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary, #64748B)', fontWeight: 600 }}>Invited Attendees:</span>
-                      {meeting.attendees.map(member => (
-                        <span
-                          key={member._id}
-                          style={{
-                            fontSize: '0.72rem',
-                            padding: '2px 8px',
-                            background: 'var(--color-bg, #F1F5F9)',
-                            border: '1px solid var(--color-border, #E2E8F0)',
-                            color: 'var(--color-text, #334155)',
-                            borderRadius: 6,
-                            fontWeight: 600
-                          }}
-                        >
-                          {member.name} {member.role === 'HOD' ? '(HOD)' : `(${member.subRole || 'Faculty'})`}
-                        </span>
-                      ))}
+                      padding: 16,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 12,
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                        <div style={{
+                          background: 'var(--color-bg, #F1F5F9)',
+                          padding: '8px 12px',
+                          borderRadius: 8,
+                          textAlign: 'center',
+                          border: '1px solid var(--color-border, #E2E8F0)'
+                        }}>
+                          <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--color-text-secondary, #64748B)', textTransform: 'uppercase' }}>
+                            {new Date(drc.scheduledDate).toLocaleString('default', { month: 'short' })}
+                          </div>
+                          <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--color-text, #0F172A)' }}>
+                            {new Date(drc.scheduledDate).getDate()}
+                          </div>
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 700, color: 'var(--color-text, #0F172A)' }}>
+                            {drc.title || 'DRC Meeting'}
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary, #64748B)' }}>
+                            Time: {drc.scheduledTime} | Venue: {drc.venue}
+                          </div>
+                        </div>
+                      </div>
+                      <span style={{
+                        padding: '4px 10px',
+                        borderRadius: 12,
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        background: statusStyle.bg,
+                        color: statusStyle.text,
+                        border: `1px solid ${statusStyle.border}`
+                      }}>
+                        {drc.status}
+                      </span>
                     </div>
-                  )}
 
-                  {meeting.remarks && (
-                    <div style={{
-                      background: meeting.status === 'APPROVED' ? 'rgba(16, 185, 129, 0.05)' : 'rgba(239, 68, 68, 0.05)',
-                      borderLeft: `3px solid ${statusStyle.text}`,
-                      padding: '10px 14px',
-                      borderRadius: '0 8px 8px 0',
-                      fontSize: '0.8rem',
-                      color: 'var(--color-text, #334155)',
-                      marginTop: 4
-                    }}>
-                      <strong>HOD Remarks:</strong> "{meeting.remarks}"
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+                    {drc.agenda && (
+                      <div style={{ fontSize: '0.85rem', color: 'var(--color-text, #334155)', lineHeight: 1.4 }}>
+                        <strong>Agenda:</strong> {drc.agenda}
+                      </div>
+                    )}
+
+                    {drc.committeeMembers && (
+                      <div style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary, #64748B)', fontWeight: 600 }}>
+                        Panel Members: {drc.committeeMembers}
+                      </div>
+                    )}
+
+                    {drc.remarks && (
+                      <div style={{
+                        background: drc.status === 'APPROVED' ? 'rgba(16, 185, 129, 0.05)' : 'rgba(239, 68, 68, 0.05)',
+                        borderLeft: `3px solid ${statusStyle.text}`,
+                        padding: '10px 14px',
+                        borderRadius: '0 8px 8px 0',
+                        fontSize: '0.8rem',
+                        color: 'var(--color-text, #334155)',
+                        marginTop: 4
+                      }}>
+                        <strong>Committee Remarks:</strong> "{drc.remarks}"
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {showModal && (
         <div style={{

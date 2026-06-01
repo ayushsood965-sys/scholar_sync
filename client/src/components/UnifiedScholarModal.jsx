@@ -678,7 +678,10 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
         {(synopsisApproved || thesis.status !== 'SYNOPSIS_PENDING') && (
           <>
             {/* HOD Actions */}
-            {subRole === 'HOD' && thesis.status === 'SYNOPSIS_PENDING' && synopsisApproved && (
+            {subRole === 'HOD' && (
+              (thesis.status === 'SYNOPSIS_PENDING' && synopsisApproved) ||
+              (thesis.status !== 'SYNOPSIS_PENDING')
+            ) && !showDrcSchedule && !showOfflineDrc && (
               <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
                 <button className="btn-primary" onClick={() => { setShowDrcSchedule(true); setShowOfflineDrc(false); }} style={{ padding: '6px 12px', fontSize: '0.78rem', background: '#3B82F6' }}>+ Schedule DRC</button>
                 <button className="btn-primary" onClick={() => { setShowOfflineDrc(true); setShowDrcSchedule(false); }} style={{ padding: '6px 12px', fontSize: '0.78rem', background: '#059669' }}>+ Record Offline DRC</button>
@@ -691,7 +694,7 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
             ) : drcMeetings.map((drc, idx) => (
               <div key={drc._id} className="usm-card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>DRC Session</span>
+                  <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>{drc.title || 'DRC Session'}</span>
                   <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: '0.72rem', fontWeight: 700, background: drc.status === 'APPROVED' ? '#D1FAE5' : drc.status === 'REVISION_REQUIRED' ? '#FEE2E2' : '#FEF3C7', color: drc.status === 'APPROVED' ? '#065F46' : drc.status === 'REVISION_REQUIRED' ? '#991B1B' : '#92400E' }}>{drc.status}</span>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px', fontSize: '0.78rem', color: 'var(--color-text-secondary, #475569)' }}>

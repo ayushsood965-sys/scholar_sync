@@ -643,6 +643,9 @@ const scheduleDRC = async (req, res) => {
     const thesis = await Thesis.findById(thesisId);
     if (!thesis) return res.status(404).json({ message: 'Thesis not found' });
 
+    const isSynopsisApproval = thesis.status === 'SYNOPSIS_PENDING';
+    const dynamicTitle = isSynopsisApproval ? 'DRC for Synopsis Approval' : 'DRC Meeting';
+
     const newDRC = new DRCMeeting({
       scholarId: thesis.scholarId,
       thesisId,
@@ -650,7 +653,9 @@ const scheduleDRC = async (req, res) => {
       scheduledTime,
       venue,
       committeeMembers,
-      agenda,
+      agenda: isSynopsisApproval ? (agenda || 'DRC for Synopsis Approval') : agenda,
+      title: dynamicTitle,
+      isSynopsisApproval,
       status: 'SCHEDULED'
     });
 
@@ -659,14 +664,16 @@ const scheduleDRC = async (req, res) => {
     // Log to thesis audit
     thesis.auditLog.push({
       action: 'DRC_SCHEDULED',
-      note: `DRC meeting scheduled for ${new Date(scheduledDate).toDateString()} at ${scheduledTime} in ${venue}`
+      note: `${dynamicTitle} scheduled for ${new Date(scheduledDate).toDateString()} at ${scheduledTime} in ${venue}`
     });
     await thesis.save();
 
     await createNotification({
       recipient: thesis.scholarId,
-      title: '📆 DRC Meeting Scheduled!',
-      message: `HOD has scheduled your Departmental Research Committee (DRC) synopsis evaluation meeting on ${new Date(scheduledDate).toLocaleDateString()} at ${scheduledTime} in ${venue}.`,
+      title: `📆 ${dynamicTitle} Scheduled!`,
+      message: isSynopsisApproval
+        ? `HOD has scheduled your Departmental Research Committee (DRC) synopsis evaluation meeting on ${new Date(scheduledDate).toLocaleDateString()} at ${scheduledTime} in ${venue}.`
+        : `HOD has scheduled a ${dynamicTitle} on ${new Date(scheduledDate).toLocaleDateString()} at ${scheduledTime} in ${venue}. Agenda: ${agenda || 'None'}.`,
       type: 'INFO',
       link: 'overview'
     });
@@ -692,64 +699,73 @@ const submitDRCResult = async (req, res) => {
     const thesis = await Thesis.findById(drc.thesisId);
     if (thesis) {
       if (status === 'APPROVED') {
-        thesis.status = 'ACTIVE_RESEARCH';
-        thesis.startDate = new Date();
+        if (drc.isSynopsisApproval) {
+          thesis.status = 'ACTIVE_RESEARCH';
+          thesis.startDate = new Date();
+
+          // Update synopsis milestone to APPROVED
+          const synopsis = await Milestone.findOne({ thesisId: thesis._id, type: 'SYNOPSIS' });
+          if (synopsis) {
+            synopsis.status = 'APPROVED';
+            await synopsis.save();
+          }
+
+          // Auto-create first 6-month progress report milestone
+          const existingReport = await Milestone.findOne({ thesisId: thesis._id, type: 'PROGRESS_REPORT' });
+          if (!existingReport) {
+            await Milestone.create({
+              thesisId: thesis._id,
+              type: 'PROGRESS_REPORT',
+              title: '6-Month Progress Report #1',
+              status: 'PENDING',
+              sequence: 1,
+              dueDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
+            });
+          }
+        }
+
         thesis.auditLog.push({
           action: 'DRC_APPROVED',
-          note: `DRC approved. Remarks: ${remarks}`
+          note: `${drc.title || 'DRC'} approved. Remarks: ${remarks}`
         });
         await thesis.save();
-
-        // Update synopsis milestone to APPROVED
-        const synopsis = await Milestone.findOne({ thesisId: thesis._id, type: 'SYNOPSIS' });
-        if (synopsis) {
-          synopsis.status = 'APPROVED';
-          await synopsis.save();
-        }
-
-        // Auto-create first 6-month progress report milestone
-        const existingReport = await Milestone.findOne({ thesisId: thesis._id, type: 'PROGRESS_REPORT' });
-        if (!existingReport) {
-          await Milestone.create({
-            thesisId: thesis._id,
-            type: 'PROGRESS_REPORT',
-            title: '6-Month Progress Report #1',
-            status: 'PENDING',
-            sequence: 1,
-            dueDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
-          });
-        }
       } else {
+        if (drc.isSynopsisApproval) {
+          // Update synopsis milestone back to REVISION_REQUIRED
+          const synopsis = await Milestone.findOne({ thesisId: thesis._id, type: 'SYNOPSIS' });
+          if (synopsis) {
+            synopsis.status = 'REVISION_REQUIRED';
+            await synopsis.save();
+          }
+        }
+
         thesis.auditLog.push({
           action: 'DRC_REVISION_REQUIRED',
-          note: `DRC marked Revision Required. Remarks: ${remarks}`
+          note: `${drc.title || 'DRC'} marked Revision Required. Remarks: ${remarks}`
         });
         await thesis.save();
-
-        // Update synopsis milestone back to REVISION_REQUIRED
-        const synopsis = await Milestone.findOne({ thesisId: thesis._id, type: 'SYNOPSIS' });
-        if (synopsis) {
-          synopsis.status = 'REVISION_REQUIRED';
-          await synopsis.save();
-        }
       }
     }
 
     if (status === 'APPROVED') {
       await createNotification({
         recipient: drc.scholarId,
-        title: '🎉 DRC Synopsis Approved!',
-        message: `Congratulations! The DRC panel has officially APPROVED your research synopsis. You are now in the ACTIVE_RESEARCH phase.`,
+        title: `🎉 ${drc.title || 'DRC'} Approved!`,
+        message: drc.isSynopsisApproval 
+          ? `Congratulations! The DRC panel has officially APPROVED your research synopsis. You are now in the ACTIVE_RESEARCH phase.`
+          : `Your DRC meeting has been APPROVED. Remarks: "${remarks}".`,
         type: 'SUCCESSFUL_ACTION',
         link: 'overview'
       });
     } else {
       await createNotification({
         recipient: drc.scholarId,
-        title: '⚠️ DRC Revision Required',
-        message: `The DRC panel has requested revisions for your synopsis. Remarks: "${remarks}". Please revise and re-upload your document.`,
+        title: `⚠️ ${drc.title || 'DRC'} Revision Required`,
+        message: drc.isSynopsisApproval
+          ? `The DRC panel has requested revisions for your synopsis. Remarks: "${remarks}". Please revise and re-upload your document.`
+          : `The DRC panel has requested revisions/actions. Remarks: "${remarks}".`,
         type: 'PENDING_ACTION',
-        link: 'thesis'
+        link: drc.isSynopsisApproval ? 'thesis' : 'overview'
       });
     }
 
@@ -775,6 +791,9 @@ const recordOfflineDRC = async (req, res) => {
     const thesis = await Thesis.findById(thesisId);
     if (!thesis) return res.status(404).json({ message: 'Thesis not found' });
 
+    const isSynopsisApproval = thesis.status === 'SYNOPSIS_PENDING';
+    const dynamicTitle = isSynopsisApproval ? 'DRC for Synopsis Approval' : 'DRC Meeting';
+
     const newDRC = new DRCMeeting({
       scholarId: thesis.scholarId,
       thesisId,
@@ -783,6 +802,8 @@ const recordOfflineDRC = async (req, res) => {
       venue: venue || 'Offline Department Room',
       committeeMembers: committeeMembers || 'Department Board',
       agenda: 'Offline Evaluation Conducted',
+      title: dynamicTitle,
+      isSynopsisApproval,
       status: status,
       remarks: remarks
     });
@@ -790,60 +811,69 @@ const recordOfflineDRC = async (req, res) => {
     await newDRC.save();
 
     if (status === 'APPROVED') {
-      thesis.status = 'ACTIVE_RESEARCH';
-      thesis.startDate = new Date();
+      if (isSynopsisApproval) {
+        thesis.status = 'ACTIVE_RESEARCH';
+        thesis.startDate = new Date();
+
+        // Update synopsis milestone to APPROVED
+        const synopsis = await Milestone.findOne({ thesisId: thesis._id, type: 'SYNOPSIS' });
+        if (synopsis) {
+          synopsis.status = 'APPROVED';
+          await synopsis.save();
+        }
+
+        // Auto-create first 6-month progress report milestone
+        const existingReport = await Milestone.findOne({ thesisId: thesis._id, type: 'PROGRESS_REPORT' });
+        if (!existingReport) {
+          await Milestone.create({
+            thesisId: thesis._id,
+            type: 'PROGRESS_REPORT',
+            title: '6-Month Progress Report #1',
+            status: 'PENDING',
+            sequence: 1,
+            dueDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
+          });
+        }
+      }
+
       thesis.auditLog.push({
         action: 'DRC_APPROVED',
-        note: `DRC approved offline. Remarks: ${remarks}`
+        note: `${dynamicTitle} approved offline. Remarks: ${remarks}`
       });
       await thesis.save();
 
-      // Update synopsis milestone to APPROVED
-      const synopsis = await Milestone.findOne({ thesisId: thesis._id, type: 'SYNOPSIS' });
-      if (synopsis) {
-        synopsis.status = 'APPROVED';
-        await synopsis.save();
-      }
-
-      // Auto-create first 6-month progress report milestone
-      const existingReport = await Milestone.findOne({ thesisId: thesis._id, type: 'PROGRESS_REPORT' });
-      if (!existingReport) {
-        await Milestone.create({
-          thesisId: thesis._id,
-          type: 'PROGRESS_REPORT',
-          title: '6-Month Progress Report #1',
-          status: 'PENDING',
-          sequence: 1,
-          dueDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
-        });
-      }
-
       await createNotification({
         recipient: newDRC.scholarId,
-        title: '🎉 DRC Synopsis Approved!',
-        message: `Congratulations! The DRC panel has officially APPROVED your research synopsis offline. You are now in the ACTIVE_RESEARCH phase.`,
+        title: `🎉 ${dynamicTitle} Approved!`,
+        message: isSynopsisApproval
+          ? `Congratulations! The DRC panel has officially APPROVED your research synopsis offline. You are now in the ACTIVE_RESEARCH phase.`
+          : `Your DRC meeting has been APPROVED offline. Remarks: "${remarks}".`,
         type: 'SUCCESSFUL_ACTION',
         link: 'overview'
       });
     } else {
+      if (isSynopsisApproval) {
+        const synopsis = await Milestone.findOne({ thesisId: thesis._id, type: 'SYNOPSIS' });
+        if (synopsis) {
+          synopsis.status = 'REVISION_REQUIRED';
+          await synopsis.save();
+        }
+      }
+
       thesis.auditLog.push({
         action: 'DRC_REVISION_REQUIRED',
-        note: `DRC marked Revision Required offline. Remarks: ${remarks}`
+        note: `${dynamicTitle} marked Revision Required offline. Remarks: ${remarks}`
       });
       await thesis.save();
 
-      const synopsis = await Milestone.findOne({ thesisId: thesis._id, type: 'SYNOPSIS' });
-      if (synopsis) {
-        synopsis.status = 'REVISION_REQUIRED';
-        await synopsis.save();
-      }
-
       await createNotification({
         recipient: newDRC.scholarId,
-        title: '⚠️ DRC Revision Required',
-        message: `The DRC panel has requested revisions for your synopsis offline. Remarks: "${remarks}". Please revise and re-upload your document.`,
+        title: `⚠️ ${dynamicTitle} Revision Required`,
+        message: isSynopsisApproval
+          ? `The DRC panel has requested revisions for your synopsis offline. Remarks: "${remarks}". Please revise and re-upload your document.`
+          : `The DRC panel has requested revisions/actions offline. Remarks: "${remarks}".`,
         type: 'PENDING_ACTION',
-        link: 'thesis'
+        link: isSynopsisApproval ? 'thesis' : 'overview'
       });
     }
 
