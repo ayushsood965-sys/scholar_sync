@@ -3719,7 +3719,6 @@ const ProfileTab = () => {
     netJrf: false,
     other: false
   });
-
   // Common ERP fields
   const [dob, setDob] = useState(user?.profile?.dob ? user.profile.dob.split('T')[0] : '');
   const [gender, setGender] = useState(user?.profile?.gender || '');
@@ -3735,7 +3734,9 @@ const ProfileTab = () => {
   const [address, setAddress] = useState(user?.profile?.address || '');
   const [areaOfInterest, setAreaOfInterest] = useState(user?.profile?.areaOfInterest || '');
   const [academicBackground, setAcademicBackground] = useState(user?.profile?.academicBackground || '');
-
+  const [thesisTitle, setThesisTitle] = useState(user?.profile?.thesisTitle || '');
+  const [thesisSummary, setThesisSummary] = useState(user?.profile?.thesisSummary || '');
+  const [thesisKeywords, setThesisKeywords] = useState(user?.profile?.thesisKeywords || '');
   // Class 10
   const [class10Roll, setClass10Roll] = useState(user?.profile?.qualifications?.class10?.rollNo || '');
   const [class10Board, setClass10Board] = useState(user?.profile?.qualifications?.class10?.board || '');
@@ -3805,8 +3806,9 @@ const ProfileTab = () => {
       setAreaOfInterest(user.profile.areaOfInterest || '');
       setAcademicBackground(user.profile.academicBackground || '');
       setPreferredGuideId(user.profile.preferredGuideId || '');
-
-      // Class 10
+      setThesisTitle(user.profile.thesisTitle || '');
+      setThesisSummary(user.profile.thesisSummary || '');
+      setThesisKeywords(user.profile.thesisKeywords || '');
       const q = user.profile.qualifications;
       setClass10Roll(q?.class10?.rollNo || '');
       setClass10Board(q?.class10?.board || '');
@@ -3968,6 +3970,9 @@ const ProfileTab = () => {
       areaOfInterest,
       academicBackground,
       preferredGuideId,
+      thesisTitle,
+      thesisSummary,
+      thesisKeywords,
       qualifications: {
         class10: {
           rollNo: class10Roll,
@@ -4234,7 +4239,8 @@ const ProfileTab = () => {
     if (
       !dob || !gender || !category || !fatherName || !motherName || !nationality || 
       !admissionDate || !enrollmentNumber || !phdMode || !specialization || 
-      !phoneNumber || !address || !areaOfInterest
+      !phoneNumber || !address || !areaOfInterest ||
+      !thesisTitle || !thesisSummary || !thesisKeywords
     ) {
       toast.error('please fill in all the details before submitting the form.');
       return;
@@ -4439,8 +4445,11 @@ const ProfileTab = () => {
             </div>
 
             {!editModes.general ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '20px', fontSize: '0.85rem' }}>
+                  <div style={{ gridColumn: 'span 2', borderBottom: '1px solid #E2E8F0', paddingBottom: '8px', marginBottom: '4px' }}>
+                    <h4 style={{ margin: 0, color: '#133A26', fontSize: '0.95rem', fontWeight: 700 }}>Personal Details</h4>
+                  </div>
                   <div>
                     <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Full Name</span>
                     <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{user?.name || '—'}</strong>
@@ -4454,16 +4463,16 @@ const ProfileTab = () => {
                     <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{dob || '—'}</strong>
                   </div>
                   <div>
-                    <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Enrollment Number</span>
-                    <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{enrollmentNumber || '—'}</strong>
-                  </div>
-                  <div>
                     <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Gender</span>
                     <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{gender || '—'}</strong>
                   </div>
                   <div>
                     <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Social Category</span>
                     <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{category || '—'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Nationality</span>
+                    <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{nationality || '—'}</strong>
                   </div>
                   <div>
                     <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Father's Name</span>
@@ -4474,8 +4483,22 @@ const ProfileTab = () => {
                     <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{motherName || '—'}</strong>
                   </div>
                   <div>
-                    <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Nationality</span>
-                    <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{nationality || '—'}</strong>
+                    <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Phone Number</span>
+                    <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{phoneNumber || '—'}</strong>
+                  </div>
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Residential Address</span>
+                    <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{address || '—'}</strong>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '12px', padding: '20px', fontSize: '0.85rem' }}>
+                  <div style={{ gridColumn: 'span 2', borderBottom: '1px solid #BBF7D0', paddingBottom: '8px', marginBottom: '4px' }}>
+                    <h4 style={{ margin: 0, color: '#133A26', fontSize: '0.95rem', fontWeight: 700 }}>Thesis & Research Details</h4>
+                  </div>
+                  <div>
+                    <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Enrollment Number</span>
+                    <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{enrollmentNumber || '—'}</strong>
                   </div>
                   <div>
                     <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Date of Admission</span>
@@ -4493,18 +4516,25 @@ const ProfileTab = () => {
                     <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Area of Research Interest</span>
                     <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{areaOfInterest || '—'}</strong>
                   </div>
-                  <div>
-                    <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Phone Number</span>
-                    <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{phoneNumber || '—'}</strong>
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Thesis Title</span>
+                    <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{thesisTitle || '—'}</strong>
                   </div>
-                  <div>
-                    <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Residential Address</span>
-                    <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{address || '—'}</strong>
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Thesis Summary / Abstract</span>
+                    <strong style={{ color: '#334155', fontSize: '0.88rem', fontWeight: 500, display: 'block', whiteSpace: 'pre-wrap', lineHeight: 1.5, marginTop: 4 }}>{thesisSummary || '—'}</strong>
+                  </div>
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Keywords</span>
+                    <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{thesisKeywords || '—'}</strong>
                   </div>
                 </div>
               </div>
             ) : (
               <>
+                <div style={{ borderBottom: '2px solid #E5E7EB', paddingBottom: '8px', marginBottom: '8px' }}>
+                  <h4 style={{ margin: 0, color: '#133A26', fontSize: '1rem', fontWeight: 700 }}>Personal Details</h4>
+                </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Full Name</label>
@@ -4522,13 +4552,6 @@ const ProfileTab = () => {
                     <input type="date" className="form-input" value={dob} onChange={e => setDob(e.target.value)} required />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>University Enrollment Number <span style={{ color: '#EF4444' }}>*</span></label>
-                    <input type="text" className="form-input" placeholder="Enter enrollment number" value={enrollmentNumber} onChange={e => setEnrollmentNumber(e.target.value)} required />
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <div>
                     <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Gender <span style={{ color: '#EF4444' }}>*</span></label>
                     <select className="form-input" value={gender} onChange={e => setGender(e.target.value)} required>
                       <option value="">Select...</option>
@@ -4537,6 +4560,9 @@ const ProfileTab = () => {
                       <option value="Other">Other</option>
                     </select>
                   </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Social Category <span style={{ color: '#EF4444' }}>*</span></label>
                     <select className="form-input" value={category} onChange={e => setCategory(e.target.value)} required>
@@ -4547,6 +4573,10 @@ const ProfileTab = () => {
                       <option value="ST">ST (Scheduled Tribe)</option>
                       <option value="EWS">EWS (Economically Weaker Section)</option>
                     </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Nationality <span style={{ color: '#EF4444' }}>*</span></label>
+                    <input type="text" className="form-input" placeholder="e.g. Indian" value={nationality} onChange={e => setNationality(e.target.value)} required />
                   </div>
                 </div>
 
@@ -4563,8 +4593,23 @@ const ProfileTab = () => {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Nationality <span style={{ color: '#EF4444' }}>*</span></label>
-                    <input type="text" className="form-input" placeholder="e.g. Indian" value={nationality} onChange={e => setNationality(e.target.value)} required />
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Phone Number (Indian Format) <span style={{ color: '#EF4444' }}>*</span></label>
+                    <input type="text" className="form-input" placeholder="Enter 10-digit mobile number" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} required />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Full Residential Address <span style={{ color: '#EF4444' }}>*</span></label>
+                    <input type="text" className="form-input" placeholder="Street, City, State, ZIP" value={address} onChange={e => setAddress(e.target.value)} required />
+                  </div>
+                </div>
+
+                <div style={{ borderBottom: '2px solid #E5E7EB', paddingBottom: '8px', marginTop: '16px', marginBottom: '8px' }}>
+                  <h4 style={{ margin: 0, color: '#133A26', fontSize: '1rem', fontWeight: 700 }}>Thesis & Research Details</h4>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>University Enrollment Number <span style={{ color: '#EF4444' }}>*</span></label>
+                    <input type="text" className="form-input" placeholder="Enter enrollment number" value={enrollmentNumber} onChange={e => setEnrollmentNumber(e.target.value)} required />
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Date of Admission <span style={{ color: '#EF4444' }}>*</span></label>
@@ -4594,14 +4639,24 @@ const ProfileTab = () => {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Phone Number (Indian Format) <span style={{ color: '#EF4444' }}>*</span></label>
-                    <input type="text" className="form-input" placeholder="Enter 10-digit mobile number" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} required />
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Thesis Title <span style={{ color: '#EF4444' }}>*</span></label>
+                    <input type="text" className="form-input" placeholder="Enter final or tentative thesis title" value={thesisTitle} onChange={e => setThesisTitle(e.target.value)} required />
                   </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Full Residential Address <span style={{ color: '#EF4444' }}>*</span></label>
-                    <input type="text" className="form-input" placeholder="Street, City, State, ZIP" value={address} onChange={e => setAddress(e.target.value)} required />
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Thesis Summary / Abstract <span style={{ color: '#EF4444' }}>*</span></label>
+                    <textarea className="form-input" rows={4} placeholder="Write a short summary/abstract of your thesis..." value={thesisSummary} onChange={e => setThesisSummary(e.target.value)} required style={{ fontFamily: 'inherit' }} />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Keywords <span style={{ color: '#EF4444' }}>*</span></label>
+                    <input type="text" className="form-input" placeholder="e.g. Deep Learning, Image Segmentation, Healthcare (comma separated)" value={thesisKeywords} onChange={e => setThesisKeywords(e.target.value)} required />
                   </div>
                 </div>
 

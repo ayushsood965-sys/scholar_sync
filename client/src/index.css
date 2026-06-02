@@ -930,6 +930,7 @@ body {
   letter-spacing: 0.75px;
   background: linear-gradient(120deg, #A5D6A7 0%, #E8F5E9 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
   text-shadow: 0 2px 8px rgba(165, 214, 167, 0.1);
   margin-top: 4px;

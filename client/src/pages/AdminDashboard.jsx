@@ -699,11 +699,8 @@ const ScholarDetail = ({ thesisId, onClose, onAction }) => {
                     ['Gender', profile.gender || '—'],
                     ['Category', profile.category || '—'],
                     ['Nationality', profile.nationality || 'Indian'],
-                    ['Admission Date', profile.admissionDate ? new Date(profile.admissionDate).toLocaleDateString() : '—'],
-                    ['Enrollment Roll No.', profile.enrollmentNumber || thesis.enrollmentNumber || '—'],
-                    ['Ph.D. Study Mode', profile.phdMode || '—'],
                     ['Contact Phone', profile.phoneNumber || '—'],
-                    ['Academic Email', thesis.scholarId?.email || '—'],
+                    ['Academic Email', thesis.scholarId?.email || thesis.scholarId?.username || '—'],
                     ["Father's Name", profile.fatherName || '—'],
                     ["Mother's Name", profile.motherName || '—'],
                     ['Residential Address', profile.address || '—', true]
@@ -962,16 +959,54 @@ const ScholarDetail = ({ thesisId, onClose, onAction }) => {
                   })()}
                 </div>
 
+                {/* Specialization & PhD Mode & Enrollment No */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
+                  <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 12, borderRadius: 10 }}>
+                    <div style={{ fontSize: '0.72rem', color: '#64748B', fontWeight: 600, marginBottom: 2 }}>University Enrollment No</div>
+                    <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#1F2937' }}>{profile.enrollmentNumber || thesis.enrollmentNumber || 'N/A'}</div>
+                  </div>
+                  <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 12, borderRadius: 10 }}>
+                    <div style={{ fontSize: '0.72rem', color: '#64748B', fontWeight: 600, marginBottom: 2 }}>Admission Date</div>
+                    <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#1F2937' }}>{profile.admissionDate ? new Date(profile.admissionDate).toLocaleDateString() : 'N/A'}</div>
+                  </div>
+                  <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 12, borderRadius: 10 }}>
+                    <div style={{ fontSize: '0.72rem', color: '#64748B', fontWeight: 600, marginBottom: 2 }}>Ph.D. Study Mode</div>
+                    <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#1F2937' }}>{profile.phdMode || 'N/A'}</div>
+                  </div>
+                  <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 12, borderRadius: 10 }}>
+                    <div style={{ fontSize: '0.72rem', color: '#64748B', fontWeight: 600, marginBottom: 2 }}>Specialization</div>
+                    <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#1F2937' }}>{profile.specialization || 'N/A'}</div>
+                  </div>
+                </div>
+
                 {/* Tentative Area of Research */}
                 <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 14, borderRadius: 12 }}>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: 4 }}>Tentative PhD Research Topic / Focus Area</div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: 4 }}>Area of Research Interest</div>
                   <div style={{ fontWeight: 800, fontSize: '0.9rem', color: '#0F172A' }}>{profile.areaOfInterest || thesis.title || 'N/A'}</div>
+                </div>
+
+                {/* Thesis Title */}
+                <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', padding: 14, borderRadius: 12 }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#15803D', marginBottom: 4 }}>Thesis Title</div>
+                  <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#14532D' }}>{profile.thesisTitle || thesis.title || 'N/A'}</div>
+                </div>
+
+                {/* Thesis Summary */}
+                <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 14, borderRadius: 12 }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: 4 }}>Thesis Summary / Abstract</div>
+                  <div style={{ fontSize: '0.82rem', color: '#334155', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{profile.thesisSummary || thesis.abstract || 'N/A'}</div>
+                </div>
+
+                {/* Keywords */}
+                <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 14, borderRadius: 12 }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: 4 }}>Keywords</div>
+                  <div style={{ fontWeight: 800, fontSize: '0.9rem', color: '#0F172A' }}>{profile.thesisKeywords || thesis.keywords || 'N/A'}</div>
                 </div>
 
                 {/* Research Statement Proposal */}
                 <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 14, borderRadius: 12 }}>
                   <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: 4 }}>Research Proposal / Academic Profile Statement</div>
-                  <div style={{ fontSize: '0.82rem', color: '#334155', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{profile.academicBackground || thesis.abstract || 'N/A'}</div>
+                  <div style={{ fontSize: '0.82rem', color: '#334155', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{profile.academicBackground || 'N/A'}</div>
                 </div>
 
               </div>

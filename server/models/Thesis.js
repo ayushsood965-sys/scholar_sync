@@ -8,6 +8,7 @@ const thesisSchema = new mongoose.Schema(
     title: { type: String, required: true },
     enrollmentNumber: { type: String, required: true },
     abstract: { type: String, required: true },
+    keywords: { type: String, default: '' },
     status: {
       type: String,
       enum: ['REGISTRATION_PENDING', 'COURSEWORK', 'SYNOPSIS_PENDING', 'ACTIVE_RESEARCH', 'PRE_SUBMISSION', 'SUBMITTED', 'AWARDED'],

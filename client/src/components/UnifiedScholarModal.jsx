@@ -620,24 +620,35 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
   );
 
   const renderProfile = () => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div className="usm-section-title">📁 Scholar Registration & Academic Profile</div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 20px', fontSize: '0.82rem' }}>
-        <div><strong>Email:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.username || 'N/A'}</span></div>
-        <div><strong>Mobile:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.phoneNumber || 'N/A'}</span></div>
-        <div><strong>Enrollment No:</strong> <span style={{ color: '#475569', fontWeight: 600 }}>{thesis.scholarId?.profile?.enrollmentNumber || 'N/A'}</span></div>
-        <div><strong>Department:</strong> <span style={{ color: '#475569' }}>{thesis.department || 'N/A'}</span></div>
-        <div><strong>DOB:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.dob ? new Date(thesis.scholarId.profile.dob).toLocaleDateString() : 'N/A'}</span></div>
-        <div><strong>Gender:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.gender || 'N/A'}</span></div>
-        <div><strong>Category:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.category || 'N/A'}</span></div>
-        <div><strong>Nationality:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.nationality || 'N/A'}</span></div>
-        <div><strong>Father:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.fatherName || 'N/A'}</span></div>
-        <div><strong>Mother:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.motherName || 'N/A'}</span></div>
-        <div><strong>Admission Date:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.admissionDate ? new Date(thesis.scholarId.profile.admissionDate).toLocaleDateString() : 'N/A'}</span></div>
-        <div><strong>Ph.D. Mode:</strong> <span style={{ color: '#475569', fontWeight: 600 }}>{thesis.scholarId?.profile?.phdMode || 'N/A'}</span></div>
-        <div><strong>Specialization:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.specialization || 'N/A'}</span></div>
-        <div style={{ gridColumn: 'span 2' }}><strong>Research Interest:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.areaOfInterest || 'N/A'}</span></div>
-        <div style={{ gridColumn: 'span 2' }}><strong>Address:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.address || 'N/A'}</span></div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div>
+        <div className="usm-section-title" style={{ marginBottom: '10px' }}>📁 Scholar Personal Details</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 20px', fontSize: '0.82rem' }}>
+          <div><strong>Email:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.username || 'N/A'}</span></div>
+          <div><strong>Mobile:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.phoneNumber || 'N/A'}</span></div>
+          <div><strong>DOB:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.dob ? new Date(thesis.scholarId.profile.dob).toLocaleDateString() : 'N/A'}</span></div>
+          <div><strong>Gender:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.gender || 'N/A'}</span></div>
+          <div><strong>Category:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.category || 'N/A'}</span></div>
+          <div><strong>Nationality:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.nationality || 'N/A'}</span></div>
+          <div><strong>Father:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.fatherName || 'N/A'}</span></div>
+          <div><strong>Mother:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.motherName || 'N/A'}</span></div>
+          <div style={{ gridColumn: 'span 2' }}><strong>Address:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.address || 'N/A'}</span></div>
+        </div>
+      </div>
+
+      <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: '12px' }}>
+        <div className="usm-section-title" style={{ marginBottom: '10px' }}>📝 Thesis & Research Details</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 20px', fontSize: '0.82rem' }}>
+          <div><strong>Enrollment No:</strong> <span style={{ color: '#475569', fontWeight: 600 }}>{thesis.scholarId?.profile?.enrollmentNumber || thesis.enrollmentNumber || 'N/A'}</span></div>
+          <div><strong>Department:</strong> <span style={{ color: '#475569' }}>{thesis.department || 'N/A'}</span></div>
+          <div><strong>Admission Date:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.admissionDate ? new Date(thesis.scholarId.profile.admissionDate).toLocaleDateString() : 'N/A'}</span></div>
+          <div><strong>Ph.D. Mode:</strong> <span style={{ color: '#475569', fontWeight: 600 }}>{thesis.scholarId?.profile?.phdMode || 'N/A'}</span></div>
+          <div><strong>Specialization:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.specialization || 'N/A'}</span></div>
+          <div><strong>Area of Research Interest:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.areaOfInterest || 'N/A'}</span></div>
+          <div style={{ gridColumn: 'span 2' }}><strong>Thesis Title:</strong> <span style={{ color: '#0F172A', fontWeight: 700 }}>{thesis.scholarId?.profile?.thesisTitle || thesis.title || 'N/A'}</span></div>
+          <div style={{ gridColumn: 'span 2' }}><strong>Thesis Summary / Abstract:</strong> <span style={{ color: '#475569', display: 'block', whiteSpace: 'pre-wrap', lineHeight: 1.4, marginTop: 4 }}>{thesis.scholarId?.profile?.thesisSummary || thesis.abstract || 'N/A'}</span></div>
+          <div style={{ gridColumn: 'span 2' }}><strong>Keywords:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.thesisKeywords || thesis.keywords || 'N/A'}</span></div>
+        </div>
       </div>
 
       {/* Qualifications */}
