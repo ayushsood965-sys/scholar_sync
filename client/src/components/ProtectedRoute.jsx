@@ -6,7 +6,12 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useContext(AuthContext);
 
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="premium-preloader-container" style={{ minHeight: '100vh', justifyContent: 'center' }}>
+        <div className="premium-preloader-spinner"></div>
+        <div className="premium-preloader-text">Authenticating session...</div>
+      </div>
+    );
   }
 
   if (!user) {

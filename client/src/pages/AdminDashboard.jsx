@@ -538,7 +538,12 @@ const ScholarDetail = ({ thesisId, onClose, onAction }) => {
   if (!data) {
     return (
       <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999 }}>
-        <div style={{ background: 'var(--color-surface, #ffffff)', padding: 32, borderRadius: 16, color: 'var(--color-text, #1f2937)', fontWeight: 600 }}>Loading Candidate Profile...</div>
+        <div style={{ background: 'var(--color-surface, #ffffff)', padding: '40px', borderRadius: '24px', width: '100%', maxWidth: '400px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+          <div className="premium-preloader-container" style={{ padding: '0' }}>
+            <div className="premium-preloader-spinner"></div>
+            <div className="premium-preloader-text">Loading candidate profile...</div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -2161,7 +2166,10 @@ const ManageUsers = () => {
       {error && <div style={{ color: '#DC2626', marginBottom: 16 }}>{error}</div>}
       
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 24, color: '#64748B' }}>Loading directory...</div>
+        <div className="premium-preloader-container">
+          <div className="premium-preloader-spinner"></div>
+          <div className="premium-preloader-text">Loading department directory...</div>
+        </div>
       ) : (
         <div className="file-list">
           <div className="file-header">
@@ -2750,7 +2758,10 @@ const HODDocumentManager = ({ theses }) => {
       </div>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 40, color: '#64748B', fontWeight: 600 }}>Loading department uploads...</div>
+        <div className="premium-preloader-container">
+          <div className="premium-preloader-spinner"></div>
+          <div className="premium-preloader-text">Loading department uploads...</div>
+        </div>
       ) : (
         <div style={{ overflowX: 'auto' }} className="custom-scrollbar">
           {/* Chapter Drafts Tab */}
@@ -3447,7 +3458,12 @@ const HODChangeRequestsTab = ({ user }) => {
   };
 
   if (loading) {
-    return <div style={{ display: 'flex', justifyContent: 'center', padding: 40, fontWeight: 600, color: '#475569' }}>Loading change requests...</div>;
+    return (
+      <div className="premium-preloader-container">
+        <div className="premium-preloader-spinner"></div>
+        <div className="premium-preloader-text">Loading academic change requests...</div>
+      </div>
+    );
   }
 
   const sortedRequests = [...requests].sort((a, b) => (a.status === 'PENDING' ? -1 : 1));
@@ -3954,7 +3970,10 @@ const DefaultersTab = () => {
       </div>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 40, color: '#64748B' }}>Loading defaulter list...</div>
+        <div className="premium-preloader-container" style={{ padding: '40px 20px' }}>
+          <div className="premium-preloader-spinner" style={{ width: '40px', height: '40px', borderWidth: '3px', marginBottom: '12px' }}></div>
+          <div className="premium-preloader-text" style={{ fontSize: '0.85rem' }}>Loading defaulter list...</div>
+        </div>
       ) : sorted.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 48, background: '#F8FAFC', borderRadius: 12, color: '#64748B' }}>
           <span style={{ fontSize: '2rem' }}>🎉</span>
@@ -4526,7 +4545,11 @@ const AdminDashboard = () => {
         />,
         document.body
       )}
-      <ProfileOnboardingModal isOpen={isOnboardingOpen} onClose={() => setIsOnboardingOpen(false)} />
+      <ProfileOnboardingModal 
+        isOpen={isOnboardingOpen} 
+        onClose={() => setIsOnboardingOpen(false)} 
+        onGo={() => { setActiveTab('profile'); setIsOnboardingOpen(false); }} 
+      />
     </div>
   );
 };

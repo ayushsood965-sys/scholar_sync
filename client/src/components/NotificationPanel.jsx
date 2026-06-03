@@ -144,7 +144,10 @@ const NotificationPanel = ({ user, onTabChange }) => {
         )}
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '32px', color: '#94A3B8', fontSize: '0.85rem' }}>Loading alerts...</div>
+          <div className="premium-preloader-container" style={{ padding: '32px 20px' }}>
+            <div className="premium-preloader-spinner" style={{ width: '40px', height: '40px', borderWidth: '3px', marginBottom: '12px' }}></div>
+            <div className="premium-preloader-text" style={{ fontSize: '0.85rem' }}>Loading alerts...</div>
+          </div>
         ) : notifications.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94A3B8', fontSize: '0.85rem', border: '1px dashed #E2E8F0', borderRadius: '12px' }}>
             <div style={{ fontSize: '1.8rem', marginBottom: '8px' }}>🍃</div>

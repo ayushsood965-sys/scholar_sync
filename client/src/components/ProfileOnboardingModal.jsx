@@ -1,56 +1,10 @@
-import React, { useState, useContext } from 'react';
+import React, { useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 
-const ProfileOnboardingModal = ({ isOpen, onClose }) => {
-  const { user, updateProfile } = useContext(AuthContext);
-  const [phoneNumber, setPhoneNumber] = useState(user?.profile?.phoneNumber || '');
-  const [address, setAddress] = useState(user?.profile?.address || '');
-  const [academicBackground, setAcademicBackground] = useState(user?.profile?.academicBackground || '');
-  const [areaOfInterest, setAreaOfInterest] = useState(user?.profile?.areaOfInterest || '');
-  const [designation, setDesignation] = useState(user?.profile?.designation || '');
-  const [specialization, setSpecialization] = useState(user?.profile?.specialization || '');
-  const [officeRoom, setOfficeRoom] = useState(user?.profile?.officeRoom || '');
-  const [yearsOfService, setYearsOfService] = useState(user?.profile?.yearsOfService || 0);
-  const [additionalResponsibilities, setAdditionalResponsibilities] = useState(user?.profile?.additionalResponsibilities || '');
-  
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+const ProfileOnboardingModal = ({ isOpen, onClose, onGo }) => {
+  const { user } = useContext(AuthContext);
 
   if (!isOpen || !user) return null;
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-
-    const cleanedPhone = phoneNumber.trim().replace(/[\s\-()]/g, '');
-    const indianPhoneRegex = /^(\+91|91|0)?[6-9]\d{9}$/;
-    if (!indianPhoneRegex.test(cleanedPhone)) {
-      setError('Please enter a valid 10-digit Indian phone number (starts with 6-9).');
-      setLoading(false);
-      return;
-    }
-
-    const payload = {
-      phoneNumber,
-      address,
-      academicBackground: user.role === 'STUDENT' ? academicBackground : undefined,
-      areaOfInterest: user.role === 'STUDENT' ? areaOfInterest : undefined,
-      designation: user.role === 'FACULTY' ? designation : undefined,
-      specialization: user.role === 'FACULTY' ? specialization : undefined,
-      officeRoom: ['FACULTY', 'HOD'].includes(user.role) ? officeRoom : undefined,
-      yearsOfService: user.role === 'HOD' ? Number(yearsOfService) : undefined,
-      additionalResponsibilities: user.role === 'HOD' ? additionalResponsibilities : undefined,
-    };
-
-    const res = await updateProfile(payload);
-    setLoading(false);
-    if (res.success) {
-      onClose();
-    } else {
-      setError(res.message);
-    }
-  };
 
   return (
     <div style={{
@@ -93,192 +47,30 @@ const ProfileOnboardingModal = ({ isOpen, onClose }) => {
           <h2 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#1E293B', marginBottom: '8px' }}>
             Complete Your Profile
           </h2>
-          <p style={{ color: '#64748B', fontSize: '0.92rem' }}>
-            Set up your professional credentials to unlock the full potential of ScholarSync.
+          <p style={{ color: '#64748B', fontSize: '0.95rem', lineHeight: '1.6', margin: '16px 0' }}>
+            Please update your profile before continuing of proceeding further.
           </p>
         </div>
 
-        {error && (
-          <div style={{ 
-            background: '#FEF2F2', 
-            color: '#DC2626', 
-            padding: '12px 16px', 
-            borderRadius: '12px', 
-            fontSize: '0.85rem', 
-            marginBottom: '20px', 
-            border: '1px solid #FEE2E2', 
-            textAlign: 'center' 
-          }}>
-            ⚠️ {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {/* General Fields */}
-          <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
-              Phone Number
-            </label>
-            <input 
-              type="text" 
-              className="form-input" 
-              placeholder="Enter 10-digit mobile number e.g. 9876543210"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-              required
-            />
-          </div>
-
-          <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
-              Address
-            </label>
-            <input 
-              type="text" 
-              className="form-input" 
-              placeholder="123 Academic Way, Suite 400"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              required
-            />
-          </div>
-
-          {/* Student Fields */}
-          {user.role === 'STUDENT' && (
-            <>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
-                  Primary Area of Research Interest
-                </label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  placeholder="Machine Learning, Cybersecurity, NLP..."
-                  value={areaOfInterest}
-                  onChange={(e) => setAreaOfInterest(e.target.value)}
-                  required
-                />
-              </div>
-            </>
-          )}
-
-          {/* Faculty Fields */}
-          {user.role === 'FACULTY' && (
-            <>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
-                  Academic Designation
-                </label>
-                <select 
-                  className="form-input" 
-                  value={designation} 
-                  onChange={(e) => setDesignation(e.target.value)}
-                  required
-                >
-                  <option value="">Select Designation...</option>
-                  <option value="Assistant Professor">Assistant Professor</option>
-                  <option value="Associate Professor">Associate Professor</option>
-                  <option value="Professor">Professor</option>
-                  <option value="Professor Emeritus">Professor Emeritus</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
-                  Area of Specialization
-                </label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  placeholder="Distributed Systems, Quantum Computing..."
-                  value={specialization}
-                  onChange={(e) => setSpecialization(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
-                  Office Room No.
-                </label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  placeholder="Block A, Room 304"
-                  value={officeRoom}
-                  onChange={(e) => setOfficeRoom(e.target.value)}
-                  required
-                />
-              </div>
-            </>
-          )}
-
-          {/* HOD Fields */}
-          {user.role === 'HOD' && (
-            <>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
-                  Office Room No.
-                </label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  placeholder="HOD Cabin, Department Wing B"
-                  value={officeRoom}
-                  onChange={(e) => setOfficeRoom(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
-                  Years of Service in Department
-                </label>
-                <input 
-                  type="number" 
-                  className="form-input" 
-                  value={yearsOfService}
-                  onChange={(e) => setYearsOfService(e.target.value)}
-                  min="0"
-                  required
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
-                  Additional Institutional Responsibilities
-                </label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  placeholder="DRC Chair, Dean of Research (optional)"
-                  value={additionalResponsibilities}
-                  onChange={(e) => setAdditionalResponsibilities(e.target.value)}
-                />
-              </div>
-            </>
-          )}
-
-          {/* Buttons */}
-          <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
-            <button 
-              type="button" 
-              onClick={onClose} 
-              className="btn-outline" 
-              style={{ flex: 1, padding: '12px', fontSize: '0.95rem' }}
-            >
-              Skip for Now
-            </button>
-            <button 
-              type="submit" 
-              disabled={loading} 
-              className="btn-primary" 
-              style={{ flex: 1.5, padding: '12px', fontSize: '0.95rem', background: '#059669' }}
-            >
-              {loading ? 'Saving...' : 'Save Profile'}
-            </button>
-          </div>
-        </form>
+        {/* Buttons */}
+        <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+          <button 
+            type="button" 
+            onClick={onClose} 
+            className="btn-outline" 
+            style={{ flex: 1, padding: '12px', fontSize: '0.95rem' }}
+          >
+            Skip
+          </button>
+          <button 
+            type="button" 
+            onClick={onGo} 
+            className="btn-primary" 
+            style={{ flex: 1.5, padding: '12px', fontSize: '0.95rem', background: '#059669', border: 'none', borderRadius: '8px', color: 'white', cursor: 'pointer', fontWeight: 600 }}
+          >
+            Go
+          </button>
+        </div>
       </div>
     </div>
   );

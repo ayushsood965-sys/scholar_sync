@@ -318,6 +318,22 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
   const [faculty, setFaculty] = useState([]);
   const [selSupervisor, setSelSupervisor] = useState(thesis.supervisorId?._id || '');
 
+  // Dispatch form states
+  const [showDispatchForm, setShowDispatchForm] = useState(false);
+  const [dispatchForm, setDispatchForm] = useState({ dispatchDate: '', dispatchMethod: 'Speed Post', dispatchTrackingNumber: '' });
+
+  // Viva form states
+  const [showVivaForm, setShowVivaForm] = useState(false);
+  const [vivaForm, setVivaForm] = useState({ vivaDate: '', vivaTime: '', vivaVenue: '', vivaPanel: '' });
+
+  // Viva outcome form states
+  const [showVivaOutcomeForm, setShowVivaOutcomeForm] = useState(false);
+  const [vivaOutcomeForm, setVivaOutcomeForm] = useState({ vivaStatus: 'SUCCESSFUL', remarks: '' });
+
+  // Degree award form states
+  const [showAwardForm, setShowAwardForm] = useState(false);
+  const [awardForm, setAwardForm] = useState({ note: '' });
+
   // ── Fetch All Data ──
   const fetchPublications = async () => {
     setPubsLoading(true);
@@ -511,6 +527,79 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
     finally { setLoading(false); }
   };
 
+  // ── Dispatch logging ──
+  const handleDispatch = async (e) => {
+    e.preventDefault();
+    if (!dispatchForm.dispatchDate || !dispatchForm.dispatchMethod) {
+      return toast.warning('Dispatch Date and Method are required.');
+    }
+    setLoading(true);
+    try {
+      await axios.put(`${API}/thesis/${thesis._id}/dispatch`, dispatchForm, getAuthHeader());
+      toast.success('Thesis dispatch details recorded!');
+      setShowDispatchForm(false);
+      if (onRefresh) await onRefresh();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to record dispatch details.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Viva scheduling ──
+  const handleScheduleViva = async (e) => {
+    e.preventDefault();
+    if (!vivaForm.vivaDate || !vivaForm.vivaTime || !vivaForm.vivaVenue) {
+      return toast.warning('Date, Time, and Venue are required.');
+    }
+    setLoading(true);
+    try {
+      await axios.put(`${API}/thesis/${thesis._id}/schedule-viva`, vivaForm, getAuthHeader());
+      toast.success('Viva-Voce defense scheduled successfully!');
+      setShowVivaForm(false);
+      if (onRefresh) await onRefresh();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to schedule Viva-Voce.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Record Viva outcome ──
+  const handleRecordVivaOutcome = async (e) => {
+    e.preventDefault();
+    if (!vivaOutcomeForm.vivaStatus) {
+      return toast.warning('Outcome decision is required.');
+    }
+    setLoading(true);
+    try {
+      await axios.put(`${API}/thesis/${thesis._id}/record-viva`, vivaOutcomeForm, getAuthHeader());
+      toast.success(`Viva-Voce outcome recorded as ${vivaOutcomeForm.vivaStatus}!`);
+      setShowVivaOutcomeForm(false);
+      if (onRefresh) await onRefresh();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to record Viva-Voce outcome.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Award Ph.D. Degree ──
+  const handleAwardDegree = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await axios.put(`${API}/thesis/${thesis._id}/award`, { note: awardForm.note }, getAuthHeader());
+      toast.success('Ph.D. Degree Awarded! Congratulations!');
+      setShowAwardForm(false);
+      if (onRefresh) await onRefresh();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to award degree.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // ── Tab definitions ──
   const tabs = [
     { key: 'overview', label: 'Overview', icon: '📊' },
@@ -520,6 +609,7 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
     { key: 'reports', label: 'Reports', icon: '📑', show: ['ACTIVE_RESEARCH', 'PRE_SUBMISSION', 'SUBMITTED', 'AWARDED'].includes(thesis.status) },
     { key: 'chapters', label: 'Chapters', icon: '📖', show: ['ACTIVE_RESEARCH', 'PRE_SUBMISSION', 'SUBMITTED', 'AWARDED'].includes(thesis.status) },
     { key: 'publications', label: 'Research Outputs', icon: '🏆', badge: pendingOutputsCount || null, show: ['ACTIVE_RESEARCH', 'PRE_SUBMISSION', 'SUBMITTED', 'AWARDED'].includes(thesis.status) },
+    { key: 'defense', label: 'Defense & Award', icon: '🎓', show: ['SUBMITTED', 'AWARDED'].includes(thesis.status) },
     { key: 'documents', label: 'Documents', icon: '📄', badge: pendingDocCount || null },
     { key: 'changes', label: 'Changes', icon: '🔄' },
     { key: 'audit', label: 'Audit Log', icon: '📜' },
@@ -967,7 +1057,12 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
         <div style={{ width: 1, background: '#E2E8F0' }} />
         <div><div style={{ fontSize: '1.2rem', fontWeight: 900, color: '#3B82F6' }}>{publications.length}</div><div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748B' }}>Total Logged</div></div>
       </div>
-      {pubsLoading ? <div style={{ textAlign: 'center', padding: 15, fontSize: '0.82rem' }}>Loading...</div> :
+      {pubsLoading ? (
+        <div className="premium-preloader-container" style={{ padding: '30px 20px' }}>
+          <div className="premium-preloader-spinner" style={{ width: '40px', height: '40px', borderWidth: '3px', marginBottom: '12px' }}></div>
+          <div className="premium-preloader-text" style={{ fontSize: '0.85rem' }}>Loading research outputs...</div>
+        </div>
+      ) :
        publications.length === 0 ? <div className="usm-card" style={{ textAlign: 'center', color: '#64748B', fontSize: '0.82rem', fontStyle: 'italic' }}>No research outputs logged.</div> :
        publications.map(p => (
         <div key={p._id} className="usm-card">
@@ -1221,6 +1316,408 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
     </div>
   );
 
+  const renderDefenseAndAward = () => {
+    const canManageDefense = user.role === 'ADMIN' || subRole === 'HOD';
+    const isDispatched = !!thesis.dispatchDate;
+    const isVivaScheduled = thesis.vivaStatus === 'SCHEDULED';
+    const isVivaSuccessful = thesis.vivaStatus === 'SUCCESSFUL';
+    const isVivaUnsuccessful = thesis.vivaStatus === 'UNSUCCESSFUL';
+    const isAwarded = thesis.status === 'AWARDED';
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div>
+          <h3 className="usm-section-title" style={{ margin: 0 }}>🎓 Ph.D. Defense, Viva-Voce & Degree Award</h3>
+          <p style={{ color: '#64748B', fontSize: '0.85rem', marginTop: 4 }}>
+            Track examiner dispatch, schedule oral defense viva-voce, record final recommendations, and authorize degree award.
+          </p>
+          <div style={{ fontSize: '0.78rem', color: '#64748B', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--color-bg, #F8FAFC)', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--color-border, #E2E8F0)', marginTop: 10 }}>
+            <span>Authorization Level: <strong>{canManageDefense ? 'HOD/Admin (Manage)' : 'Faculty/Scholar (Read-Only)'}</strong></span>
+            <span style={{ fontWeight: 700, color: isAwarded ? '#10B981' : '#3B82F6' }}>
+              Current Stage: {resolveDetailedStatus(thesis.status, synopsisMilestone?.status, finalSubMilestone?.status).text}
+            </span>
+          </div>
+        </div>
+
+        {/* ── CARD 1: Thesis External Dispatch ── */}
+        <div className="usm-card" style={{
+          borderLeft: `4px solid ${isDispatched ? '#10B981' : '#F59E0B'}`,
+          background: isDispatched ? 'rgba(16, 185, 129, 0.02)' : 'rgba(245, 158, 11, 0.02)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12,
+          padding: 16
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 800 }}>📬 Step 1: Dispatch to External Examiners</h4>
+            <span style={{
+              padding: '2px 8px',
+              borderRadius: 12,
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              background: isDispatched ? '#D1FAE5' : '#FEF3C7',
+              color: isDispatched ? '#065F46' : '#92400E'
+            }}>
+              {isDispatched ? 'DISPATCHED' : 'PENDING'}
+            </span>
+          </div>
+
+          {isDispatched ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', fontSize: '0.82rem' }}>
+                <div><strong>Dispatch Date:</strong> <span style={{ color: 'var(--color-text-secondary, #475569)' }}>{new Date(thesis.dispatchDate).toLocaleDateString()}</span></div>
+                <div><strong>Dispatch Method:</strong> <span style={{ color: 'var(--color-text-secondary, #475569)' }}>{thesis.dispatchMethod}</span></div>
+                <div style={{ gridColumn: 'span 2' }}><strong>Tracking / Reference Code:</strong> <span style={{ color: 'var(--color-text-secondary, #475569)', fontFamily: 'monospace', fontWeight: 600 }}>{thesis.dispatchTrackingNumber || 'N/A'}</span></div>
+              </div>
+
+              {canManageDefense && !showDispatchForm && (
+                <button
+                  onClick={() => {
+                    setDispatchForm({
+                      dispatchDate: thesis.dispatchDate ? new Date(thesis.dispatchDate).toISOString().substring(0, 10) : '',
+                      dispatchMethod: thesis.dispatchMethod || 'Speed Post',
+                      dispatchTrackingNumber: thesis.dispatchTrackingNumber || ''
+                    });
+                    setShowDispatchForm(true);
+                  }}
+                  className="btn-outline"
+                  style={{ alignSelf: 'flex-start', padding: '4px 10px', fontSize: '0.72rem', marginTop: 4 }}
+                >
+                  ✏️ Edit Dispatch Details
+                </button>
+              )}
+            </div>
+          ) : (
+            <div style={{ fontSize: '0.82rem', color: 'var(--color-text-secondary, #475569)' }}>
+              {canManageDefense ? (
+                <p style={{ margin: 0 }}>Log dispatch details when the physical/digital copy of final thesis is officially sent to external university examiners.</p>
+              ) : (
+                <p style={{ margin: 0 }}>Awaiting thesis examiner dispatch log from HOD/Admin.</p>
+              )}
+            </div>
+          )}
+
+          {canManageDefense && (showDispatchForm || !isDispatched) && (
+            <form onSubmit={handleDispatch} style={{ display: 'flex', flexDirection: 'column', gap: 12, background: 'var(--color-surface, #FFFFFF)', padding: 12, borderRadius: 8, border: '1px solid var(--color-border, #E2E8F0)', marginTop: 4 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Dispatch Date</label>
+                  <input
+                    type="date"
+                    className="form-input"
+                    value={dispatchForm.dispatchDate}
+                    onChange={e => setDispatchForm({ ...dispatchForm, dispatchDate: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Dispatch Method</label>
+                  <select
+                    className="form-input"
+                    value={dispatchForm.dispatchMethod}
+                    onChange={e => setDispatchForm({ ...dispatchForm, dispatchMethod: e.target.value })}
+                    required
+                  >
+                    <option value="Speed Post">Speed Post</option>
+                    <option value="Registered Post">Registered Post</option>
+                    <option value="DHL Courier">DHL Courier</option>
+                    <option value="Official Courier">Official Courier</option>
+                    <option value="Secure Email">Secure Email</option>
+                    <option value="Hand Delivery">Hand Delivery</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Tracking Code / Dispatch Reference Number</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g. HPU-EXAM-PHD-2026-99"
+                  value={dispatchForm.dispatchTrackingNumber}
+                  onChange={e => setDispatchForm({ ...dispatchForm, dispatchTrackingNumber: e.target.value })}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+                {isDispatched && (
+                  <button type="button" className="btn-outline" onClick={() => setShowDispatchForm(false)} style={{ padding: '5px 12px', fontSize: '0.75rem' }}>Cancel</button>
+                )}
+                <button type="submit" className="btn-primary" disabled={loading} style={{ padding: '5px 14px', fontSize: '0.75rem', background: '#059669' }}>
+                  {loading ? 'Saving...' : isDispatched ? 'Update Dispatch Details' : 'Log Dispatch to Examiners'}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+
+        {/* ── CARD 2: Viva-Voce Oral Defense ── */}
+        <div className="usm-card" style={{
+          borderLeft: `4px solid ${isVivaSuccessful ? '#10B981' : isVivaUnsuccessful ? '#EF4444' : isVivaScheduled ? '#3B82F6' : '#94A3B8'}`,
+          background: isVivaSuccessful ? 'rgba(16, 185, 129, 0.02)' : isVivaUnsuccessful ? 'rgba(239, 68, 68, 0.02)' : isVivaScheduled ? 'rgba(59, 130, 246, 0.02)' : 'rgba(148, 163, 184, 0.02)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12,
+          padding: 16,
+          opacity: isDispatched ? 1 : 0.6
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 800 }}>🎓 Step 2: Viva-Voce Defense Colloquium</h4>
+            <span style={{
+              padding: '2px 8px',
+              borderRadius: 12,
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              background: isVivaSuccessful ? '#D1FAE5' : isVivaUnsuccessful ? '#FEE2E2' : isVivaScheduled ? '#DBEAFE' : '#E2E8F0',
+              color: isVivaSuccessful ? '#065F46' : isVivaUnsuccessful ? '#991B1B' : isVivaScheduled ? '#1E40AF' : '#475569'
+            }}>
+              {isVivaSuccessful ? 'PASSED / SUCCESSFUL' : isVivaUnsuccessful ? 'REVISIONS REQUIRED' : isVivaScheduled ? 'SCHEDULED' : 'PENDING ASSESSMENT'}
+            </span>
+          </div>
+
+          {!isDispatched ? (
+            <div style={{ fontSize: '0.82rem', color: '#64748B', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span>🔒 Locked:</span><span>Awaiting thesis external examiner dispatch completion.</span>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {thesis.vivaStatus !== 'NOT_SCHEDULED' && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', fontSize: '0.82rem' }}>
+                  <div><strong>Defense Date:</strong> <span style={{ color: 'var(--color-text-secondary, #475569)' }}>{thesis.vivaDate ? new Date(thesis.vivaDate).toLocaleDateString() : 'N/A'}</span></div>
+                  <div><strong>Defense Time:</strong> <span style={{ color: 'var(--color-text-secondary, #475569)' }}>{thesis.vivaTime || 'N/A'}</span></div>
+                  <div><strong>Venue:</strong> <span style={{ color: 'var(--color-text-secondary, #475569)' }}>{thesis.vivaVenue || 'N/A'}</span></div>
+                  <div><strong>Expert Panel:</strong> <span style={{ color: 'var(--color-text-secondary, #475569)' }}>{thesis.vivaPanel || 'N/A'}</span></div>
+                  {(isVivaSuccessful || isVivaUnsuccessful) && (
+                    <div style={{ gridColumn: 'span 2', background: isVivaSuccessful ? '#ECFDF5' : '#FFF5F5', padding: 8, borderRadius: 6, borderLeft: `3px solid ${isVivaSuccessful ? '#10B981' : '#EF4444'}`, marginTop: 4 }}>
+                      <strong>Outcome Remarks:</strong> <span style={{ color: isVivaSuccessful ? '#065F46' : '#991B1B' }}>"{thesis.vivaRemarks || 'No remarks recorded'}"</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {thesis.vivaStatus === 'NOT_SCHEDULED' && (
+                <div style={{ fontSize: '0.82rem', color: 'var(--color-text-secondary, #475569)' }}>
+                  {canManageDefense ? (
+                    <p style={{ margin: 0 }}>Schedule the Viva-Voce oral defense seminar once positive reports are received from the external evaluation panel.</p>
+                  ) : (
+                    <p style={{ margin: 0 }}>Awaiting external examiner assessments and defense scheduling by HOD/Admin.</p>
+                  )}
+                </div>
+              )}
+
+              {canManageDefense && thesis.vivaStatus === 'NOT_SCHEDULED' && (
+                <button onClick={() => setShowVivaForm(true)} className="btn-primary" style={{ alignSelf: 'flex-start', padding: '5px 12px', fontSize: '0.75rem', marginTop: 4, background: '#3B82F6' }}>
+                  📅 Schedule Viva-Voce
+                </button>
+              )}
+
+              {canManageDefense && isVivaScheduled && !showVivaOutcomeForm && (
+                <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                  <button onClick={() => setShowVivaOutcomeForm(true)} className="btn-primary" style={{ padding: '5px 12px', fontSize: '0.75rem', background: '#059669' }}>
+                    📝 Record Defense Outcome
+                  </button>
+                  <button onClick={() => {
+                    setVivaForm({
+                      vivaDate: thesis.vivaDate ? new Date(thesis.vivaDate).toISOString().substring(0, 10) : '',
+                      vivaTime: thesis.vivaTime || '',
+                      vivaVenue: thesis.vivaVenue || '',
+                      vivaPanel: thesis.vivaPanel || ''
+                    });
+                    setShowVivaForm(true);
+                  }} className="btn-outline" style={{ padding: '5px 12px', fontSize: '0.75rem' }}>
+                    Reschedule
+                  </button>
+                </div>
+              )}
+
+              {canManageDefense && isVivaUnsuccessful && !showVivaForm && (
+                <button onClick={() => {
+                  setVivaForm({ vivaDate: '', vivaTime: '', vivaVenue: '', vivaPanel: '' });
+                  setShowVivaForm(true);
+                }} className="btn-primary" style={{ alignSelf: 'flex-start', padding: '5px 12px', fontSize: '0.75rem', marginTop: 4, background: '#EA580C' }}>
+                  🔄 Re-schedule Viva-Voce Defense
+                </button>
+              )}
+            </div>
+          )}
+
+          {canManageDefense && showVivaForm && isDispatched && (
+            <form onSubmit={handleScheduleViva} style={{ display: 'flex', flexDirection: 'column', gap: 12, background: 'var(--color-surface, #FFFFFF)', padding: 12, borderRadius: 8, border: '1px solid var(--color-border, #E2E8F0)', marginTop: 4 }}>
+              <div style={{ fontWeight: 700, fontSize: '0.8rem', color: '#1E40AF' }}>Schedule Viva-Voce Defense Session</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Defense Date</label>
+                  <input
+                    type="date"
+                    className="form-input"
+                    value={vivaForm.vivaDate}
+                    onChange={e => setVivaForm({ ...vivaForm, vivaDate: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Defense Time</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. 11:30 AM"
+                    value={vivaForm.vivaTime}
+                    onChange={e => setVivaForm({ ...vivaForm, vivaTime: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Defense Venue</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g. Department Boardroom / Offline"
+                  value={vivaForm.vivaVenue}
+                  onChange={e => setVivaForm({ ...vivaForm, vivaVenue: e.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>External Board & Committee Panel</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g. Prof. G. C. Sharma (External), Dr. R. K. Sen (Supervisor)"
+                  value={vivaForm.vivaPanel}
+                  onChange={e => setVivaForm({ ...vivaForm, vivaPanel: e.target.value })}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+                <button type="button" className="btn-outline" onClick={() => setShowVivaForm(false)} style={{ padding: '5px 12px', fontSize: '0.75rem' }}>Cancel</button>
+                <button type="submit" className="btn-primary" disabled={loading} style={{ padding: '5px 14px', fontSize: '0.75rem', background: '#3B82F6' }}>
+                  {loading ? 'Scheduling...' : 'Save Viva Schedule'}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {canManageDefense && showVivaOutcomeForm && isDispatched && (
+            <form onSubmit={handleRecordVivaOutcome} style={{ display: 'flex', flexDirection: 'column', gap: 12, background: 'var(--color-surface, #FFFFFF)', padding: 12, borderRadius: 8, border: '1px solid var(--color-border, #E2E8F0)', marginTop: 4 }}>
+              <div style={{ fontWeight: 700, fontSize: '0.8rem', color: '#065F46' }}>Record Viva-Voce Defense Recommendations</div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Defense Decision</label>
+                <select
+                  className="form-input"
+                  value={vivaOutcomeForm.vivaStatus}
+                  onChange={e => setVivaOutcomeForm({ ...vivaOutcomeForm, vivaStatus: e.target.value })}
+                  required
+                >
+                  <option value="SUCCESSFUL">SUCCESSFUL (Clear & Pass)</option>
+                  <option value="UNSUCCESSFUL">UNSUCCESSFUL (Revisions Required / Fail)</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Panel Evaluation Remarks / Corrections Required</label>
+                <textarea
+                  className="form-input"
+                  rows="3"
+                  placeholder="Enter detailed review comments..."
+                  value={vivaOutcomeForm.remarks}
+                  onChange={e => setVivaOutcomeForm({ ...vivaOutcomeForm, remarks: e.target.value })}
+                  required
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+                <button type="button" className="btn-outline" onClick={() => setShowVivaOutcomeForm(false)} style={{ padding: '5px 12px', fontSize: '0.75rem' }}>Cancel</button>
+                <button type="submit" className="btn-primary" disabled={loading} style={{ padding: '5px 14px', fontSize: '0.75rem', background: '#059669' }}>
+                  {loading ? 'Recording...' : 'Record Outcome'}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+
+        {/* ── CARD 3: Ph.D. Degree Clearance ── */}
+        <div className="usm-card" style={{
+          borderLeft: `4px solid ${isAwarded ? '#10B981' : '#94A3B8'}`,
+          background: isAwarded ? 'rgba(16, 185, 129, 0.02)' : 'rgba(148, 163, 184, 0.02)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12,
+          padding: 16,
+          opacity: isVivaSuccessful ? 1 : 0.6
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 800 }}>📜 Step 3: Ph.D. Degree Award Clearance</h4>
+            <span style={{
+              padding: '2px 8px',
+              borderRadius: 12,
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              background: isAwarded ? '#ECFDF5' : '#E2E8F0',
+              color: isAwarded ? '#065F46' : '#475569'
+            }}>
+              {isAwarded ? 'DEGREE AWARDED' : 'PENDING CLEARANCE'}
+            </span>
+          </div>
+
+          {!isVivaSuccessful ? (
+            <div style={{ fontSize: '0.82rem', color: '#64748B', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span>🔒 Locked:</span><span>Awaiting successful Viva-Voce oral defense colloquium.</span>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {isAwarded ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', fontSize: '0.82rem' }}>
+                    <div><strong>Award Date:</strong> <span style={{ color: 'var(--color-text-secondary, #475569)' }}>{thesis.awardedAt ? new Date(thesis.awardedAt).toLocaleDateString() : 'N/A'}</span></div>
+                    <div style={{ gridColumn: 'span 2' }}>
+                      <strong>Clearance Note / Notification Ref:</strong>
+                      <span style={{ color: 'var(--color-text-secondary, #475569)', display: 'block', marginTop: 4, fontStyle: 'italic', background: 'var(--color-bg, #F8FAFC)', padding: 8, borderRadius: 6, border: '1px solid var(--color-border, #E2E8F0)' }}>
+                        "{thesis.auditLog?.find(l => l.action === 'DEGREE_AWARDED')?.note || 'Approved after successful viva-voce'}"
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ fontSize: '0.82rem', color: 'var(--color-text-secondary, #475569)' }}>
+                  {canManageDefense ? (
+                    <p style={{ margin: 0 }}>Authorize the final clearance of the Ph.D. degree for this scholar. This transitions the scholar status to <strong>AWARDED</strong> globally.</p>
+                  ) : (
+                    <p style={{ margin: 0 }}>Viva-Voce defense was successful! Awaiting final degree award approval by HOD/Admin.</p>
+                  )}
+                </div>
+              )}
+
+              {canManageDefense && !isAwarded && !showAwardForm && (
+                <button onClick={() => setShowAwardForm(true)} className="btn-primary" style={{ alignSelf: 'flex-start', padding: '5px 12px', fontSize: '0.75rem', marginTop: 4, background: '#10B981' }}>
+                  🎓 Award Ph.D. Degree
+                </button>
+              )}
+            </div>
+          )}
+
+          {canManageDefense && showAwardForm && isVivaSuccessful && (
+            <form onSubmit={handleAwardDegree} style={{ display: 'flex', flexDirection: 'column', gap: 12, background: 'var(--color-surface, #FFFFFF)', padding: 12, borderRadius: 8, border: '1px solid var(--color-border, #E2E8F0)', marginTop: 4 }}>
+              <div style={{ fontWeight: 700, fontSize: '0.8rem', color: '#047857' }}>Official Ph.D. Award Approval Form</div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Academic Council Decision / Official Clearance Note</label>
+                <textarea
+                  className="form-input"
+                  rows="3"
+                  placeholder="e.g. Awarded Ph.D. degree after successful viva-voce presentation. Ref: Notification No. HPU/PhD/2026/102 dated 03/06/2026."
+                  value={awardForm.note}
+                  onChange={e => setAwardForm({ ...awardForm, note: e.target.value })}
+                  required
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+                <button type="button" className="btn-outline" onClick={() => setShowAwardForm(false)} style={{ padding: '5px 12px', fontSize: '0.75rem' }}>Cancel</button>
+                <button type="submit" className="btn-primary" disabled={loading} style={{ padding: '5px 14px', fontSize: '0.75rem', background: '#10B981' }}>
+                  {loading ? 'Awarding...' : '🎓 Concluding & Award Degree'}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const renderAudit = () => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div className="usm-section-title">📜 Complete Lifecycle Audit Log</div>
@@ -1261,6 +1758,7 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
       case 'reports': return renderReportsOrChapters('reports');
       case 'chapters': return renderReportsOrChapters('chapters');
       case 'publications': return renderPublications();
+      case 'defense': return renderDefenseAndAward();
       case 'documents': return renderDocuments();
       case 'changes': return renderChanges();
       case 'audit': return renderAudit();

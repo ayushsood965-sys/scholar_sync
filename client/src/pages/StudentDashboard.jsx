@@ -250,6 +250,44 @@ const MilestoneTimeline = ({ thesis, milestones = [] }) => {
       return renderSubStepSection("Pre-Submission Progression Details", subSteps);
     }
 
+    if (currentStatus === 'SUBMITTED' || currentStatus === 'AWARDED') {
+      const isDispatched = !!thesis.dispatchDate;
+      const isVivaScheduled = thesis.vivaStatus === 'SCHEDULED';
+      const isVivaSuccessful = thesis.vivaStatus === 'SUCCESSFUL';
+      const isVivaUnsuccessful = thesis.vivaStatus === 'UNSUCCESSFUL';
+      const isAwarded = thesis.status === 'AWARDED';
+
+      const subSteps = [
+        {
+          label: 'Thesis Dispatch to External Examiners',
+          desc: isDispatched 
+            ? `Dispatched on ${new Date(thesis.dispatchDate).toLocaleDateString()} via ${thesis.dispatchMethod} ${thesis.dispatchTrackingNumber ? `(Ref: ${thesis.dispatchTrackingNumber})` : ''}.`
+            : 'Awaiting thesis examiner dispatch by HOD/Admin.',
+          status: isDispatched ? 'SUCCESS' : 'WARNING'
+        },
+        {
+          label: 'Viva-Voce Oral Defense',
+          desc: isVivaSuccessful
+            ? `Passed defense colloquium successfully! Panel Remarks: "${thesis.vivaRemarks || 'Satisfactory'}"`
+            : isVivaScheduled
+            ? `Defense Scheduled: ${new Date(thesis.vivaDate).toLocaleDateString()} at ${thesis.vivaTime} in ${thesis.vivaVenue}.`
+            : isVivaUnsuccessful
+            ? `Revisions required: "${thesis.vivaRemarks || 'Check notes'}"`
+            : 'Awaiting assessment clearance from external examiners.',
+          status: isVivaSuccessful ? 'SUCCESS' : isVivaScheduled ? 'WARNING' : isVivaUnsuccessful ? 'DANGER' : 'PENDING'
+        },
+        {
+          label: 'Degree Award Clearance',
+          desc: isAwarded 
+            ? `Ph.D. degree officially awarded by Academic Council on ${thesis.awardedAt ? new Date(thesis.awardedAt).toLocaleDateString() : 'N/A'}.`
+            : 'Awaiting defense completion and board approval.',
+          status: isAwarded ? 'SUCCESS' : 'PENDING'
+        }
+      ];
+
+      return renderSubStepSection("Degree Award & Evaluation Progression Details", subSteps);
+    }
+
     return null;
   };
 
@@ -1450,6 +1488,25 @@ const OverviewPage = ({ thesis, milestones, setActiveTab, user }) => {
   const preMilestone = milestones.find(m => m.type === 'PRE_SUBMISSION');
   const isPreSubmissionRevision = thesis.status === 'PRE_SUBMISSION' && preMilestone?.status === 'REVISION_REQUIRED';
 
+  const getSubmittedNextAction = () => {
+    if (!thesis.dispatchDate) {
+      return 'Your final thesis package has been signed-off by your Supervisor. HOD and Academic Branch will dispatch it to external examiners shortly.';
+    }
+    if (thesis.vivaStatus === 'NOT_SCHEDULED') {
+      return `Your thesis was dispatched to external examiners on ${new Date(thesis.dispatchDate).toLocaleDateString()} via ${thesis.dispatchMethod} ${thesis.dispatchTrackingNumber ? `(Ref: ${thesis.dispatchTrackingNumber})` : ''}. Examiner assessment is currently in progress.`;
+    }
+    if (thesis.vivaStatus === 'SCHEDULED') {
+      return `Your Viva-Voce defense has been scheduled on ${new Date(thesis.vivaDate).toLocaleDateString()} at ${thesis.vivaTime} in ${thesis.vivaVenue}. Committee: ${thesis.vivaPanel || 'External Board'}. Please prepare your slides and defense presentation.`;
+    }
+    if (thesis.vivaStatus === 'SUCCESSFUL') {
+      return 'Congratulations! You have passed your Viva-Voce defense successfully. HOD/Admin will issue the final Ph.D. degree award clearance shortly.';
+    }
+    if (thesis.vivaStatus === 'UNSUCCESSFUL') {
+      return `Defense revisions required: "${thesis.vivaRemarks || 'Check panel feedback'}". HOD/Admin will re-schedule your defense session once ready.`;
+    }
+    return 'Your final thesis is under review by external examiners. Updates will be visible here shortly.';
+  };
+
   const statusMap = {
     REGISTRATION_PENDING: { label: 'Awaiting Admin Verification', color: '#D97706', bg: '#FEF3C7', progress: 10, nextAction: 'Wait for HOD to verify your enrollment and assign a department supervisor.' },
     COURSEWORK: { label: 'Coursework Phase', color: '#3B82F6', bg: '#DBEAFE', progress: 25, nextAction: 'Focus on completing your doctoral coursework syllabus and clear your coursework exams.' },
@@ -1480,7 +1537,13 @@ const OverviewPage = ({ thesis, milestones, setActiveTab, user }) => {
       progress: 85,
       nextAction: 'Prepare for your pre-submission seminar and defense colloquium in front of department experts.'
     },
-    SUBMITTED: { label: 'Under Evaluation', color: '#6B7280', bg: '#F3F4F6', progress: 95, nextAction: 'Your final thesis is under review by external examiners. Updates will be visible here shortly.' },
+    SUBMITTED: { 
+      label: thesis.vivaStatus === 'SUCCESSFUL' ? 'Defense Concluded' : thesis.vivaStatus === 'SCHEDULED' ? 'Defense Scheduled' : 'Under Evaluation', 
+      color: '#6B7280', 
+      bg: '#F3F4F6', 
+      progress: 95, 
+      nextAction: getSubmittedNextAction() 
+    },
     AWARDED: { label: 'Degree Awarded 🎓', color: '#059669', bg: '#D1FAE5', progress: 100, nextAction: 'Congratulations! Your Ph.D. degree has been officially awarded by the Academic Council.' },
   };
 
@@ -1790,7 +1853,10 @@ const RACProgressTab = ({ thesis }) => {
         Track scheduled RAC reviews, upload mandatory periodic progress reports, and view evaluation remarks from the doctoral committee.
       </p>
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 20 }}>Loading reviews...</div>
+        <div className="premium-preloader-container" style={{ padding: '20px' }}>
+          <div className="premium-preloader-spinner" style={{ width: '40px', height: '40px', borderWidth: '3px', marginBottom: '12px' }}></div>
+          <div className="premium-preloader-text" style={{ fontSize: '0.85rem' }}>Loading reviews...</div>
+        </div>
       ) : racs.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '36px', color: '#64748B', background: '#F8FAFC', borderRadius: 8 }}>
           No RAC sessions have been scheduled by your HOD yet.
@@ -2207,7 +2273,10 @@ const ResearchOutputsTab = ({ thesis }) => {
         )}
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: 20 }}>Loading research outputs...</div>
+          <div className="premium-preloader-container" style={{ padding: '20px' }}>
+            <div className="premium-preloader-spinner" style={{ width: '40px', height: '40px', borderWidth: '3px', marginBottom: '12px' }}></div>
+            <div className="premium-preloader-text" style={{ fontSize: '0.85rem' }}>Loading research outputs...</div>
+          </div>
         ) : pubs.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '36px', color: 'var(--color-text-secondary, #64748B)', background: 'var(--color-bg, #F8FAFC)', borderRadius: 8 }}>
             No research outputs logged yet.
@@ -2412,7 +2481,10 @@ const MeetingsTab = ({ thesis }) => {
           </div>
 
           {loading ? (
-            <div style={{ padding: 32, textAlign: 'center', color: '#64748B' }}>Loading schedules...</div>
+            <div className="premium-preloader-container" style={{ padding: '32px 20px' }}>
+              <div className="premium-preloader-spinner" style={{ width: '40px', height: '40px', borderWidth: '3px', marginBottom: '12px' }}></div>
+              <div className="premium-preloader-text" style={{ fontSize: '0.85rem' }}>Loading schedules...</div>
+            </div>
           ) : meetings.length === 0 ? (
             <div style={{ padding: 48, textAlign: 'center', color: '#94A3B8' }}>
               <Calendar size={48} style={{ margin: '0 auto 12px', opacity: 0.5 }} />
@@ -2530,7 +2602,10 @@ const MeetingsTab = ({ thesis }) => {
           </div>
 
           {drcLoading ? (
-            <div style={{ padding: 32, textAlign: 'center', color: '#64748B' }}>Loading DRC schedules...</div>
+            <div className="premium-preloader-container" style={{ padding: '32px 20px' }}>
+              <div className="premium-preloader-spinner" style={{ width: '40px', height: '40px', borderWidth: '3px', marginBottom: '12px' }}></div>
+              <div className="premium-preloader-text" style={{ fontSize: '0.85rem' }}>Loading DRC schedules...</div>
+            </div>
           ) : drcMeetings.length === 0 ? (
             <div style={{ padding: 48, textAlign: 'center', color: '#94A3B8' }}>
               <Calendar size={48} style={{ margin: '0 auto 12px', opacity: 0.5 }} />
@@ -2965,7 +3040,10 @@ const DocumentsTab = ({ thesis }) => {
         )}
 
         {loading ? (
-          <div style={{ padding: 32, textAlign: 'center', color: '#64748B' }}>Loading vault documents...</div>
+          <div className="premium-preloader-container" style={{ padding: '32px 20px' }}>
+            <div className="premium-preloader-spinner" style={{ width: '40px', height: '40px', borderWidth: '3px', marginBottom: '12px' }}></div>
+            <div className="premium-preloader-text" style={{ fontSize: '0.85rem' }}>Loading vault documents...</div>
+          </div>
         ) : docs.length === 0 ? (
           <div style={{ padding: 48, textAlign: 'center', color: '#94A3B8' }}>
             <FileText size={48} style={{ margin: '0 auto 12px', opacity: 0.5 }} />
@@ -3301,7 +3379,10 @@ const RequestChangesTab = ({ thesis }) => {
       )}
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 20 }}>Loading requests...</div>
+        <div className="premium-preloader-container" style={{ padding: '20px' }}>
+          <div className="premium-preloader-spinner" style={{ width: '40px', height: '40px', borderWidth: '3px', marginBottom: '12px' }}></div>
+          <div className="premium-preloader-text" style={{ fontSize: '0.85rem' }}>Loading requests...</div>
+        </div>
       ) : requests.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '36px', color: '#64748B', background: '#F8FAFC', borderRadius: 8 }}>
           No guide or title modification requests logged yet.
@@ -5389,7 +5470,14 @@ const StudentDashboard = () => {
   };
 
   const renderStatusContent = () => {
-    if (loading) return <div style={{ textAlign: 'center', padding: 48, color: '#6b7280' }}>Loading...</div>;
+    if (loading) {
+      return (
+        <div className="premium-preloader-container">
+          <div className="premium-preloader-spinner"></div>
+          <div className="premium-preloader-text">Fetching your research records...</div>
+        </div>
+      );
+    }
 
     if (!thesis) {
       if (activeTab === 'profile') return <ProfileTab />;
@@ -5500,7 +5588,11 @@ const StudentDashboard = () => {
           {renderStatusContent()}
         </div>
       </div>
-      <ProfileOnboardingModal isOpen={isOnboardingOpen} onClose={() => setIsOnboardingOpen(false)} />
+      <ProfileOnboardingModal 
+        isOpen={isOnboardingOpen} 
+        onClose={() => setIsOnboardingOpen(false)} 
+        onGo={() => { setActiveTab('profile'); setIsOnboardingOpen(false); }} 
+      />
     </div>
   );
 };

@@ -1727,7 +1727,10 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
             {activeResearchTab === 'outputs' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {pubsLoading ? (
-                  <div style={{ textAlign: 'center', padding: 15, fontSize: '0.85rem' }}>Loading publications...</div>
+                  <div className="premium-preloader-container" style={{ padding: '20px' }}>
+                    <div className="premium-preloader-spinner" style={{ width: '40px', height: '40px', borderWidth: '3px', marginBottom: '12px' }}></div>
+                    <div className="premium-preloader-text" style={{ fontSize: '0.85rem' }}>Loading publications...</div>
+                  </div>
                 ) : publications.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: 20, color: 'var(--color-text-muted, #64748B)', fontSize: '0.85rem' }}>No scientific publications logged in vault.</div>
                 ) : (
@@ -2210,7 +2213,12 @@ const HODChangeRequestsTab = ({ user }) => {
   };
 
   if (loading) {
-    return <div style={{ display: 'flex', justifyContent: 'center', padding: 40, fontWeight: 600, color: '#475569' }}>Loading change requests...</div>;
+    return (
+      <div className="premium-preloader-container">
+        <div className="premium-preloader-spinner"></div>
+        <div className="premium-preloader-text">Loading academic change requests...</div>
+      </div>
+    );
   }
 
   const sortedRequests = [...requests].sort((a, b) => (a.status === 'PENDING' ? -1 : 1));
@@ -3051,7 +3059,10 @@ const SupervisorRACConsole = ({ theses }) => {
       )}
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 20 }}>Loading RAC records...</div>
+        <div className="premium-preloader-container" style={{ padding: '20px' }}>
+          <div className="premium-preloader-spinner" style={{ width: '40px', height: '40px', borderWidth: '3px', marginBottom: '12px' }}></div>
+          <div className="premium-preloader-text" style={{ fontSize: '0.85rem' }}>Loading RAC records...</div>
+        </div>
       ) : racs.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '36px', color: '#64748B', background: '#F8FAFC', borderRadius: 8 }}>
           No scheduled RAC review meetings found for your active scholars.
@@ -3592,7 +3603,10 @@ const PendingReviewsQueue = ({ theses, user }) => {
       </p>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 30 }}>Loading pending queue...</div>
+        <div className="premium-preloader-container" style={{ padding: '20px' }}>
+          <div className="premium-preloader-spinner" style={{ width: '40px', height: '40px', borderWidth: '3px', marginBottom: '12px' }}></div>
+          <div className="premium-preloader-text" style={{ fontSize: '0.85rem' }}>Loading pending reviews queue...</div>
+        </div>
       ) : items.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 40, color: '#64748B', background: '#F8FAFC', borderRadius: 12 }}>
           <span>🍃</span> You have no pending documents in your queue. All reviews are up to date!
@@ -3675,7 +3689,10 @@ const FacultyDefaultersPage = ({ user, subRole }) => {
       </p>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 30 }}>Loading defaulter list...</div>
+        <div className="premium-preloader-container">
+          <div className="premium-preloader-spinner"></div>
+          <div className="premium-preloader-text">Loading progress report defaulters...</div>
+        </div>
       ) : defaulters.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 40, color: '#64748B', background: '#F8FAFC', borderRadius: 12 }}>
           <span>🍃</span> No progress report defaulters found in your scope. All scholars are up to date!
@@ -3880,7 +3897,11 @@ const FacultyDashboard = () => {
         />,
         document.body
       )}
-      <ProfileOnboardingModal isOpen={isOnboardingOpen} onClose={() => setIsOnboardingOpen(false)} />
+      <ProfileOnboardingModal 
+        isOpen={isOnboardingOpen} 
+        onClose={() => setIsOnboardingOpen(false)} 
+        onGo={() => { setActiveTab('profile'); setIsOnboardingOpen(false); }} 
+      />
     </div>
   );
 };
