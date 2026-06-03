@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, Facebook, Instagram, Twitter } from 'lucide-react';
+import { Shield, Facebook, Instagram, Twitter, GitBranch } from 'lucide-react';
 
 const Footer = () => {
   return (
@@ -25,6 +25,13 @@ const Footer = () => {
             <h4>Portals</h4>
             <Link to="/login" style={{ color: '#6B7280', fontSize: '0.9rem', textDecoration: 'none', display: 'block', marginBottom: '8px' }}>Scholar Login</Link>
             <Link to="/signup" style={{ color: '#6B7280', fontSize: '0.9rem', textDecoration: 'none', display: 'block', marginBottom: '8px' }}>Register ID</Link>
+          </div>
+          <div className="footer-col">
+            <h4>Resources</h4>
+            <Link to="/workflow" style={{ color: '#6B7280', fontSize: '0.9rem', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+              <GitBranch size={13} style={{ flexShrink: 0 }} />
+              System Workflow
+            </Link>
           </div>
         </div>
         <div className="footer-social">
