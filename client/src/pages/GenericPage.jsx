@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import axios from 'axios';
+import { API_URL, API_BASE_URL } from '../config';
 import { 
   Atom, 
   Cpu, 
@@ -11,13 +13,9 @@ import {
   FileText, 
   Coins, 
   Calendar, 
-  ArrowRight, 
   Search, 
   Sparkles, 
-  ChevronRight, 
-  Award,
   BookOpen, 
-  Mail, 
   Send 
 } from 'lucide-react';
 
@@ -29,164 +27,75 @@ const GenericPage = ({ title, description }) => {
   const [selectedDept, setSelectedDept] = useState('All');
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [copiedIndex, setCopiedIndex] = useState(null);
+  
+  // Real database states
+  const [labs, setLabs] = useState([]);
+  const [publications, setPublications] = useState([]);
+  const [funding, setFunding] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [collabCalls, setCollabCalls] = useState([]);
+  const [stats, setStats] = useState({ scholars: 0, guides: 0, publications: 0, awardedDegrees: 0, departments: 0 });
+  const [loading, setLoading] = useState(true);
+
+  // Collaboration form states
+  const [collabForm, setCollabForm] = useState({ name: '', email: '', institution: '', project: '', details: '' });
+  const [formSubmitted, setFormSubmitted] = useState(false);
+  const [formError, setFormError] = useState('');
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        if (title === 'Research Labs' || title === 'Search Results') {
+          const res = await axios.get(`${API_URL}/public/labs`);
+          setLabs(res.data);
+        }
+        if (title === 'Publications' || title === 'Search Results') {
+          const res = await axios.get(`${API_URL}/public/publications`);
+          setPublications(res.data);
+        }
+        if (title === 'Funding' || title === 'Search Results') {
+          const res = await axios.get(`${API_URL}/public/funding`);
+          setFunding(res.data);
+        }
+        if (title === 'Events' || title === 'Search Results') {
+          const res = await axios.get(`${API_URL}/public/events`);
+          setEvents(res.data);
+        }
+        if (title === 'Collaborate' || title === 'Search Results') {
+          const res = await axios.get(`${API_URL}/public/collab-calls`);
+          setCollabCalls(res.data);
+        }
+        if (title === 'About') {
+          const res = await axios.get(`${API_URL}/public/stats`);
+          setStats(res.data);
+        }
+      } catch (err) {
+        console.error(`Error loading data for ${title}:`, err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [title]);
 
   useEffect(() => {
     const q = new URLSearchParams(location.search).get('q') || '';
     setSearchQuery(q);
   }, [location.search]);
   
-  // Collaboration form states
-  const [collabForm, setCollabForm] = useState({ name: '', email: '', institution: '', project: '', details: '' });
-  const [formSubmitted, setFormSubmitted] = useState(false);
-
-  const handleCollabSubmit = (e) => {
+  const handleCollabSubmit = async (e) => {
     e.preventDefault();
-    setFormSubmitted(true);
-    setTimeout(() => {
-      setFormSubmitted(false);
+    setFormError('');
+    try {
+      await axios.post(`${API_URL}/public/collaborate/inquiry`, collabForm);
+      setFormSubmitted(true);
       setCollabForm({ name: '', email: '', institution: '', project: '', details: '' });
-    }, 4000);
+      setTimeout(() => setFormSubmitted(false), 4000);
+    } catch (err) {
+      setFormError(err.response?.data?.message || 'Failed to submit inquiry. Please try again.');
+    }
   };
-
-  // Mock Data for Research Labs
-  const labsData = [
-    {
-      id: 1,
-      name: "AI & Neural Systems Laboratory",
-      department: "Department of Computer Science",
-      lead: "Dr. Aarav Mehta",
-      icon: Cpu,
-      focus: "Deep Learning, Autonomous Agents, NLP",
-      projects: ["Transformers in Medical Imaging", "Reinforcement Learning for Autonomous Drone Swarms"],
-      status: "Actively Recruiting Scholars"
-    },
-    {
-      id: 2,
-      name: "Quantum Mechanics & Advanced Materials Lab",
-      department: "Department of Physics",
-      lead: "Dr. Sophia Lin",
-      icon: Atom,
-      focus: "Superconductors, Quantum Cryptography, Nanotubes",
-      projects: ["High-Temp Superconductivity in Hydrides", "Quantum Cryptographic Protocol Validation"],
-      status: "2 Research Slots Open"
-    },
-    {
-      id: 3,
-      name: "Bio-Informatics & Genomics Centre",
-      department: "Department of Data Science and Artificial Intelligence",
-      lead: "Dr. Elena Rostova",
-      icon: Dna,
-      focus: "Cancer Genome Sequencing, Neural Protein Folding",
-      projects: ["AlphaFold Pipelines for Enzyme Optimization", "High-Throughput DNA Sequence Alignment"],
-      status: "Collaborating with Biotech Inc."
-    },
-    {
-      id: 4,
-      name: "Chemical Kinetics & Environmental Synthesis Lab",
-      department: "Department of Chemistry",
-      lead: "Dr. Marcus Vance",
-      icon: FlaskConical,
-      focus: "Green Catalysts, Photochemistry, CO2 Capture",
-      projects: ["Organocatalytic Hydrogen Generation", "Solar-Driven Polymeric CO2 Sequestration"],
-      status: "Grant Funded by DST-SERB"
-    }
-  ];
-
-  // Mock Data for Publications
-  const publicationsData = [
-    {
-      id: 1,
-      title: "Scalable Graph Attention Networks for Multi-Agent Pathfinding in Complex Grid Environments",
-      authors: "Aarav Mehta, Rajesh Khanna, Student User",
-      journal: "IEEE Transactions on Pattern Analysis and Machine Intelligence (PAMI)",
-      year: "2026",
-      category: "Computer Science",
-      citations: 42,
-      doi: "10.1109/TPAMI.2026.103948"
-    },
-    {
-      id: 2,
-      title: "Enhanced Photo-Electrochemical Efficiency in Perovskite Solar Cells via Novel Carbon-Dot Passivation",
-      authors: "Marcus Vance, Priya Nair",
-      journal: "Nature Materials",
-      year: "2025",
-      category: "Physical Sciences",
-      citations: 118,
-      doi: "10.1038/s41563-025-0914"
-    },
-    {
-      id: 3,
-      title: "Clinical NLP Transformers: A Comparative Study on Electronic Health Record Summarization Pipelines",
-      authors: "Elena Rostova, David Wright",
-      journal: "ACM Computing Surveys",
-      year: "2026",
-      category: "Data Science",
-      citations: 19,
-      doi: "10.1145/384910.2026"
-    }
-  ];
-
-  // Mock Data for Funding
-  const fundingData = [
-    {
-      id: 1,
-      title: "DST-SERB Core Research Grant",
-      agency: "Department of Science and Technology, Govt. of India",
-      amount: "₹45,00,000",
-      duration: "3 Years",
-      scope: "Supports fundamental research in science, technology, and advanced AI frameworks.",
-      status: "Applications Open"
-    },
-    {
-      id: 2,
-      title: "ScholarSync Corporate Innovation Fellowship",
-      agency: "Kizen Tech Corp",
-      amount: "₹8,00,000 / Year + Stipend",
-      duration: "Ongoing",
-      scope: "Awarded to elite scholars focusing on industrial automation and cloud-native database orchestration.",
-      status: "Actively Reviewing"
-    },
-    {
-      id: 3,
-      title: "Global Green-Tech Council Research Grant",
-      agency: "Global Green-Tech Alliance",
-      amount: "$120,000",
-      duration: "2 Years",
-      scope: "Granted to breakthrough green chemistry, solar conversion, and environmental recycling concepts.",
-      status: "Call Ends July 2026"
-    }
-  ];
-
-  // Mock Data for Events
-  const eventsData = [
-    {
-      id: 1,
-      title: "Annual University Research Symposium & Doctoral Colloquium 2026",
-      date: "June 12-14, 2026",
-      time: "09:30 AM - 05:30 PM",
-      location: "Auditorium & Virtual Stream",
-      speaker: "Keynote: Dr. Andrew Ng (Co-Founder, Coursera & DeepLearning.AI)",
-      type: "Conference"
-    },
-    {
-      id: 2,
-      title: "Hands-on Workshop: Scalable Machine Learning Pipelines with PyTorch & Ray",
-      date: "June 28, 2026",
-      time: "02:00 PM - 06:00 PM",
-      location: "Data Science Lab-4",
-      speaker: "Conducted by: Elena Rostova & Core AI Faculty",
-      type: "Workshop"
-    },
-    {
-      id: 3,
-      title: "PhD Thesis Pre-Submission Defense: Autonomous Drone Trajectory Mapping",
-      date: "July 05, 2026",
-      time: "11:00 AM - 01:00 PM",
-      location: "Seminar Hall C",
-      speaker: "Scholar: Student User (Department of Computer Science)",
-      type: "Defense Viva"
-    }
-  ];
 
   const handleCopyDOI = (doi, index) => {
     navigator.clipboard.writeText(doi);
@@ -194,18 +103,36 @@ const GenericPage = ({ title, description }) => {
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
-  // Render Page Content based on Title
+  const getLabIcon = (labName = '') => {
+    const name = labName.toLowerCase();
+    if (name.includes('neural') || name.includes('ai') || name.includes('comput') || name.includes('software')) return Cpu;
+    if (name.includes('quantum') || name.includes('mechanic') || name.includes('phys')) return Atom;
+    if (name.includes('bio') || name.includes('genomic') || name.includes('medic') || name.includes('protein')) return Dna;
+    return FlaskConical;
+  };
+
   const renderRichContent = () => {
+    if (loading) {
+      return (
+        <div className="premium-preloader-container" style={{ padding: '60px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="premium-preloader-spinner"></div>
+          <div className="premium-preloader-text">Fetching data from ScholarSync registry...</div>
+        </div>
+      );
+    }
+
     switch (title) {
       case "Research Labs":
         const filteredLabs = selectedDept === 'All' 
-          ? labsData 
-          : labsData.filter(lab => lab.department === selectedDept);
+          ? labs 
+          : labs.filter(lab => lab.department === selectedDept);
+        const availableDepts = ['All', ...new Set(labs.map(lab => lab.department))];
+
         return (
           <div>
             {/* Department Filters */}
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '30px' }}>
-              {['All', 'Department of Computer Science', 'Department of Physics', 'Department of Chemistry', 'Department of Data Science and Artificial Intelligence'].map(dept => (
+              {availableDepts.map(dept => (
                 <button
                   key={dept}
                   onClick={() => setSelectedDept(dept)}
@@ -226,52 +153,60 @@ const GenericPage = ({ title, description }) => {
             </div>
 
             {/* Labs Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
-              {filteredLabs.map(lab => {
-                const LabIcon = lab.icon;
-                return (
-                  <div key={lab.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px', border: '1px solid rgba(255, 255, 255, 0.4)', background: 'rgba(255, 255, 255, 0.85)', padding: '24px', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                      <div style={{ background: '#EAF4EE', width: '50px', height: '50px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#133A26' }}>
-                        <LabIcon size={26} />
+            {filteredLabs.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#6B7280' }}>No research labs registered for this department.</div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+                {filteredLabs.map(lab => {
+                  const LabIcon = getLabIcon(lab.name);
+                  return (
+                    <div key={lab._id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px', border: '1px solid rgba(255, 255, 255, 0.4)', background: 'rgba(255, 255, 255, 0.85)', padding: '24px', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <div style={{ background: '#EAF4EE', width: '50px', height: '50px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#133A26', flexShrink: 0 }}>
+                          <LabIcon size={26} />
+                        </div>
+                        <div>
+                          <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#133A26', margin: 0 }}>{lab.name}</h3>
+                          <p style={{ fontSize: '0.8rem', color: '#6B7280', margin: '2px 0 0' }}>{lab.department}</p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#133A26' }}>{lab.name}</h3>
-                        <p style={{ fontSize: '0.8rem', color: '#6B7280' }}>{lab.department}</p>
+                      <div style={{ borderTop: '1px solid #E5E7EB', paddingTop: '12px' }}>
+                        <p style={{ fontSize: '0.85rem', color: '#374151', marginBottom: '8px' }}>
+                          <strong>Lead Principal Investigator:</strong> {lab.leadId?.name || 'Faculty Lead'}
+                        </p>
+                        <p style={{ fontSize: '0.85rem', color: '#374151', marginBottom: '12px' }}>
+                          <strong>Research Focus:</strong> {lab.focus}
+                        </p>
+                        
+                        {lab.projects && lab.projects.length > 0 && (
+                          <>
+                            <strong style={{ fontSize: '0.8rem', color: '#133A26', display: 'block', marginBottom: '6px' }}>Active Projects:</strong>
+                            <ul style={{ paddingLeft: '18px', fontSize: '0.8rem', color: '#4B5563', lineHeight: '1.5' }}>
+                              {lab.projects.map((proj, idx) => <li key={idx}>{proj}</li>)}
+                            </ul>
+                          </>
+                        )}
+                      </div>
+                      <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '10px' }}>
+                        <span style={{ fontSize: '0.72rem', background: '#D1FAE5', color: '#065F46', padding: '4px 10px', borderRadius: '12px', fontWeight: 600 }}>{lab.status}</span>
+                        <a href={`mailto:${lab.leadId?.username || 'admin@hpu.ac.in'}?subject=Inquiry regarding ${lab.name}`} className="btn-outline-small" style={{ fontSize: '0.75rem', padding: '6px 12px', textDecoration: 'none' }}>Inquire ➔</a>
                       </div>
                     </div>
-                    <div style={{ borderTop: '1px solid #E5E7EB', paddingTop: '12px' }}>
-                      <p style={{ fontSize: '0.85rem', color: '#374151', marginBottom: '8px' }}>
-                        <strong>Lead Principal Investigator:</strong> {lab.lead}
-                      </p>
-                      <p style={{ fontSize: '0.85rem', color: '#374151', marginBottom: '12px' }}>
-                        <strong>Research Focus:</strong> {lab.focus}
-                      </p>
-                      
-                      <strong style={{ fontSize: '0.8rem', color: '#133A26', display: 'block', marginBottom: '6px' }}>Active Projects:</strong>
-                      <ul style={{ paddingLeft: '18px', fontSize: '0.8rem', color: '#4B5563', lineHeight: '1.5' }}>
-                        {lab.projects.map((proj, idx) => <li key={idx}>{proj}</li>)}
-                      </ul>
-                    </div>
-                    <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '10px' }}>
-                      <span style={{ fontSize: '0.72rem', background: '#D1FAE5', color: '#065F46', padding: '4px 10px', borderRadius: '12px', fontWeight: 600 }}>{lab.status}</span>
-                      <button className="btn-outline-small" style={{ fontSize: '0.75rem', padding: '6px 12px' }}>Inquire ➔</button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         );
 
       case "Publications":
         const filteredPubs = searchQuery 
-          ? publicationsData.filter(pub => 
+          ? publications.filter(pub => 
               pub.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-              pub.authors.toLowerCase().includes(searchQuery.toLowerCase()) ||
-              pub.category.toLowerCase().includes(searchQuery.toLowerCase())
+              (pub.scholarId?.name && pub.scholarId.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+              pub.journalName.toLowerCase().includes(searchQuery.toLowerCase())
             )
-          : publicationsData;
+          : publications;
 
         return (
           <div>
@@ -280,7 +215,7 @@ const GenericPage = ({ title, description }) => {
               <input 
                 type="text" 
                 className="form-input" 
-                placeholder="Search publications by title, author, or keyword..."
+                placeholder="Search publications by title, author, or journal..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 style={{ paddingLeft: '44px', borderRadius: '24px', background: 'white' }}
@@ -291,42 +226,52 @@ const GenericPage = ({ title, description }) => {
             {/* Publications List */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               {filteredPubs.map((pub, idx) => (
-                <div key={pub.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '14px', background: 'rgba(255, 255, 255, 0.85)', padding: '24px', borderRadius: '16px' }}>
+                <div key={pub._id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '14px', background: 'rgba(255, 255, 255, 0.85)', padding: '24px', borderRadius: '16px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
                     <span style={{ fontSize: '0.75rem', background: '#EAF4EE', color: '#133A26', padding: '4px 10px', borderRadius: '12px', fontWeight: 600 }}>
-                      {pub.category}
+                      {pub.type || 'JOURNAL'}
                     </span>
                     <span style={{ fontSize: '0.8rem', color: '#6B7280', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <BookOpen size={14} /> Citations: <strong>{pub.citations}</strong>
+                      <BookOpen size={14} /> Published: <strong>{new Date(pub.publicationDate).toLocaleDateString()}</strong>
                     </span>
                   </div>
 
-                  <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#111827', lineHeight: '1.4' }}>
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#111827', lineHeight: '1.4', margin: 0 }}>
                     {pub.title}
                   </h3>
 
-                  <p style={{ fontSize: '0.85rem', color: '#4B5563' }}>
-                    <strong>Authors:</strong> {pub.authors}
+                  <p style={{ fontSize: '0.85rem', color: '#4B5563', margin: 0 }}>
+                    <strong>Authors:</strong> {pub.scholarId?.name || 'Academic Scholar'}, {pub.thesisId?.supervisorId?.name || 'Faculty Guide'}
                   </p>
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px dashed #E5E7EB', paddingTop: '12px', flexWrap: 'wrap', gap: '10px' }}>
                     <div>
-                      <p style={{ fontSize: '0.8rem', color: '#6B7280' }}>
-                        <strong>Journal:</strong> {pub.journal} ({pub.year})
+                      <p style={{ fontSize: '0.8rem', color: '#6B7280', margin: 0 }}>
+                        <strong>Journal/Conference:</strong> {pub.journalName} {pub.issn ? `(ISSN: ${pub.issn})` : ''}
                       </p>
-                      <p style={{ fontSize: '0.75rem', color: '#9CA3AF', marginTop: '2px' }}>
-                        DOI: {pub.doi} 
-                        <button 
-                          onClick={() => handleCopyDOI(pub.doi, idx)} 
-                          style={{ background: 'none', border: 'none', color: '#133A26', cursor: 'pointer', paddingLeft: '6px', fontWeight: 600 }}
-                        >
-                          {copiedIndex === idx ? '✓ Copied!' : '📋 Copy'}
-                        </button>
-                      </p>
+                      {pub.doiUrl && (
+                        <p style={{ fontSize: '0.75rem', color: '#9CA3AF', marginTop: '4px', marginBotom: 0 }}>
+                          DOI Link: <a href={pub.doiUrl} target="_blank" rel="noreferrer" style={{ color: '#133A26', textDecoration: 'none' }}>{pub.doiUrl}</a>
+                          <button 
+                            onClick={() => handleCopyDOI(pub.doiUrl, idx)} 
+                            style={{ background: 'none', border: 'none', color: '#133A26', cursor: 'pointer', paddingLeft: '8px', fontWeight: 600 }}
+                          >
+                            {copiedIndex === idx ? '✓ Copied!' : '📋 Copy Link'}
+                          </button>
+                        </p>
+                      )}
                     </div>
-                    <button className="btn-primary" style={{ padding: '6px 16px', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                      📥 Download PDF
-                    </button>
+                    {pub.documentUrl && (
+                      <a 
+                        href={`${API_BASE_URL}${pub.documentUrl}`} 
+                        target="_blank" 
+                        rel="noreferrer" 
+                        className="btn-primary" 
+                        style={{ padding: '6px 16px', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
+                      >
+                        📥 View PDF Proof
+                      </a>
+                    )}
                   </div>
                 </div>
               ))}
@@ -342,38 +287,60 @@ const GenericPage = ({ title, description }) => {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '30px' }}>
             {/* Info & Opportunities */}
             <div>
-              <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: '#133A26', marginBottom: '16px' }}>Active Collaboration Calls</h2>
+              <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: '#133A26', marginBottom: '16px', marginTop: 0 }}>Active Collaboration Calls</h2>
               <p style={{ color: '#4B5563', fontSize: '0.9rem', lineHeight: '1.6', marginBottom: '24px' }}>
                 ScholarSync is built to nurture global academic-industry integrations. We actively seek joint doctoral guides, industry project sponsorships, and collaborative research initiatives.
               </p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div style={{ background: '#FFF3CD', borderLeft: '4px solid #D97706', padding: '16px', borderRadius: '8px' }}>
-                  <h4 style={{ fontWeight: 700, fontSize: '0.95rem', color: '#92400E', marginBottom: '4px' }}>🔴 Call for Industry Mentors: AI in Agriculture</h4>
-                  <p style={{ fontSize: '0.8rem', color: '#78350F' }}>Department of Data Science is seeking domain partners to guide 3 Ph.D. scholars on crop disease detection frameworks.</p>
-                </div>
-                <div style={{ background: '#E0F2FE', borderLeft: '4px solid #2563EB', padding: '16px', borderRadius: '8px' }}>
-                  <h4 style={{ fontWeight: 700, fontSize: '0.95rem', color: '#1E40AF', marginBottom: '4px' }}>🔵 Inter-Dept Initiative: Physics & Chemistry Fusion</h4>
-                  <p style={{ fontSize: '0.8rem', color: '#1E3A8A' }}>Joint grant proposal for high-energy battery substrates. Seeking specialized mathematical modelers.</p>
-                </div>
+                {collabCalls.length === 0 ? (
+                  <div style={{ padding: '16px', color: '#6B7280', fontSize: '0.85rem', background: 'rgba(0,0,0,0.02)', borderRadius: '8px', textAlign: 'center' }}>
+                    No active collaboration calls listed at this time.
+                  </div>
+                ) : (
+                  collabCalls.map((call) => {
+                    const isIndustry = (call.type || '').toLowerCase().includes('industry') || (call.type || '').toLowerCase().includes('mentor');
+                    const bg = isIndustry ? '#FFF3CD' : '#E0F2FE';
+                    const border = isIndustry ? '4px solid #D97706' : '4px solid #2563EB';
+                    const titleColor = isIndustry ? '#92400E' : '#1E40AF';
+                    const textColor = isIndustry ? '#78350F' : '#1E3A8A';
+                    const emoji = isIndustry ? '🔴' : '🔵';
+
+                    return (
+                      <div key={call._id} style={{ background: bg, borderLeft: border, padding: '16px', borderRadius: '8px' }}>
+                        <h4 style={{ fontWeight: 700, fontSize: '0.95rem', color: titleColor, margin: '0 0 4px' }}>
+                          {emoji} {call.title}
+                        </h4>
+                        <p style={{ fontSize: '0.8rem', color: textColor, margin: 0 }}>
+                          {call.description}
+                        </p>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
 
             {/* Collaboration Request Form */}
             <div className="card" style={{ background: 'white', borderRadius: '16px', padding: '30px' }}>
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#133A26', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#133A26', marginBottom: '16px', marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Send size={18} /> Partner Inquiry Form
               </h3>
 
               {formSubmitted ? (
                 <div style={{ background: '#ECFDF5', border: '1px solid #10B981', color: '#065F46', padding: '20px', borderRadius: '8px', textAlign: 'center', margin: '20px 0' }}>
-                  <h4 style={{ fontWeight: 700, marginBottom: '6px' }}>✨ Submission Received!</h4>
-                  <p style={{ fontSize: '0.85rem' }}>Thank you for expressing interest. Our research board will contact you shortly.</p>
+                  <h4 style={{ fontWeight: 700, marginBottom: '6px', marginTop: 0 }}>✨ Submission Received!</h4>
+                  <p style={{ fontSize: '0.85rem', margin: 0 }}>Thank you for expressing interest. Our research board will contact you shortly.</p>
                 </div>
               ) : (
                 <form onSubmit={handleCollabSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {formError && (
+                    <div style={{ background: '#FEE2E2', border: '1px solid #EF4444', color: '#991B1B', padding: '10px', borderRadius: '8px', fontSize: '0.8rem' }}>
+                      {formError}
+                    </div>
+                  )}
                   <div>
-                    <label className="form-label" style={{ fontSize: '0.8rem' }}>Your Name / Title</label>
+                    <label className="form-label" style={{ fontSize: '0.8rem', display: 'block', marginBottom: '4px' }}>Your Name / Title</label>
                     <input 
                       type="text" 
                       required 
@@ -385,7 +352,7 @@ const GenericPage = ({ title, description }) => {
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                     <div>
-                      <label className="form-label" style={{ fontSize: '0.8rem' }}>Email</label>
+                      <label className="form-label" style={{ fontSize: '0.8rem', display: 'block', marginBottom: '4px' }}>Email</label>
                       <input 
                         type="email" 
                         required 
@@ -396,7 +363,7 @@ const GenericPage = ({ title, description }) => {
                       />
                     </div>
                     <div>
-                      <label className="form-label" style={{ fontSize: '0.8rem' }}>Organization</label>
+                      <label className="form-label" style={{ fontSize: '0.8rem', display: 'block', marginBottom: '4px' }}>Organization</label>
                       <input 
                         type="text" 
                         required 
@@ -408,7 +375,7 @@ const GenericPage = ({ title, description }) => {
                     </div>
                   </div>
                   <div>
-                    <label className="form-label" style={{ fontSize: '0.8rem' }}>Focus Subject / Project Title</label>
+                    <label className="form-label" style={{ fontSize: '0.8rem', display: 'block', marginBottom: '4px' }}>Focus Subject / Project Title</label>
                     <input 
                       type="text" 
                       required 
@@ -420,7 +387,7 @@ const GenericPage = ({ title, description }) => {
                     />
                   </div>
                   <div>
-                    <label className="form-label" style={{ fontSize: '0.8rem' }}>Brief Proposal Details</label>
+                    <label className="form-label" style={{ fontSize: '0.8rem', display: 'block', marginBottom: '4px' }}>Brief Proposal Details</label>
                     <textarea 
                       required 
                       rows={4} 
@@ -442,108 +409,121 @@ const GenericPage = ({ title, description }) => {
 
       case "Funding":
         return (
-          <div>
-            {/* Metrics */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '32px' }}>
-              {[
-                { label: 'Active Funding Pool', value: '₹5.2 Crores', color: '#133A26' },
-                { label: 'Active Grants Supported', value: '18 Scholars', color: '#059669' },
-                { label: 'Corporate Sponsors', value: '8 Partners', color: '#2563EB' }
-              ].map((stat, idx) => (
-                <div key={idx} className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'rgba(255,255,255,0.85)', borderRadius: '12px' }}>
-                  <div style={{ fontSize: '1.6rem', fontWeight: 800, color: stat.color }}>{stat.value}</div>
-                  <div style={{ fontSize: '0.8rem', color: '#6B7280', marginTop: '4px' }}>{stat.label}</div>
-                </div>
-              ))}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
+            {/* Static Metrics Cards Row */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+              <div className="card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'rgba(255,255,255,0.85)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.4)', boxShadow: '0 4px 15px rgba(0,0,0,0.02)' }}>
+                <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#133A26' }}>₹5.2 Crores</div>
+                <div style={{ fontSize: '0.85rem', color: '#6B7280', marginTop: '4px', textAlign: 'center', fontWeight: 600 }}>Active Funding Pool</div>
+              </div>
+              <div className="card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'rgba(255,255,255,0.85)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.4)', boxShadow: '0 4px 15px rgba(0,0,0,0.02)' }}>
+                <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#059669' }}>18 Scholars</div>
+                <div style={{ fontSize: '0.85rem', color: '#6B7280', marginTop: '4px', textAlign: 'center', fontWeight: 600 }}>Active Grants Supported</div>
+              </div>
+              <div className="card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'rgba(255,255,255,0.85)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.4)', boxShadow: '0 4px 15px rgba(0,0,0,0.02)' }}>
+                <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#2563EB' }}>8 Partners</div>
+                <div style={{ fontSize: '0.85rem', color: '#6B7280', marginTop: '4px', textAlign: 'center', fontWeight: 600 }}>Corporate Sponsors</div>
+              </div>
             </div>
 
             {/* Grants List */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
-              {fundingData.map(grant => (
-                <div key={grant.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px', background: 'rgba(255,255,255,0.85)', padding: '24px', borderRadius: '16px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.72rem', background: '#D1FAE5', color: '#065F46', padding: '4px 10px', borderRadius: '12px', fontWeight: 600 }}>
-                      {grant.status}
-                    </span>
-                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#133A26' }}>
-                      {grant.amount}
-                    </span>
-                  </div>
+            {funding.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#6B7280' }}>No active funding opportunities registered.</div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+                {funding.map(grant => (
+                  <div key={grant._id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px', background: 'rgba(255, 255, 255, 0.85)', padding: '24px', borderRadius: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.72rem', background: '#D1FAE5', color: '#065F46', padding: '4px 10px', borderRadius: '12px', fontWeight: 600 }}>
+                        {grant.status}
+                      </span>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#133A26' }}>
+                        {grant.amount}
+                      </span>
+                    </div>
 
-                  <div>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111827', marginBottom: '4px' }}>{grant.title}</h3>
-                    <p style={{ fontSize: '0.8rem', color: '#6B7280' }}><strong>Agency:</strong> {grant.agency}</p>
-                  </div>
+                    <div>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111827', margin: '0 0 4px' }}>{grant.title}</h3>
+                      <p style={{ fontSize: '0.8rem', color: '#6B7280', margin: 0 }}><strong>Agency:</strong> {grant.agency}</p>
+                    </div>
 
-                  <p style={{ fontSize: '0.85rem', color: '#4B5563', lineHeight: '1.5' }}>
-                    {grant.scope}
-                  </p>
+                    <p style={{ fontSize: '0.85rem', color: '#4B5563', lineHeight: '1.5', margin: 0 }}>
+                      {grant.scope}
+                    </p>
 
-                  <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #E5E7EB', paddingTop: '12px' }}>
-                    <span style={{ fontSize: '0.8rem', color: '#6B7280' }}>
-                      <strong>Duration:</strong> {grant.duration}
-                    </span>
-                    <button className="btn-outline-small" style={{ fontSize: '0.75rem', padding: '6px 14px' }}>Explore Grant ➔</button>
+                    <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #E5E7EB', paddingTop: '12px' }}>
+                      <span style={{ fontSize: '0.8rem', color: '#6B7280' }}>
+                        <strong>Duration:</strong> {grant.duration}
+                      </span>
+                      <a href={`mailto:grants@hpu.ac.in?subject=Application Inquiry: ${grant.title}`} className="btn-outline-small" style={{ fontSize: '0.75rem', padding: '6px 14px', textDecoration: 'none' }}>Apply/Explore ➔</a>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         );
 
       case "Events":
         return (
           <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              {eventsData.map(evt => (
-                <div key={evt.id} className="card" style={{ display: 'flex', gap: '20px', background: 'rgba(255, 255, 255, 0.85)', padding: '24px', borderRadius: '16px', flexWrap: 'wrap' }}>
-                  {/* Styled Date Calendar Icon */}
-                  <div style={{ width: '80px', height: '80px', background: '#133A26', color: 'white', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Calendar size={24} style={{ marginBottom: '4px' }} />
-                    <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>{evt.type}</span>
-                  </div>
+            {events.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#6B7280' }}>No academic events scheduled currently.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                {events.map(evt => (
+                  <div key={evt._id} className="card" style={{ display: 'flex', gap: '20px', background: 'rgba(255, 255, 255, 0.85)', padding: '24px', borderRadius: '16px', flexWrap: 'wrap' }}>
+                    {/* Styled Date Calendar Icon */}
+                    <div style={{ width: '80px', height: '80px', background: evt.type === 'Defense Viva' ? '#D97706' : '#133A26', color: 'white', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Calendar size={24} style={{ marginBottom: '4px' }} />
+                      <span style={{ fontSize: '0.62rem', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px', textAlign: 'center' }}>
+                        {evt.type ? evt.type.replace(' ', '\n') : 'EVENT'}
+                      </span>
+                    </div>
 
-                  {/* Event Details */}
-                  <div style={{ flex: 1, minWidth: '240px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#111827', lineHeight: '1.4' }}>
-                      {evt.title}
-                    </h3>
-                    <p style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 500 }}>
-                      📅 {evt.date} &nbsp;|&nbsp; 🕒 {evt.time}
-                    </p>
-                    <p style={{ fontSize: '0.85rem', color: '#4B5563' }}>
-                      📍 <strong>Venue:</strong> {evt.location}
-                    </p>
-                    <p style={{ fontSize: '0.85rem', color: '#6B7280', italic: 'true' }}>
-                      👤 {evt.speaker}
-                    </p>
-                  </div>
+                    {/* Event Details */}
+                    <div style={{ flex: 1, minWidth: '240px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#111827', lineHeight: '1.4', margin: 0 }}>
+                        {evt.title}
+                      </h3>
+                      <p style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 500, margin: 0 }}>
+                        📅 {new Date(evt.date).toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })} &nbsp;|&nbsp; 🕒 {evt.time}
+                      </p>
+                      <p style={{ fontSize: '0.85rem', color: '#4B5563', margin: 0 }}>
+                        📍 <strong>Venue:</strong> {evt.location}
+                      </p>
+                      <p style={{ fontSize: '0.85rem', color: '#6B7280', fontStyle: 'italic', margin: 0 }}>
+                        👤 {evt.speaker}
+                      </p>
+                    </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', marginLeft: 'auto' }}>
-                    <button className="btn-primary" style={{ padding: '8px 20px', fontSize: '0.85rem' }}>
-                      Register Slot
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', marginLeft: 'auto' }}>
+                      <a href={`mailto:events@hpu.ac.in?subject=Registration RSVP: ${evt.title}`} className="btn-primary" style={{ padding: '8px 20px', fontSize: '0.85rem', textDecoration: 'none' }}>
+                        RSVP Slot
+                      </a>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         );
 
       case "About":
         return (
           <div style={{ maxWidth: '850px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '40px' }}>
+
             {/* Introduction */}
             <div style={{ textAlign: 'center' }}>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#133A26', marginBottom: '12px' }}>Empowering the Next Generation of Academicians</h2>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#133A26', marginBottom: '12px', marginTop: 0 }}>Empowering the Next Generation of Academicians</h2>
               <p style={{ color: '#4B5563', fontSize: '0.95rem', lineHeight: '1.7', maxWidth: '700px', margin: '0 auto' }}>
-                ScholarSync is an integrated thesis tracking and research management ecosystem designed to streamline, automate, and orchestrate the complete academic lifecycle of Ph.D. scholars, faculty supervisors, and administrative heads.
+                ScholarSync is an integrated thesis tracking and research management ecosystem designed to streamline, automate, and orchestrate the complete academic lifecycle of Ph.D. scholars, faculty supervisors, and administrative heads at HPU.
               </p>
             </div>
 
             {/* Lifecycle Timeline */}
             <div>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#133A26', marginBottom: '24px', textAlign: 'center', position: 'relative' }}>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#133A26', marginBottom: '24px', textAlign: 'center', marginTop: 0 }}>
                 🎓 Ph.D. Scholar Journey Milestones
               </h3>
 
@@ -561,8 +541,8 @@ const GenericPage = ({ title, description }) => {
                 ].map((stage, idx) => (
                   <div key={idx} style={{ position: 'relative' }}>
                     <div style={{ position: 'absolute', left: '-25px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: '#133A26', border: '3px solid #EAF4EE' }} />
-                    <h4 style={{ fontWeight: 700, fontSize: '0.95rem', color: '#133A26', marginBottom: '4px' }}>{stage.title}</h4>
-                    <p style={{ fontSize: '0.85rem', color: '#4B5563', lineHeight: '1.5' }}>{stage.desc}</p>
+                    <h4 style={{ fontWeight: 700, fontSize: '0.95rem', color: '#133A26', margin: '0 0 4px' }}>{stage.title}</h4>
+                    <p style={{ fontSize: '0.85rem', color: '#4B5563', lineHeight: '1.5', margin: 0 }}>{stage.desc}</p>
                   </div>
                 ))}
               </div>
@@ -580,7 +560,7 @@ const GenericPage = ({ title, description }) => {
                     <Sparkles size={18} />
                     <strong style={{ fontSize: '0.95rem' }}>{feat.title}</strong>
                   </div>
-                  <p style={{ fontSize: '0.82rem', color: '#6B7280', lineHeight: '1.4' }}>{feat.desc}</p>
+                  <p style={{ fontSize: '0.82rem', color: '#6B7280', lineHeight: '1.4', margin: 0 }}>{feat.desc}</p>
                 </div>
               ))}
             </div>
@@ -590,47 +570,31 @@ const GenericPage = ({ title, description }) => {
       case "Search Results":
         const term = searchQuery.toLowerCase();
         
-        const matchingLabs = labsData.filter(lab => 
+        const matchingLabs = labs.filter(lab => 
           lab.name.toLowerCase().includes(term) || 
           lab.department.toLowerCase().includes(term) || 
-          lab.focus.toLowerCase().includes(term) ||
-          lab.lead.toLowerCase().includes(term)
+          lab.focus.toLowerCase().includes(term)
         );
 
-        const matchingPubs = publicationsData.filter(pub => 
+        const matchingPubs = publications.filter(pub => 
           pub.title.toLowerCase().includes(term) || 
-          pub.authors.toLowerCase().includes(term) || 
-          pub.category.toLowerCase().includes(term) ||
-          pub.journal.toLowerCase().includes(term)
+          (pub.scholarId?.name && pub.scholarId.name.toLowerCase().includes(term)) ||
+          pub.journalName.toLowerCase().includes(term)
         );
 
-        const matchingFunding = fundingData.filter(grant => 
+        const matchingFunding = funding.filter(grant => 
           grant.title.toLowerCase().includes(term) || 
           grant.agency.toLowerCase().includes(term) || 
           grant.scope.toLowerCase().includes(term)
         );
 
-        const matchingEvents = eventsData.filter(evt => 
+        const matchingEvents = events.filter(evt => 
           evt.title.toLowerCase().includes(term) || 
-          evt.location.toLowerCase().includes(term) || 
-          evt.speaker.toLowerCase().includes(term) ||
-          evt.type.toLowerCase().includes(term)
+          (evt.location && evt.location.toLowerCase().includes(term)) || 
+          (evt.speaker && evt.speaker.toLowerCase().includes(term))
         );
 
-        const matchingJourney = [
-          { title: "Stage 1: Thesis Registration", desc: "Scholar submits detailed research title, scope, and initial proposal. Reviewed and approved by Department HOD." },
-          { title: "Stage 2: Supervisor Assignment", desc: "HOD delegates a certified Faculty Supervisor matching the scholar's research area of interest." },
-          { title: "Stage 3: Coursework Phase", desc: "Scholar undertakes mandatory doctoral course credits, evaluated by the supervisor upon successful completion." },
-          { title: "Stage 4: Active Research & DRC Approval", desc: "Departmental Research Committee (DRC) approves the primary research synopsis, unlocking full dissertation creation." },
-          { title: "Stage 5: Pre-Submission Seminar", desc: "Scholar defends preliminary thesis findings in a public university-wide pre-submission presentation." },
-          { title: "Stage 6: External Thesis Evaluation", desc: "Completed dissertation is securely dispatched to high-profile external subject matter expert examiners." },
-          { title: "Stage 7: Degree Awarded!", desc: "Upon receiving satisfactory external review reports, the final Viva-Voce defense is cleared, and the doctorate degree is officially awarded." }
-        ].filter(stage => 
-          stage.title.toLowerCase().includes(term) || 
-          stage.desc.toLowerCase().includes(term)
-        );
-
-        const totalResults = matchingLabs.length + matchingPubs.length + matchingFunding.length + matchingEvents.length + matchingJourney.length;
+        const totalResults = matchingLabs.length + matchingPubs.length + matchingFunding.length + matchingEvents.length;
 
         return (
           <div>
@@ -654,33 +618,33 @@ const GenericPage = ({ title, description }) => {
             {totalResults === 0 ? (
               <div style={{ textAlign: 'center', padding: '64px 20px', color: '#9CA3AF' }}>
                 <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>🔍</div>
-                <h3>No results found</h3>
-                <p style={{ fontSize: '0.85rem', marginTop: '6px' }}>Try adjusting your search terms or checking another keyword.</p>
+                <h3 style={{ margin: 0 }}>No results found</h3>
+                <p style={{ fontSize: '0.85rem', marginTop: '6px', marginBottom: 0 }}>Try adjusting your search terms or checking another keyword.</p>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
                 {/* 1. Research Labs */}
                 {matchingLabs.length > 0 && (
                   <div>
-                    <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#133A26', borderBottom: '2px solid #E2E8F0', paddingBottom: '8px', marginBottom: '16px' }}>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#133A26', borderBottom: '2px solid #E2E8F0', paddingBottom: '8px', marginBottom: '16px', marginTop: 0 }}>
                       🔬 Matching Research Labs ({matchingLabs.length})
                     </h3>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
                       {matchingLabs.map(lab => {
-                        const LabIcon = lab.icon;
+                        const LabIcon = getLabIcon(lab.name);
                         return (
-                          <div key={lab.id} className="card" style={{ padding: '20px', background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+                          <div key={lab._id} className="card" style={{ padding: '20px', background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
                             <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                              <div style={{ background: '#EAF4EE', padding: '8px', borderRadius: '8px', color: '#133A26' }}>
+                              <div style={{ background: '#EAF4EE', padding: '8px', borderRadius: '8px', color: '#133A26', flexShrink: 0 }}>
                                 <LabIcon size={20} />
                               </div>
                               <div>
-                                <h4 style={{ fontWeight: 700, fontSize: '0.95rem', color: '#133A26' }}>{lab.name}</h4>
-                                <p style={{ fontSize: '0.75rem', color: '#6B7280' }}>{lab.department}</p>
+                                <h4 style={{ fontWeight: 700, fontSize: '0.95rem', color: '#133A26', margin: 0 }}>{lab.name}</h4>
+                                <p style={{ fontSize: '0.75rem', color: '#6B7280', margin: '2px 0 0' }}>{lab.department}</p>
                               </div>
                             </div>
-                            <p style={{ fontSize: '0.8rem', color: '#4B5563', marginTop: '10px' }}><strong>PI Lead:</strong> {lab.lead}</p>
-                            <p style={{ fontSize: '0.8rem', color: '#6B7280', marginTop: '4px' }}>{lab.focus}</p>
+                            <p style={{ fontSize: '0.8rem', color: '#4B5563', marginTop: '10px', marginBottom: 0 }}><strong>PI Lead:</strong> {lab.leadId?.name || 'Faculty Lead'}</p>
+                            <p style={{ fontSize: '0.8rem', color: '#6B7280', marginTop: '4px', marginBottom: 0 }}>{lab.focus}</p>
                           </div>
                         );
                       })}
@@ -691,16 +655,16 @@ const GenericPage = ({ title, description }) => {
                 {/* 2. Publications */}
                 {matchingPubs.length > 0 && (
                   <div>
-                    <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#133A26', borderBottom: '2px solid #E2E8F0', paddingBottom: '8px', marginBottom: '16px' }}>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#133A26', borderBottom: '2px solid #E2E8F0', paddingBottom: '8px', marginBottom: '16px', marginTop: 0 }}>
                       📄 Matching Publications ({matchingPubs.length})
                     </h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                       {matchingPubs.map(pub => (
-                        <div key={pub.id} className="card" style={{ padding: '20px', background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
-                          <span style={{ fontSize: '0.7rem', background: '#EAF4EE', color: '#133A26', padding: '2px 8px', borderRadius: '10px', fontWeight: 600, display: 'inline-block', marginBottom: '8px' }}>{pub.category}</span>
+                        <div key={pub._id} className="card" style={{ padding: '20px', background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+                          <span style={{ fontSize: '0.7rem', background: '#EAF4EE', color: '#133A26', padding: '2px 8px', borderRadius: '10px', fontWeight: 600, display: 'inline-block', marginBottom: '8px' }}>{pub.type || 'JOURNAL'}</span>
                           <h4 style={{ fontWeight: 700, fontSize: '1rem', color: '#111827', margin: 0 }}>{pub.title}</h4>
-                          <p style={{ fontSize: '0.8rem', color: '#4B5563', marginTop: '6px' }}><strong>Authors:</strong> {pub.authors}</p>
-                          <p style={{ fontSize: '0.75rem', color: '#6B7280' }}>{pub.journal} ({pub.year})</p>
+                          <p style={{ fontSize: '0.8rem', color: '#4B5563', marginTop: '6px', marginBottom: 0 }}><strong>Authors:</strong> {pub.scholarId?.name || 'Scholar'}, {pub.thesisId?.supervisorId?.name || 'Faculty Guide'}</p>
+                          <p style={{ fontSize: '0.75rem', color: '#6B7280', margin: '4px 0 0' }}>{pub.journalName}</p>
                         </div>
                       ))}
                     </div>
@@ -710,18 +674,18 @@ const GenericPage = ({ title, description }) => {
                 {/* 3. Funding & Opportunities */}
                 {matchingFunding.length > 0 && (
                   <div>
-                    <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#133A26', borderBottom: '2px solid #E2E8F0', paddingBottom: '8px', marginBottom: '16px' }}>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#133A26', borderBottom: '2px solid #E2E8F0', paddingBottom: '8px', marginBottom: '16px', marginTop: 0 }}>
                       💰 Matching Funding & Grants ({matchingFunding.length})
                     </h3>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
                       {matchingFunding.map(grant => (
-                        <div key={grant.id} className="card" style={{ padding: '20px', background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+                        <div key={grant._id} className="card" style={{ padding: '20px', background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                             <span style={{ fontSize: '0.7rem', background: '#D1FAE5', color: '#065F46', padding: '2px 8px', borderRadius: '10px', fontWeight: 600 }}>{grant.status}</span>
                             <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#133A26' }}>{grant.amount}</span>
                           </div>
-                          <h4 style={{ fontWeight: 700, fontSize: '0.95rem', color: '#111827' }}>{grant.title}</h4>
-                          <p style={{ fontSize: '0.78rem', color: '#4B5563', marginTop: '4px' }}>{grant.scope}</p>
+                          <h4 style={{ fontWeight: 700, fontSize: '0.95rem', color: '#111827', margin: 0 }}>{grant.title}</h4>
+                          <p style={{ fontSize: '0.78rem', color: '#4B5563', marginTop: '4px', marginBottom: 0 }}>{grant.scope}</p>
                         </div>
                       ))}
                     </div>
@@ -731,37 +695,20 @@ const GenericPage = ({ title, description }) => {
                 {/* 4. Events */}
                 {matchingEvents.length > 0 && (
                   <div>
-                    <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#133A26', borderBottom: '2px solid #E2E8F0', paddingBottom: '8px', marginBottom: '16px' }}>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#133A26', borderBottom: '2px solid #E2E8F0', paddingBottom: '8px', marginBottom: '16px', marginTop: 0 }}>
                       📆 Matching Academic Events ({matchingEvents.length})
                     </h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                       {matchingEvents.map(evt => (
-                        <div key={evt.id} className="card" style={{ padding: '20px', background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', background: '#133A26', color: 'white', padding: '10px 14px', borderRadius: '8px', minWidth: '70px', height: '60px', textAlign: 'center' }}>
-                            <span style={{ fontSize: '0.7rem', fontWeight: 700 }}>{evt.type}</span>
+                        <div key={evt._id} className="card" style={{ padding: '20px', background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', background: evt.type === 'Defense Viva' ? '#D97706' : '#133A26', color: 'white', padding: '10px 14px', borderRadius: '8px', minWidth: '70px', height: '60px', textAlign: 'center' }}>
+                            <span style={{ fontSize: '0.65rem', fontWeight: 700 }}>{evt.type || 'Seminar'}</span>
                           </div>
                           <div>
                             <h4 style={{ fontWeight: 700, fontSize: '0.95rem', color: '#111827', margin: 0 }}>{evt.title}</h4>
-                            <p style={{ fontSize: '0.8rem', color: '#374151', marginTop: '4px' }}>{evt.date} | {evt.time}</p>
-                            <p style={{ fontSize: '0.75rem', color: '#6B7280' }}>Speaker/Scholar: {evt.speaker}</p>
+                            <p style={{ fontSize: '0.8rem', color: '#374151', marginTop: '4px', marginBottom: 0 }}>{new Date(evt.date).toLocaleDateString()} | {evt.time}</p>
+                            <p style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '2px', marginBottom: 0 }}>{evt.speaker}</p>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* 5. Ph.D. Journey Stages */}
-                {matchingJourney.length > 0 && (
-                  <div>
-                    <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#133A26', borderBottom: '2px solid #E2E8F0', paddingBottom: '8px', marginBottom: '16px' }}>
-                      🎓 Matching Program Milestones ({matchingJourney.length})
-                    </h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      {matchingJourney.map((stage, idx) => (
-                        <div key={idx} className="card" style={{ padding: '16px', background: 'white', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
-                          <h4 style={{ fontWeight: 700, fontSize: '0.9rem', color: '#133A26' }}>{stage.title}</h4>
-                          <p style={{ fontSize: '0.8rem', color: '#4B5563', marginTop: '4px' }}>{stage.desc}</p>
                         </div>
                       ))}
                     </div>

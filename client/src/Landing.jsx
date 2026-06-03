@@ -1,11 +1,44 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Beaker, Users, FileText, Banknote } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import axios from 'axios';
+import { API_URL, API_BASE_URL } from './config';
 
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 
 const Landing = () => {
+  const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const res = await axios.get(`${API_URL}/public/projects`);
+        setProjects(res.data);
+      } catch (err) {
+        console.error('Error fetching doctoral projects:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProjects();
+  }, []);
+
+  const getDeptImage = (dept = '') => {
+    const d = dept.toLowerCase();
+    if (d.includes('computer') || d.includes('data science') || d.includes('information technology') || d.includes('it') || d.includes('cs')) {
+      return 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=400&q=80';
+    }
+    if (d.includes('phys') || d.includes('electr') || d.includes('math') || d.includes('quantum')) {
+      return 'https://images.unsplash.com/photo-1507668077129-56e32842fceb?auto=format&fit=crop&w=400&q=80';
+    }
+    if (d.includes('chem') || d.includes('bio') || d.includes('forensic') || d.includes('micro')) {
+      return 'https://images.unsplash.com/photo-1532187643603-ba119ca4109e?auto=format&fit=crop&w=400&q=80';
+    }
+    return 'https://images.unsplash.com/photo-1508614589041-895b88991e3e?auto=format&fit=crop&w=400&q=80';
+  };
+
   return (
     <div className="landing-page">
       <Navbar />
@@ -60,55 +93,52 @@ const Landing = () => {
         {/* Featured Projects */}
         <section className="projects-section" id="featured-projects">
           <h2 className="section-title">Featured Doctoral Projects</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '24px', maxWidth: '1200px', margin: '0 auto' }}>
-            {[
-              {
-                title: "Autonomous UAS Swarms for Multi-Spectral Agricultural Mapping",
-                dept: "Dept of Computer Science & AI",
-                desc: "Implementing deep reinforcement learning models for drone mesh coordination.",
-                img: "https://images.unsplash.com/photo-1508614589041-895b88991e3e?auto=format&fit=crop&w=150&q=80",
-                link: "/labs"
-              },
-              {
-                title: "Next-Gen Perovskite Solar Cells with Carbon Dot Passivation",
-                dept: "Dept of Physics & Chemistry",
-                desc: "Improving photothermal conversion stability and cells efficiency beyond 28%.",
-                img: "https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=150&q=80",
-                link: "/publications"
-              },
-              {
-                title: "Deep Learning Proteomics for Targeted Enzyme Optimization",
-                dept: "Dept of Data Science & Biology",
-                desc: "Synthesizing customized molecular catalysts for accelerated plastic degradation.",
-                img: "https://images.unsplash.com/photo-1532187643603-ba119ca4109e?auto=format&fit=crop&w=300&q=80",
-                link: "/collaborate"
-              },
-              {
-                title: "Topological Qubit Integration for Secure Quantum Key Distribution",
-                dept: "Dept of Electronics & Quantum Science",
-                desc: "Developing solid-state quantum nodes for absolute cryptographic link protection.",
-                img: "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=150&q=80",
-                link: "/funding"
-              }
-            ].map((proj, idx) => (
-              <div className="project-card" key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '20px', background: 'rgba(255, 255, 255, 0.95)', border: '1px solid rgba(0, 0, 0, 0.05)', borderRadius: '16px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
-                <img 
-                  src={proj.img} 
-                  alt={proj.title} 
-                  className="project-image" 
-                  style={{ width: '100%', height: '140px', borderRadius: '12px', objectFit: 'cover' }}
-                />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
-                  <span style={{ fontSize: '0.72rem', background: '#EAF4EE', color: '#133A26', padding: '3px 8px', borderRadius: '12px', fontWeight: 600, alignSelf: 'flex-start' }}>{proj.dept}</span>
-                  <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#111827', margin: 0, lineHeight: '1.4' }}>{proj.title}</h4>
-                  <p style={{ fontSize: '0.8rem', color: '#6B7280', margin: 0 }}>{proj.desc}</p>
-                  <div style={{ marginTop: 'auto', paddingTop: '10px' }}>
-                    <Link to={proj.link} className="btn-outline-small" style={{ textDecoration: 'none', display: 'inline-block' }}>Learn More ➔</Link>
+          
+          {loading ? (
+            <div className="premium-preloader-container" style={{ minHeight: '200px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+              <div className="premium-preloader-spinner"></div>
+              <div className="premium-preloader-text">Loading doctoral projects...</div>
+            </div>
+          ) : projects.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#6B7280', background: 'rgba(255, 255, 255, 0.8)', borderRadius: '16px', border: '1px solid rgba(0,0,0,0.05)' }}>
+              No active doctoral projects logged in the portal yet.
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', maxWidth: '1200px', margin: '0 auto' }}>
+              {projects.slice(0, 4).map((proj, idx) => (
+                <div className="project-card" key={proj._id || idx} style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '20px', background: 'rgba(255, 255, 255, 0.95)', border: '1px solid rgba(0, 0, 0, 0.05)', borderRadius: '16px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)', transition: 'transform 0.2s ease-in-out' }}>
+                  <img 
+                    src={proj.imageUrl || getDeptImage(proj.department)} 
+                    alt={proj.title} 
+                    className="project-image" 
+                    style={{ width: '100%', height: '140px', borderRadius: '12px', objectFit: 'cover' }}
+                  />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
+                      <span style={{ fontSize: '0.72rem', background: '#EAF4EE', color: '#133A26', padding: '3px 8px', borderRadius: '12px', fontWeight: 600 }}>
+                        {proj.department ? proj.department.replace('Department of ', '') : 'Research'}
+                      </span>
+                      <span style={{ fontSize: '0.65rem', background: '#FEF3C7', color: '#D97706', padding: '2px 6px', borderRadius: '10px', fontWeight: 700 }}>
+                        {proj.status ? proj.status.replace('_', ' ') : 'ACTIVE'}
+                      </span>
+                    </div>
+                    <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#111827', margin: 0, lineHeight: '1.4' }}>{proj.title}</h4>
+                    <p style={{ fontSize: '0.8rem', color: '#6B7280', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>
+                      {proj.abstract}
+                    </p>
+                    <div style={{ borderTop: '1px solid #F3F4F6', paddingTop: '10px', marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <span style={{ fontSize: '0.75rem', color: '#374151' }}>
+                        <strong>Scholar:</strong> {proj.scholarId?.name || proj.scholarName || 'Academic Scholar'}
+                      </span>
+                      <span style={{ fontSize: '0.75rem', color: '#4B5563' }}>
+                        <strong>Guide:</strong> {proj.supervisorId?.name || proj.supervisorName || 'Faculty Guide'}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
       </div>
 

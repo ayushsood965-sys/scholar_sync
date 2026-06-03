@@ -12,6 +12,7 @@ import ProfileOnboardingModal from '../components/ProfileOnboardingModal';
 import NotificationPanel from '../components/NotificationPanel';
 import ThemeToggle from '../components/ThemeToggle';
 import UnifiedScholarModal from '../components/UnifiedScholarModal';
+import PublicConfigTab from '../components/PublicConfigTab';
 
 const API = API_URL;
 const getAuthHeader = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
@@ -4311,6 +4312,7 @@ const Sidebar = ({ activeTab, setActiveTab, isVerified }) => {
     { key: 'requests', label: 'Change Requests', Icon: Edit },
     { key: 'evaluation', label: 'External Evaluation', Icon: FileText },
     { key: 'users', label: 'Manage Users', Icon: Users },
+    { key: 'public_config', label: 'Public Portal Config', Icon: Settings },
   ];
   return (
     <div className="sidebar">
@@ -4425,7 +4427,8 @@ const AdminDashboard = () => {
     users: 'Manage Users', 
     profile: 'My Profile', 
     evaluation: 'External Evaluation', 
-    defaulters: 'Progress Report Defaulter Tracking' 
+    defaulters: 'Progress Report Defaulter Tracking',
+    public_config: 'Public Portal Config'
   };
 
   const renderContent = () => {
@@ -4469,6 +4472,7 @@ const AdminDashboard = () => {
       case 'defaulters': return <DefaultersTab />;
       case 'profile': return <ProfileTab />;
       case 'evaluation': return <ExternalEvaluation theses={allTheses} onAuditLog={(id, action, note) => handleAction(id, 'audit', { action, note })} />;
+      case 'public_config': return <PublicConfigTab user={user} />;
       default: return <div className="card"><h3 className="card-title">{titles[activeTab]}</h3><p style={{ color: '#6b7280', marginTop: 8 }}>Content coming soon.</p></div>;
     }
   };

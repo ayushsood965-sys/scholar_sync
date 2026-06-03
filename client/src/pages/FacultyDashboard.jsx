@@ -1,7 +1,7 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Home, FileText, Users, Calendar, User, LogOut, Bell, CheckCircle2, XCircle, Layers, Award, Upload, ShieldCheck, Edit, AlertTriangle, Plus } from 'lucide-react';
+import { Home, FileText, Users, Calendar, User, LogOut, Bell, CheckCircle2, XCircle, Layers, Award, Upload, ShieldCheck, Edit, AlertTriangle, Plus, Settings } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE_URL, API_URL } from '../config';
 
@@ -15,6 +15,7 @@ import ProfileOnboardingModal from '../components/ProfileOnboardingModal';
 import NotificationPanel from '../components/NotificationPanel';
 import ThemeToggle from '../components/ThemeToggle';
 import UnifiedScholarModal from '../components/UnifiedScholarModal';
+import PublicConfigTab from '../components/PublicConfigTab';
 
 const Sidebar = ({ activeTab, setActiveTab, subRole, isVerified }) => {
   const { logout } = useContext(AuthContext);
@@ -25,6 +26,7 @@ const Sidebar = ({ activeTab, setActiveTab, subRole, isVerified }) => {
     { key: 'scholars', label: 'My Scholars', Icon: Users },
     { key: 'reviews', label: 'Pending Reviews', Icon: FileText },
     { key: 'defaulters', label: 'Defaulter Scholars', Icon: AlertTriangle },
+    { key: 'public_config', label: 'Public Portal Config', Icon: Settings },
   ];
   const hodItems = [
     { key: 'overview', label: 'Dashboard', Icon: Home },
@@ -33,6 +35,7 @@ const Sidebar = ({ activeTab, setActiveTab, subRole, isVerified }) => {
     { key: 'dept', label: 'Department Scholars', Icon: Users },
     { key: 'requests', label: 'Change Requests', Icon: Edit },
     { key: 'defaulters', label: 'Defaulter Scholars', Icon: AlertTriangle },
+    { key: 'public_config', label: 'Public Portal Config', Icon: Settings },
   ];
   const items = subRole === 'HOD' ? hodItems : supervisorItems;
   return (
@@ -3777,7 +3780,7 @@ const FacultyDashboard = () => {
     if (subRole === 'HOD') fetchDeptTheses(); else fetchAssignedTheses();
   };
 
-  const titles = { overview: 'Faculty Dashboard', registrations: 'Registration Requests', scholars: 'My Scholars', reviews: 'Pending Reviews', dept: 'Department Scholars', requests: 'Student Change Requests Desk', profile: 'My Profile', defaulters: 'Progress Report Defaulters' };
+  const titles = { overview: 'Faculty Dashboard', registrations: 'Registration Requests', scholars: 'My Scholars', reviews: 'Pending Reviews', dept: 'Department Scholars', requests: 'Student Change Requests Desk', profile: 'My Profile', defaulters: 'Progress Report Defaulters', public_config: 'Public Portal Config' };
 
   const renderContent = () => {
     if (!user?.isVerified) {
@@ -3820,6 +3823,7 @@ const FacultyDashboard = () => {
       case 'requests': return <HODChangeRequestsTab user={user} />;
       case 'defaulters': return <FacultyDefaultersPage user={user} subRole={subRole} />;
       case 'profile': return <ProfileTab />;
+      case 'public_config': return <PublicConfigTab user={user} />;
       default: return <div className="card"><h3 className="card-title">{titles[activeTab]}</h3><p style={{ color: '#6b7280', marginTop: 8 }}>Content coming soon.</p></div>;
     }
   };

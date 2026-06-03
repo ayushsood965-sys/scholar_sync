@@ -12,6 +12,8 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const publicationRoutes = require('./routes/publicationRoutes');
 const meetingRoutes = require('./routes/meetingRoutes');
 const additionalDocumentRoutes = require('./routes/additionalDocumentRoutes');
+const publicRoutes = require('./routes/publicRoutes');
+const adminConfigRoutes = require('./routes/adminConfigRoutes');
 const fs = require('fs');
 
 const User = require('./models/User');
@@ -102,8 +104,181 @@ connectDB().then(async () => {
     } else {
       console.log('🏛️ Departments already populated.');
     }
+
+    // Auto-seed research labs, funding opportunities, and events
+    const ResearchLab = require('./models/ResearchLab');
+    const FundingOpportunity = require('./models/FundingOpportunity');
+    const Event = require('./models/Event');
+
+    const labCount = await ResearchLab.countDocuments();
+    if (labCount === 0) {
+      let leadUser = await User.findOne({ role: 'FACULTY' });
+      if (!leadUser) {
+        leadUser = await User.findOne({ username: 'admin' });
+      }
+      
+      if (leadUser) {
+        const labsToSeed = [
+          {
+            name: "AI & Neural Systems Laboratory",
+            department: "Department of Computer Science",
+            leadId: leadUser._id,
+            focus: "Deep Learning, Autonomous Agents, NLP",
+            projects: ["Transformers in Medical Imaging", "Reinforcement Learning for Autonomous Drone Swarms"],
+            status: "Actively Recruiting Scholars"
+          },
+          {
+            name: "Quantum Mechanics & Advanced Materials Lab",
+            department: "Department of Physics",
+            leadId: leadUser._id,
+            focus: "Superconductors, Quantum Cryptography, Nanotubes",
+            projects: ["High-Temp Superconductivity in Hydrides", "Quantum Cryptographic Protocol Validation"],
+            status: "2 Research Slots Open"
+          },
+          {
+            name: "Bio-Informatics & Genomics Centre",
+            department: "Department of Data Science and Artificial Intelligence",
+            leadId: leadUser._id,
+            focus: "Cancer Genome Sequencing, Neural Protein Folding",
+            projects: ["AlphaFold Pipelines for Enzyme Optimization", "High-Throughput DNA Sequence Alignment"],
+            status: "Collaborating with Biotech Inc."
+          },
+          {
+            name: "Chemical Kinetics & Environmental Synthesis Lab",
+            department: "Department of Chemistry",
+            leadId: leadUser._id,
+            focus: "Green Catalysts, Photochemistry, CO2 Capture",
+            projects: ["Organocatalytic Hydrogen Generation", "Solar-Driven Polymeric CO2 Sequestration"],
+            status: "Grant Funded by DST-SERB"
+          }
+        ];
+        await ResearchLab.insertMany(labsToSeed);
+        console.log('🔬 Auto-seeded default research labs.');
+      }
+    }
+
+    const fundingCount = await FundingOpportunity.countDocuments();
+    if (fundingCount === 0) {
+      const fundingToSeed = [
+        {
+          title: "DST-SERB Core Research Grant",
+          agency: "Department of Science and Technology, Govt. of India",
+          amount: "₹45,00,000",
+          duration: "3 Years",
+          scope: "Supports fundamental research in science, technology, and advanced AI frameworks.",
+          status: "Applications Open"
+        },
+        {
+          title: "ScholarSync Corporate Innovation Fellowship",
+          agency: "Kizen Tech Corp",
+          amount: "₹8,00,000 / Year + Stipend",
+          duration: "Ongoing",
+          scope: "Awarded to elite scholars focusing on industrial automation and cloud-native database orchestration.",
+          status: "Actively Reviewing"
+        },
+        {
+          title: "Global Green-Tech Council Research Grant",
+          agency: "Global Green-Tech Alliance",
+          amount: "$120,000",
+          duration: "2 Years",
+          scope: "Granted to breakthrough green chemistry, solar conversion, and environmental recycling concepts.",
+          status: "Call Ends July 2026"
+        }
+      ];
+      await FundingOpportunity.insertMany(fundingToSeed);
+      console.log('💰 Auto-seeded default funding opportunities.');
+    }
+    const eventCount = await Event.countDocuments();
+    if (eventCount === 0) {
+      const eventsToSeed = [
+        {
+          title: "Annual University Research Symposium & Doctoral Colloquium 2026",
+          date: new Date('2026-06-12T09:30:00'),
+          time: "09:30 AM - 05:30 PM",
+          location: "Auditorium & Virtual Stream",
+          speaker: "Keynote: Dr. Andrew Ng (Co-Founder, Coursera & DeepLearning.AI)",
+          type: "Conference"
+        },
+        {
+          title: "Hands-on Workshop: Scalable Machine Learning Pipelines with PyTorch & Ray",
+          date: new Date('2026-06-28T14:00:00'),
+          time: "02:00 PM - 06:00 PM",
+          location: "Data Science Lab-4",
+          speaker: "Conducted by: Elena Rostova & Core AI Faculty",
+          type: "Workshop"
+        }
+      ];
+      await Event.insertMany(eventsToSeed);
+      console.log('📅 Auto-seeded default events.');
+    }
+
+    // Auto-seed default doctoral projects
+    const DoctoralProject = require('./models/DoctoralProject');
+    const projectCount = await DoctoralProject.countDocuments();
+    if (projectCount === 0) {
+      const projectsToSeed = [
+        {
+          title: "Neural Machine Translation for Low-Resource Languages",
+          department: "Department of Computer Science Engineering",
+          abstract: "Investigating unsupervised pre-training techniques and multilingual adapter modules to improve translation accuracy for regional dialects.",
+          scholarName: "Piyush Sharma",
+          supervisorName: "Dr. Mahinder Singh",
+          status: "Awarded"
+        },
+        {
+          title: "Secure Distributed Ledger Orchestration for Smart Grids",
+          department: "Department of Electrical Engineering",
+          abstract: "Designing consensus mechanisms and lightweight cryptographic architectures for real-time peer-to-peer energy trading in smart grids.",
+          scholarName: "Aditya Verma",
+          supervisorName: "Dr. Rajesh Kumar",
+          status: "Awarded"
+        },
+        {
+          title: "Synthesizing Novel Biocompatible Catalysts for Green Hydrogen Production",
+          department: "Department of Chemistry",
+          abstract: "Leveraging organic co-polymers and transition-metal nanoparticles to construct stable and highly efficient water-splitting catalysts.",
+          scholarName: "Sneha Patel",
+          supervisorName: "Dr. Anjali Mehta",
+          status: "Awarded"
+        },
+        {
+          title: "Applying Deep Learning to Cancer Genomics and Protein Folding",
+          department: "Department of Data Science and Artificial Intelligence",
+          abstract: "Utilizing transformer architectures and multimodal sequence embeddings to predict protein-protein interaction interfaces and accelerate enzyme design.",
+          scholarName: "Rohan Das",
+          supervisorName: "Dr. Vikram Malhotra",
+          status: "Awarded"
+        }
+      ];
+      await DoctoralProject.insertMany(projectsToSeed);
+      console.log('🎓 Auto-seeded default doctoral projects.');
+    }
+
+    // Auto-seed default collaboration calls
+    const CollaborationCall = require('./models/CollaborationCall');
+    const callCount = await CollaborationCall.countDocuments();
+    if (callCount === 0) {
+      const callsToSeed = [
+        {
+          title: "Call for Industry Mentors: AI in Agriculture",
+          description: "Department of Computer Science is seeking domain partners to guide Ph.D. scholars on crop disease detection frameworks.",
+          type: "Industry Partner",
+          department: "Department of Computer Science",
+          status: "Active"
+        },
+        {
+          title: "Inter-Dept Initiative: Materials Science & Physics",
+          description: "Joint grant proposal for high-energy battery substrates. Seeking specialized mathematical modelers.",
+          type: "Inter-Departmental",
+          department: "Department of Physics",
+          status: "Active"
+        }
+      ];
+      await CollaborationCall.insertMany(callsToSeed);
+      console.log('📢 Auto-seeded default collaboration calls.');
+    }
   } catch (err) {
-    console.error('❌ Error during startup auto-seeding:', err);
+    console.error('❌ Error during auto-seeding:', err);
   }
 });
 
@@ -129,6 +304,8 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/publications', publicationRoutes);
 app.use('/api/meetings', meetingRoutes);
 app.use('/api/additional-documents', additionalDocumentRoutes);
+app.use('/api/public', publicRoutes);
+app.use('/api/config', adminConfigRoutes);
 
 // -------------------------------------------------------------
 // SYSTEM UTILITY ROUTES (/clear-all & /seed)
