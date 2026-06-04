@@ -128,16 +128,17 @@ const MilestoneTimeline = ({ thesis, milestones = [] }) => {
       const step2Revision = synopsis?.status === 'REVISION_REQUIRED';
       const step2Submitted = synopsis?.status === 'SUBMITTED';
 
-      const activeDrc = drcMeetings.find(m => m.status === 'SCHEDULED');
-      const drcApproved = drcMeetings.some(m => m.status === 'APPROVED');
-      const drcRevision = drcMeetings.some(m => m.status === 'REVISION_REQUIRED');
+      const latestDrc = drcMeetings[0];
+      const activeDrc = latestDrc?.status === 'SCHEDULED' ? latestDrc : null;
+      const drcApproved = latestDrc?.status === 'APPROVED';
+      const drcRevision = latestDrc?.status === 'REVISION_REQUIRED';
 
       const step3Scheduled = drcMeetings.length > 0;
       const step3AwaitingSchedule = step2Approved && !step3Scheduled;
 
       const step4Approved = drcApproved;
       const step4Revision = drcRevision;
-      const step4Scheduled = activeDrc && !drcApproved && !drcRevision;
+      const step4Scheduled = !!activeDrc;
 
       const subSteps = [
         {
@@ -905,7 +906,7 @@ const SynopsisPhase = ({ thesis, milestones, onSubmit }) => {
                   </div>
                 ) : (
                   drcMeetings.map(drc => (
-                    <div key={drc._id} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 8, padding: 12 }}>
+                    <div key={drc._id} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 8, padding: 12, marginBottom: 12 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                         <span style={{ fontWeight: 600, fontSize: '0.85rem', color: '#0F172A' }}>DRC Session Schedule</span>
                         <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: '0.7rem', fontWeight: 700, background: drc.status === 'APPROVED' ? '#D1FAE5' : drc.status === 'REVISION_REQUIRED' ? '#FEE2E2' : '#FEF3C7', color: drc.status === 'APPROVED' ? '#065F46' : drc.status === 'REVISION_REQUIRED' ? '#991B1B' : '#92400E' }}>

@@ -1459,7 +1459,7 @@ const ScholarDetail = ({ thesisId, onClose, onAction }) => {
                         <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 16, borderRadius: 12 }}>
                           <div style={{ fontWeight: 800, fontSize: '0.85rem', color: '#334155', marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span>📆 DRC Meetings Status Desk</span>
-                            {drcMeetings.length === 0 && !showDrcSchedule && (
+                            {!drcMeetings.some(m => m.status === 'SCHEDULED') && !showDrcSchedule && (
                               <button type="button" className="btn-primary" onClick={() => setShowDrcSchedule(true)} style={{ padding: '5px 12px', fontSize: '0.75rem', background: '#3B82F6' }}>+ Schedule Meeting</button>
                             )}
                           </div>
