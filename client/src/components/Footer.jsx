@@ -54,8 +54,9 @@ const Footer = () => {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span>© {new Date().getFullYear()} ScholarSync Doctoral Lifecycle & Research Portal. All rights reserved.</span>
-          <a href="https://scholarsync-gj91.onrender.com/seed" target="_blank" rel="noreferrer" title="Seed Database" style={{ color: 'inherit', opacity: 0.15, textDecoration: 'none', fontSize: '0.7rem', transition: 'opacity 0.2s' }} onMouseOver={e => e.currentTarget.style.opacity = 0.8} onMouseOut={e => e.currentTarget.style.opacity = 0.15}>🌱</a>
-          <a href="https://scholarsync-gj91.onrender.com/clear-all" target="_blank" rel="noreferrer" title="Reset Database" style={{ color: 'inherit', opacity: 0.15, textDecoration: 'none', fontSize: '0.7rem', transition: 'opacity 0.2s' }} onMouseOver={e => e.currentTarget.style.opacity = 0.8} onMouseOut={e => e.currentTarget.style.opacity = 0.15}>🧹</a>
+          <a href="/seed" target="_blank" rel="noreferrer" title="Seed Database" style={{ color: 'inherit', opacity: 0.15, textDecoration: 'none', fontSize: '0.7rem', transition: 'opacity 0.2s' }} onMouseOver={e => e.currentTarget.style.opacity = 0.8} onMouseOut={e => e.currentTarget.style.opacity = 0.15}>🌱</a>
+          <a href="/seed-users" target="_blank" rel="noreferrer" title="Seed User Data" style={{ color: 'inherit', opacity: 0.15, textDecoration: 'none', fontSize: '0.7rem', transition: 'opacity 0.2s' }} onMouseOver={e => e.currentTarget.style.opacity = 0.8} onMouseOut={e => e.currentTarget.style.opacity = 0.15}>👥</a>
+          <a href="/clear-all" target="_blank" rel="noreferrer" title="Reset Database" style={{ color: 'inherit', opacity: 0.15, textDecoration: 'none', fontSize: '0.7rem', transition: 'opacity 0.2s' }} onMouseOver={e => e.currentTarget.style.opacity = 0.8} onMouseOut={e => e.currentTarget.style.opacity = 0.15}>🧹</a>
         </div>
         <div style={{ fontWeight: 500, fontSize: '0.82rem', color: '#4B5563' }}>
           Designed and Developed by - <span style={{ color: '#133A26', fontWeight: 700 }}>Ayush Sood</span>

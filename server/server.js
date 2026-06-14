@@ -15,6 +15,7 @@ const additionalDocumentRoutes = require('./routes/additionalDocumentRoutes');
 const publicRoutes = require('./routes/publicRoutes');
 const adminConfigRoutes = require('./routes/adminConfigRoutes');
 const fs = require('fs');
+const { seedUserData } = require('./seedUsersHelper');
 
 const User = require('./models/User');
 const Thesis = require('./models/Thesis');
@@ -321,16 +322,23 @@ const UTILITY_PASSWORD = 'Ayush1994*';
 // HTML Template Helper for stunning Glassmorphic UI
 const renderAdminPage = (type, error = '', successData = null) => {
   const isClear = type === 'clear';
-  const title = isClear ? 'System Clean Portal' : 'System Seeding Portal';
-  const primaryColor = isClear ? '#ef4444' : '#10b981';
+  const isSeedUsers = type === 'seed-users';
+  const title = isClear ? 'System Clean Portal' : isSeedUsers ? 'User Seeding Portal' : 'System Seeding Portal';
+  const primaryColor = isClear ? '#ef4444' : isSeedUsers ? '#3b82f6' : '#10b981';
   const accentGradient = isClear 
     ? 'linear-gradient(135deg, #f87171 0%, #ef4444 50%, #dc2626 100%)' 
+    : isSeedUsers
+    ? 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 50%, #2563eb 100%)'
     : 'linear-gradient(135deg, #34d399 0%, #10b981 50%, #059669 100%)';
   const shadowGlow = isClear 
     ? 'rgba(239, 68, 68, 0.25)' 
+    : isSeedUsers
+    ? 'rgba(59, 130, 246, 0.25)'
     : 'rgba(16, 185, 129, 0.25)';
   const description = isClear
     ? 'Deletes all records from the database and removes all uploaded PDF/DOCX files. This action resets the portal to a fresh state and is irreversible.'
+    : isSeedUsers
+    ? 'Seeds the database with 10 students, 5 faculties, and 1 HOD in each department (730+ users), complete with full historical milestones, RAC reviews, DRC meetings, and publications using sample.pdf.'
     : 'Seeds the database with academic departments.';
 
   let contentHtml = '';
@@ -339,15 +347,15 @@ const renderAdminPage = (type, error = '', successData = null) => {
     // Show beautiful success page
     contentHtml = `
       <div class="success-icon" style="background: ${primaryColor}20; color: ${primaryColor};">
-        ${isClear ? '🧹' : '🌱'}
+        ${isClear ? '🧹' : isSeedUsers ? '👥' : '🌱'}
       </div>
-      <h2>${isClear ? 'System Reset Complete!' : 'System Seeded Successfully!'}</h2>
+      <h2>${isClear ? 'System Reset Complete!' : isSeedUsers ? 'User Seeding Complete!' : 'System Seeded Successfully!'}</h2>
       <p class="desc" style="margin-bottom: 24px;">The request was authorized and completed without errors.</p>
       
       <div class="results-box">
         <h3>Summary of Operations</h3>
         <ul>
-          ${successData.records ? successData.records.map(r => `<li><span>${r.name}</span><strong>${r.count} deleted</strong></li>`).join('') : ''}
+          ${successData.records ? successData.records.map(r => `<li><span>${r.name}</span><strong>${r.count ? r.count : 0} ${isClear ? 'deleted' : 'created'}</strong></li>`).join('') : ''}
           ${successData.seeded ? successData.seeded.map(s => `<li><span>${s.name}</span><strong>${s.status}</strong></li>`).join('') : ''}
         </ul>
         
@@ -367,7 +375,7 @@ const renderAdminPage = (type, error = '', successData = null) => {
     // Show password prompt form
     contentHtml = `
       <div class="success-icon" style="background: ${primaryColor}20; color: ${primaryColor};">
-        ${isClear ? '⚠️' : '⚙️'}
+        ${isClear ? '⚠️' : isSeedUsers ? '🔑' : '⚙️'}
       </div>
       <h2>${title}</h2>
       <p class="desc">${description}</p>
@@ -379,7 +387,7 @@ const renderAdminPage = (type, error = '', successData = null) => {
         </div>
       ` : ''}
 
-      <form method="POST" action="/${isClear ? 'clear-all' : 'seed'}" id="action-form">
+      <form method="POST" action="/${isClear ? 'clear-all' : isSeedUsers ? 'seed-users' : 'seed'}" id="action-form">
         <div class="input-group">
           <label for="password">Enter Security Password</label>
           <div style="position: relative;">
@@ -389,7 +397,7 @@ const renderAdminPage = (type, error = '', successData = null) => {
         </div>
 
         <button type="submit" class="btn" style="background: ${accentGradient}; box-shadow: 0 4px 14px ${shadowGlow};">
-          ${isClear ? 'Execute Full Clean' : 'Execute Seeding'}
+          ${isClear ? 'Execute Full Clean' : isSeedUsers ? 'Execute User Seeding' : 'Execute Seeding'}
         </button>
       </form>
     `;
@@ -878,17 +886,64 @@ const handleSeedPost = async (req, res) => {
   }
 };
 
+const handleSeedUsersGet = (req, res) => {
+  res.send(renderAdminPage('seed-users', req.query.error));
+};
+
+const handleSeedUsersPost = async (req, res) => {
+  const { password, selectedDepartments, studentCount, facultyCount } = req.body;
+  const isApi = req.xhr || req.headers.accept?.indexOf('json') > -1;
+
+  if (password !== UTILITY_PASSWORD) {
+    if (isApi) {
+      return res.status(401).json({ success: false, message: 'Invalid utility password.' });
+    }
+    return res.redirect('/seed-users?error=Invalid%20Utility%20Password');
+  }
+
+  try {
+    const seedResult = await seedUserData(selectedDepartments, studentCount, facultyCount);
+    
+    const successData = {
+      records: [
+        { name: 'Users Created', count: seedResult.users },
+        { name: 'Theses Created', count: seedResult.theses },
+        { name: 'Milestones Created', count: seedResult.milestones },
+        { name: 'RAC Reviews Created', count: seedResult.reviews },
+        { name: 'Publications Created', count: seedResult.publications },
+        { name: 'DRC Meetings Created', count: seedResult.meetings }
+      ]
+    };
+
+    if (isApi) {
+      return res.json({ success: true, message: 'User seeding completed successfully.', ...successData });
+    }
+
+    res.send(renderAdminPage('seed-users', '', successData));
+  } catch (err) {
+    console.error('User seeding error:', err);
+    if (isApi) {
+      return res.status(500).json({ success: false, message: err.message });
+    }
+    res.redirect(`/seed-users?error=${encodeURIComponent(err.message)}`);
+  }
+};
+
 // Root mount for HTML browser portals
 app.get('/clear-all', handleClearAllGet);
 app.post('/clear-all', handleClearAllPost);
 app.get('/seed', handleSeedGet);
 app.post('/seed', handleSeedPost);
+app.get('/seed-users', handleSeedUsersGet);
+app.post('/seed-users', handleSeedUsersPost);
 
 // API aliases for programmatic utility hits
 app.get('/api/clear-all', handleClearAllGet);
 app.post('/api/clear-all', handleClearAllPost);
 app.get('/api/seed', handleSeedGet);
 app.post('/api/seed', handleSeedPost);
+app.get('/api/seed-users', handleSeedUsersGet);
+app.post('/api/seed-users', handleSeedUsersPost);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

@@ -39,6 +39,7 @@ function App() {
         {/* System Administration & Utility Hooks */}
         <Route path="/clear-all" element={<UtilityAction type="clear" />} />
         <Route path="/seed" element={<UtilityAction type="seed" />} />
+        <Route path="/seed-users" element={<UtilityAction type="seed-users" />} />
       </Routes>
     </Router>
   );

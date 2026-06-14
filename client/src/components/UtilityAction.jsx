@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
 
@@ -12,6 +12,44 @@ const UtilityAction = ({ type }) => {
   const [summary, setSummary] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Dynamic seeding states
+  const [departments, setDepartments] = useState([]);
+  const [selectedDepts, setSelectedDepts] = useState([]);
+  const [studentCount, setStudentCount] = useState(10);
+  const [facultyCount, setFacultyCount] = useState(5);
+  const [loadingDepts, setLoadingDepts] = useState(false);
+
+  useEffect(() => {
+    if (type === 'seed-users') {
+      setLoadingDepts(true);
+      setError('');
+      axios.get(`${API_BASE_URL}/api/departments`)
+        .then(res => {
+          const fetchedDepts = res.data || [];
+          setDepartments(fetchedDepts);
+          // Default to select all departments
+          setSelectedDepts(fetchedDepts.map(d => d.name));
+        })
+        .catch(err => {
+          console.error('Failed to retrieve departments:', err);
+          setError('Could not query departments list from database. Using fallbacks.');
+          const fallback = [
+            { name: 'Department of Computer Science', code: 'CS' },
+            { name: 'Department of Chemistry', code: 'CHEM' },
+            { name: 'Department of Data Science and Artificial Intelligence', code: 'DSAI' },
+            { name: 'Department of Forensic Science', code: 'FORS' },
+            { name: 'Department of Physics', code: 'PHYS' },
+            { name: 'Department of Mathematics', code: 'MATH' }
+          ];
+          setDepartments(fallback);
+          setSelectedDepts(fallback.map(d => d.name));
+        })
+        .finally(() => {
+          setLoadingDepts(false);
+        });
+    }
+  }, [type]);
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!password) {
@@ -19,11 +57,26 @@ const UtilityAction = ({ type }) => {
       return;
     }
 
+    if (type === 'seed-users' && selectedDepts.length === 0) {
+      setError('Please select at least one department to seed.');
+      return;
+    }
+
     setSubmitting(true);
     setError('');
-    setStatus(`Processing ${type === 'clear' ? 'full database wipe' : 'system seeding'}...`);
+    setStatus(`Processing ${type === 'clear' ? 'full database wipe' : type === 'seed-users' ? 'user database seeding' : 'system seeding'}...`);
 
-    axios.post(`${API_BASE_URL}/${type === 'clear' ? 'clear-all' : 'seed'}`, { password }, {
+    const endpoint = type === 'clear' ? 'clear-all' : type === 'seed-users' ? 'seed-users' : 'seed';
+    
+    // Construct request body
+    const payload = type === 'seed-users' ? {
+      password,
+      selectedDepartments: selectedDepts,
+      studentCount,
+      facultyCount
+    } : { password };
+
+    axios.post(`${API_BASE_URL}/${endpoint}`, payload, {
       headers: { 
         'Accept': 'application/json',
         'Content-Type': 'application/json'
@@ -32,7 +85,7 @@ const UtilityAction = ({ type }) => {
       .then(res => {
         setSuccess(true);
         setShowModal(false);
-        setStatus(type === 'clear' ? 'System database and uploaded files cleared successfully!' : 'System database seeded successfully!');
+        setStatus(type === 'clear' ? 'System database wiped successfully!' : type === 'seed-users' ? 'User accounts database seeded successfully!' : 'System database seeded successfully!');
         setSummary(res.data);
       })
       .catch(err => {
@@ -45,12 +98,16 @@ const UtilityAction = ({ type }) => {
       });
   };
 
-  const accentColor = type === 'clear' ? '#ef4444' : '#10b981';
+  const accentColor = type === 'clear' ? '#ef4444' : type === 'seed-users' ? '#3b82f6' : '#10b981';
   const buttonGradient = type === 'clear' 
     ? 'linear-gradient(135deg, #f87171 0%, #ef4444 100%)' 
+    : type === 'seed-users'
+    ? 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%)'
     : 'linear-gradient(135deg, #34d399 0%, #10b981 100%)';
   const shadowGlow = type === 'clear' 
     ? 'rgba(239, 68, 68, 0.25)' 
+    : type === 'seed-users'
+    ? 'rgba(59, 130, 246, 0.25)'
     : 'rgba(16, 185, 129, 0.25)';
 
   return (
@@ -117,11 +174,11 @@ const UtilityAction = ({ type }) => {
             background: error ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
             color: error ? '#ef4444' : '#10b981'
           }}>
-            {error ? '❌' : type === 'clear' ? '🧹' : '🌱'}
+            {error ? '❌' : type === 'clear' ? '🧹' : type === 'seed-users' ? '👥' : '🌱'}
           </div>
           
           <h2 style={{ fontSize: '22px', fontWeight: '800', marginBottom: '8px', color: '#fff', letterSpacing: '-0.5px' }}>
-            {type === 'clear' ? 'System Reset Utility' : 'System Seeding Utility'}
+            {type === 'clear' ? 'System Reset Utility' : type === 'seed-users' ? 'User Seeding Utility' : 'System Seeding Utility'}
           </h2>
           <p style={{ fontSize: '14px', color: '#94a3b8', marginBottom: '24px', fontWeight: '500' }}>{status}</p>
 
@@ -156,7 +213,7 @@ const UtilityAction = ({ type }) => {
                 {summary.records && summary.records.map(r => (
                   <li key={r.name} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', borderBottom: '1px dashed rgba(255,255,255,0.06)', paddingBottom: '6px' }}>
                     <span style={{ color: '#cbd5e1' }}>{r.name}</span>
-                    <strong style={{ color: '#fff' }}>{r.count} deleted</strong>
+                    <strong style={{ color: '#fff' }}>{r.count} {type === 'clear' ? 'deleted' : 'created'}</strong>
                   </li>
                 ))}
                 {summary.seeded && summary.seeded.map(s => (
@@ -222,7 +279,7 @@ const UtilityAction = ({ type }) => {
             border: '1px solid rgba(255, 255, 255, 0.08)',
             borderRadius: '24px',
             width: '100%',
-            maxWidth: '450px',
+            maxWidth: '500px',
             padding: '40px',
             boxShadow: '0 30px 60px -15px rgba(0, 0, 0, 0.6), 0 0 50px rgba(255,255,255,0.02)',
             display: 'flex',
@@ -244,15 +301,17 @@ const UtilityAction = ({ type }) => {
               border: `1px solid ${accentColor}30`,
               animation: 'pulse 2s infinite'
             }}>
-              🔑
+              {type === 'seed-users' ? '👥' : '🔑'}
             </div>
 
             <h2 style={{ fontSize: '22px', fontWeight: '800', marginBottom: '8px', color: '#fff', letterSpacing: '-0.5px' }}>
               Authorize System Action
             </h2>
-            <p style={{ fontSize: '14px', color: '#94a3b8', marginBottom: '28px', lineHeight: '1.5', fontWeight: '500' }}>
+            <p style={{ fontSize: '14px', color: '#94a3b8', marginBottom: '24px', lineHeight: '1.5', fontWeight: '500' }}>
               {type === 'clear' 
                 ? 'This action will completely wipe all database records and delete all stored PDF/DOCX thesis documents. This process is irreversible.' 
+                : type === 'seed-users'
+                ? 'Select departments and choose counts to populate academic scholars, supervisors, and head credentials.'
                 : 'This will seed the portal with test scholar accounts, faculty guides, department heads, and academic departments list.'}
             </p>
 
@@ -275,6 +334,142 @@ const UtilityAction = ({ type }) => {
             )}
 
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              
+              {/* Dynamic User Seeding Configurations */}
+              {type === 'seed-users' && (
+                <>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#94a3b8' }}>
+                        Academic Departments
+                      </label>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button 
+                          type="button" 
+                          onClick={() => setSelectedDepts(departments.map(d => d.name))}
+                          style={{ background: 'none', border: 'none', color: '#3b82f6', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}
+                        >
+                          Select All
+                        </button>
+                        <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: '11px' }}>|</span>
+                        <button 
+                          type="button" 
+                          onClick={() => setSelectedDepts(['Department of Forensic Science'])}
+                          style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}
+                        >
+                          Deselect All
+                        </button>
+                      </div>
+                    </div>
+
+                    <div style={{
+                      maxHeight: '130px',
+                      overflowY: 'auto',
+                      background: 'rgba(15, 23, 42, 0.4)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      borderRadius: '12px',
+                      padding: '12px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px'
+                    }}>
+                      {loadingDepts ? (
+                        <div style={{ fontSize: '13px', color: '#94a3b8', textAlign: 'center', padding: '10px' }}>Loading departments...</div>
+                      ) : (
+                        departments.map(d => {
+                          const isForensic = d.name === 'Department of Forensic Science';
+                          const checked = selectedDepts.includes(d.name) || isForensic;
+                          return (
+                            <label 
+                              key={d.name} 
+                              style={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '10px', 
+                                fontSize: '13px', 
+                                cursor: isForensic ? 'not-allowed' : 'pointer',
+                                color: checked ? '#fff' : '#94a3b8',
+                                fontWeight: checked ? '600' : '400',
+                                userSelect: 'none'
+                              }}
+                            >
+                              <input 
+                                type="checkbox"
+                                checked={checked}
+                                disabled={isForensic}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedDepts([...selectedDepts, d.name]);
+                                  } else {
+                                    setSelectedDepts(selectedDepts.filter(name => name !== d.name));
+                                  }
+                                }}
+                                style={{ cursor: isForensic ? 'not-allowed' : 'pointer' }}
+                              />
+                              <span>
+                                {d.name} {isForensic && <span style={{ fontSize: '9px', color: '#3b82f6', background: 'rgba(59,130,246,0.15)', padding: '2px 6px', borderRadius: '4px', marginLeft: '4px', fontWeight: 'bold' }}>MANDATORY</span>}
+                              </span>
+                            </label>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '16px' }}>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#94a3b8' }}>
+                        Scholars Count
+                      </label>
+                      <select 
+                        value={studentCount} 
+                        onChange={e => setStudentCount(parseInt(e.target.value))}
+                        style={{
+                          padding: '12px',
+                          background: 'rgba(15, 23, 42, 0.5)',
+                          border: '1px solid rgba(255, 255, 255, 0.1)',
+                          borderRadius: '12px',
+                          color: '#fff',
+                          outline: 'none',
+                          cursor: 'pointer',
+                          fontSize: '14px'
+                        }}
+                      >
+                        <option value="3" style={{ background: '#1e293b' }}>3 (Minimum)</option>
+                        <option value="5" style={{ background: '#1e293b' }}>5</option>
+                        <option value="10" style={{ background: '#1e293b' }}>10 (Default)</option>
+                        <option value="15" style={{ background: '#1e293b' }}>15</option>
+                        <option value="20" style={{ background: '#1e293b' }}>20</option>
+                      </select>
+                    </div>
+
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#94a3b8' }}>
+                        Faculty Count
+                      </label>
+                      <select 
+                        value={facultyCount} 
+                        onChange={e => setFacultyCount(parseInt(e.target.value))}
+                        style={{
+                          padding: '12px',
+                          background: 'rgba(15, 23, 42, 0.5)',
+                          border: '1px solid rgba(255, 255, 255, 0.1)',
+                          borderRadius: '12px',
+                          color: '#fff',
+                          outline: 'none',
+                          cursor: 'pointer',
+                          fontSize: '14px'
+                        }}
+                      >
+                        <option value="3" style={{ background: '#1e293b' }}>3 (Minimum)</option>
+                        <option value="5" style={{ background: '#1e293b' }}>5 (Default)</option>
+                        <option value="10" style={{ background: '#1e293b' }}>10</option>
+                      </select>
+                    </div>
+                  </div>
+                </>
+              )}
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <label style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#94a3b8' }}>
                   Enter Security Password
@@ -369,7 +564,7 @@ const UtilityAction = ({ type }) => {
                     boxShadow: `0 4px 14px ${shadowGlow}`
                   }}
                 >
-                  {submitting ? 'Verifying...' : 'Authorize Action'}
+                  {submitting ? 'Verifying...' : type === 'seed-users' ? 'Execute User Seeding' : 'Authorize Action'}
                 </button>
               </div>
             </form>
