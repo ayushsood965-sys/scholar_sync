@@ -1,7 +1,7 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Home, FileText, Users, Calendar, User, LogOut, Bell, CheckCircle2, XCircle, Layers, Award, Upload, ShieldCheck, Edit, AlertTriangle, Plus, Settings } from 'lucide-react';
+import { Home, FileText, Users, Calendar, User, LogOut, Bell, CheckCircle2, XCircle, Layers, Award, Upload, ShieldCheck, Edit, AlertTriangle, Plus, Settings, Search } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE_URL, API_URL } from '../config';
 
@@ -16,6 +16,8 @@ import NotificationPanel from '../components/NotificationPanel';
 import ThemeToggle from '../components/ThemeToggle';
 import UnifiedScholarModal from '../components/UnifiedScholarModal';
 import PublicConfigTab from '../components/PublicConfigTab';
+import DetailedReportsTab from '../components/DetailedReportsTab';
+import ScholarSearchTab from '../components/ScholarSearchTab';
 
 const Sidebar = ({ activeTab, setActiveTab, subRole, isVerified }) => {
   const { logout } = useContext(AuthContext);
@@ -27,6 +29,8 @@ const Sidebar = ({ activeTab, setActiveTab, subRole, isVerified }) => {
     { key: 'meetings', label: 'Guidance Meetings', Icon: Calendar },
     { key: 'reviews', label: 'Pending Reviews', Icon: FileText },
     { key: 'defaulters', label: 'Defaulter Scholars', Icon: AlertTriangle },
+    { key: 'scholar_search', label: 'Search Scholars', Icon: Search },
+    { key: 'detailed_reports', label: 'Detailed Reports', Icon: FileText },
     { key: 'public_config', label: 'Public Portal Config', Icon: Settings },
   ];
   const hodItems = [
@@ -37,6 +41,8 @@ const Sidebar = ({ activeTab, setActiveTab, subRole, isVerified }) => {
     { key: 'meetings', label: 'Guidance Meetings', Icon: Calendar },
     { key: 'requests', label: 'Change Requests', Icon: Edit },
     { key: 'defaulters', label: 'Defaulter Scholars', Icon: AlertTriangle },
+    { key: 'scholar_search', label: 'Search Scholars', Icon: Search },
+    { key: 'detailed_reports', label: 'Detailed Reports', Icon: FileText },
     { key: 'public_config', label: 'Public Portal Config', Icon: Settings },
   ];
   const items = subRole === 'HOD' ? hodItems : supervisorItems;
@@ -44,11 +50,7 @@ const Sidebar = ({ activeTab, setActiveTab, subRole, isVerified }) => {
     <div className="sidebar">
       <div className="sidebar-logo">
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/>
-            <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/>
-            <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>
-          </svg>
+          <img src="/hpu_logo.png" alt="HPU Logo" style={{ width: 42, height: 42, objectFit: 'contain' }} />
         </div>
         <h2>ScholarHub</h2>
         {subRole && <div style={{ textAlign: 'center', fontSize: '0.7rem', background: subRole === 'HOD' ? '#FEF3C7' : '#DBEAFE', color: subRole === 'HOD' ? '#D97706' : '#1D4ED8', borderRadius: 6, padding: '2px 8px', margin: '4px auto', width: 'fit-content' }}>{subRole}</div>}
@@ -4024,7 +4026,7 @@ const FacultyDashboard = () => {
     if (subRole === 'HOD') fetchDeptTheses(); else fetchAssignedTheses();
   };
 
-  const titles = { overview: 'Faculty Dashboard', registrations: 'Registration Requests', scholars: 'My Scholars', reviews: 'Pending Reviews', dept: 'Department Scholars', meetings: 'Guidance Consultations & Meetings', requests: 'Student Change Requests Desk', profile: 'My Profile', defaulters: 'Progress Report Defaulters', public_config: 'Public Portal Config' };
+  const titles = { overview: 'Faculty Dashboard', registrations: 'Registration Requests', scholars: 'My Scholars', reviews: 'Pending Reviews', dept: 'Department Scholars', meetings: 'Guidance Consultations & Meetings', requests: 'Student Change Requests Desk', profile: 'My Profile', defaulters: 'Progress Report Defaulters', scholar_search: 'Search Scholar Details', detailed_reports: 'Detailed Academic Reports', public_config: 'Public Portal Config' };
 
   const renderContent = () => {
     if (!user?.isVerified) {
@@ -4068,6 +4070,8 @@ const FacultyDashboard = () => {
       case 'requests': return <HODChangeRequestsTab user={user} />;
       case 'defaulters': return <FacultyDefaultersPage user={user} subRole={subRole} />;
       case 'profile': return <ProfileTab />;
+      case 'scholar_search': return <ScholarSearchTab user={user} />;
+      case 'detailed_reports': return <DetailedReportsTab user={user} />;
       case 'public_config': return <PublicConfigTab user={user} />;
       default: return <div className="card"><h3 className="card-title">{titles[activeTab]}</h3><p style={{ color: '#6b7280', marginTop: 8 }}>Content coming soon.</p></div>;
     }

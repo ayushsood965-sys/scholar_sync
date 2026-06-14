@@ -1,7 +1,7 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Home, Users, FileText, BarChart2, Settings, LogOut, Bell, CheckCircle2, User, GraduationCap, ShieldCheck, Clock, XCircle, Layers, Award, Edit, File, Plus, Calendar } from 'lucide-react';
+import { Home, Users, FileText, BarChart2, Settings, LogOut, Bell, CheckCircle2, User, GraduationCap, ShieldCheck, Clock, XCircle, Layers, Award, Edit, File, Plus, Calendar, Search } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import { NotificationContext } from '../context/NotificationContext';
 import { ThesisContext } from '../context/ThesisContext';
@@ -13,6 +13,8 @@ import NotificationPanel from '../components/NotificationPanel';
 import ThemeToggle from '../components/ThemeToggle';
 import UnifiedScholarModal from '../components/UnifiedScholarModal';
 import PublicConfigTab from '../components/PublicConfigTab';
+import DetailedReportsTab from '../components/DetailedReportsTab';
+import ScholarSearchTab from '../components/ScholarSearchTab';
 
 const API = API_URL;
 const getAuthHeader = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
@@ -4308,6 +4310,8 @@ const Sidebar = ({ activeTab, setActiveTab, isVerified }) => {
     { key: 'profile', label: 'My Profile', Icon: User },
     { key: 'scholars', label: 'Manage Scholars', Icon: GraduationCap },
     ...(user?.role === 'HOD' ? [{ key: 'meetings', label: 'Guidance Meetings', Icon: Calendar }] : []),
+    ...(user?.role === 'HOD' || user?.role === 'ADMIN' ? [{ key: 'scholar_search', label: 'Search Scholars', Icon: Search }] : []),
+    ...(user?.role === 'HOD' ? [{ key: 'detailed_reports', label: 'Detailed Reports', Icon: FileText }] : []),
     ...(user?.role === 'ADMIN' ? [{ key: 'global_transfers', label: 'Global Transfers', Icon: Layers }] : []),
     { key: 'defaulters', label: 'Defaulter Tracking', Icon: Clock },
     { key: 'requests', label: 'Change Requests', Icon: Edit },
@@ -4319,11 +4323,7 @@ const Sidebar = ({ activeTab, setActiveTab, isVerified }) => {
     <div className="sidebar">
       <div className="sidebar-logo">
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/>
-            <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/>
-            <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>
-          </svg>
+          <img src="/hpu_logo.png" alt="HPU Logo" style={{ width: 42, height: 42, objectFit: 'contain' }} />
         </div>
         <h2>ScholarHub</h2>
       </div>
@@ -4672,6 +4672,8 @@ const AdminDashboard = () => {
     profile: 'My Profile', 
     evaluation: 'External Evaluation', 
     defaulters: 'Progress Report Defaulter Tracking',
+    scholar_search: 'Search Scholar Details',
+    detailed_reports: 'Detailed Academic Reports',
     public_config: 'Public Portal Config'
   };
 
@@ -4717,6 +4719,8 @@ const AdminDashboard = () => {
       case 'defaulters': return <DefaultersTab />;
       case 'profile': return <ProfileTab />;
       case 'evaluation': return <ExternalEvaluation theses={allTheses} onAuditLog={(id, action, note) => handleAction(id, 'audit', { action, note })} />;
+      case 'scholar_search': return <ScholarSearchTab user={user} />;
+      case 'detailed_reports': return <DetailedReportsTab user={user} />;
       case 'public_config': return <PublicConfigTab user={user} />;
       default: return <div className="card"><h3 className="card-title">{titles[activeTab]}</h3><p style={{ color: '#6b7280', marginTop: 8 }}>Content coming soon.</p></div>;
     }

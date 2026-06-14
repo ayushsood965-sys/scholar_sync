@@ -107,10 +107,10 @@ const getThesisById = async (req, res) => {
       .populate('supervisorId', 'name username subRole department');
     if (!thesis) return res.status(404).json({ message: 'Thesis not found' });
 
-    // HOD department check
-    if (req.user.role === 'HOD' && thesis.department !== req.user.department) {
-      return res.status(403).json({ message: 'Not authorized to view theses outside your department' });
-    }
+    // HOD department check bypassed for read-only global search viewing
+    // if (req.user.role === 'HOD' && thesis.department !== req.user.department) {
+    //   return res.status(403).json({ message: 'Not authorized to view theses outside your department' });
+    // }
 
     const milestones = await Milestone.find({ thesisId: thesis._id }).sort('sequence createdAt');
     res.json({ thesis, milestones });
@@ -905,9 +905,38 @@ const forcePreSubmission = async (req, res) => {
   }
 };
 
+// GET /api/thesis/search/global — HOD & Faculty search scholars across all departments
+const searchGlobalTheses = async (req, res) => {
+  try {
+    const { enrollmentNumber, department } = req.query;
+    if (!enrollmentNumber && !department) {
+      return res.status(400).json({ message: 'Please provide search criteria: registration/enrollment number or department.' });
+    }
+
+    const filter = {};
+    if (enrollmentNumber) {
+      filter.enrollmentNumber = { $regex: new RegExp(enrollmentNumber.trim(), 'i') };
+    }
+    if (department) {
+      filter.department = department;
+    }
+
+    const theses = await Thesis.find(filter)
+      .populate('scholarId', 'name username email profile profileCompleted department')
+      .populate('supervisorId', 'name username subRole department')
+      .sort('-createdAt');
+
+    const augmented = await augmentThesesWithMilestones(theses);
+    res.json(augmented);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 module.exports = {
   createThesis, getMyThesis, getAllTheses, getThesisById,
   verifyEnrollment, assignSupervisor, clearCoursework, awardDegree, updateAuditLog,
   getAssignedTheses, getDeptTheses, drcApprove, scheduleSeminar, seminarClear, finalApprove,
-  dispatchThesis, scheduleViva, recordViva, transferThesis, forcePreSubmission
+  dispatchThesis, scheduleViva, recordViva, transferThesis, forcePreSubmission,
+  searchGlobalTheses
 };

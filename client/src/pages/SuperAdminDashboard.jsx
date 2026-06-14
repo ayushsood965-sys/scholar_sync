@@ -227,11 +227,7 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
     <div className="sidebar" style={{ background: '#0f172a', borderRight: '1px solid #1e293b' }}>
       <div className="sidebar-logo">
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-            <circle cx="12" cy="11" r="3"/>
-            <path d="m9 17 3-3 3 3"/>
-          </svg>
+          <img src="/hpu_logo.png" alt="HPU Logo" style={{ width: 42, height: 42, objectFit: 'contain' }} />
         </div>
         <h2 style={{ color: '#f8fafc', letterSpacing: '0.05em' }}>SYSTEM ROOT</h2>
       </div>

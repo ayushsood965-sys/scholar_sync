@@ -47,7 +47,7 @@ const Login = () => {
             <div className="login-preloader-glow"></div>
             <div className="login-preloader-ring-wrapper">
               <div className="login-preloader-ring"></div>
-              <img src="/favicon.svg" alt="ScholarSync Logo" className="login-preloader-logo" />
+              <img src="/hpu_logo.png" alt="ScholarSync Logo" className="login-preloader-logo" style={{ objectFit: 'contain' }} />
             </div>
             <div className="login-preloader-text-container">
               <h2 className="login-preloader-title">ScholarSync</h2>

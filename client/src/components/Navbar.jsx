@@ -33,7 +33,7 @@ const Navbar = () => {
   return (
     <nav className="landing-nav">
       <Link to="/" className="landing-logo" style={{ textDecoration: 'none' }}>
-        <img src="/favicon.svg" alt="ScholarSync Logo" width="24" height="24" />
+        <img src="/hpu_logo.png" alt="ScholarSync Logo" width="28" height="28" style={{ objectFit: 'contain' }} />
         <span className="logo-text">ScholarSync</span>
       </Link>
       <div className="nav-links">

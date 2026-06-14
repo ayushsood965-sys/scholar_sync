@@ -5,7 +5,8 @@ const {
   createThesis, getMyThesis, getAllTheses, getThesisById,
   verifyEnrollment, assignSupervisor, clearCoursework, awardDegree, updateAuditLog,
   getAssignedTheses, getDeptTheses, drcApprove, scheduleSeminar, seminarClear, finalApprove,
-  dispatchThesis, scheduleViva, recordViva, transferThesis, forcePreSubmission
+  dispatchThesis, scheduleViva, recordViva, transferThesis, forcePreSubmission,
+  searchGlobalTheses
 } = require('../controllers/thesisController');
 
 // Scholar
@@ -32,6 +33,9 @@ router.put('/:id/drc', protect, authorize('FACULTY'), drcApprove);
 router.put('/:id/schedule-seminar', protect, authorize('FACULTY'), scheduleSeminar);
 router.put('/:id/seminar', protect, authorize('FACULTY'), seminarClear);
 router.put('/:id/final-approve', protect, authorize('FACULTY'), finalApprove);
+
+// Global search cross-department
+router.get('/search/global', protect, authorize('ADMIN', 'HOD', 'FACULTY'), searchGlobalTheses);
 
 // Shared (admin + faculty can view single thesis)
 router.get('/:id', protect, getThesisById);

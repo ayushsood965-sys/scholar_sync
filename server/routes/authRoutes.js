@@ -18,7 +18,7 @@ const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } }); // l
 router.post('/login', login);
 router.post('/register', register);
 router.get('/me', protect, getMe);
-router.get('/faculty', protect, authorize('ADMIN', 'HOD', 'SUPER_ADMIN', 'STUDENT'), getFacultyList);
+router.get('/faculty', protect, authorize('ADMIN', 'HOD', 'SUPER_ADMIN', 'STUDENT', 'FACULTY'), getFacultyList);
 router.put('/profile', protect, updateProfile);
 router.put('/profile/avatar', protect, upload.single('avatar'), uploadAvatar);
 router.put('/profile/document', protect, upload.single('file'), uploadDocument);

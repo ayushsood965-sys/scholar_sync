@@ -264,14 +264,17 @@ const DocEvalModal = ({ doc, onClose, onRefresh }) => {
 // ══════════════════════════════════════════════════════════
 // MAIN: Unified Scholar Modal
 // ══════════════════════════════════════════════════════════
-const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, onReview, onDRC, onSeminar, onFinalApprove, onClearCoursework, onVerify, onAssign, onForcePreSubmission }) => {
+const UnifiedScholarModal = ({ thesis, milestones, subRole: propSubRole, onClose, onRefresh, onReview, onDRC, onSeminar, onFinalApprove, onClearCoursework, onVerify, onAssign, onForcePreSubmission, isReadOnly = false }) => {
   const toast = useToast();
-  const { user } = useContext(AuthContext);
+  const { user: contextUser } = useContext(AuthContext);
   const { transferScholar } = useContext(ThesisContext);
 
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(false);
   const [remarks, setRemarks] = useState({});
+
+  const user = isReadOnly ? { ...contextUser, role: '', _id: '' } : contextUser;
+  const subRole = isReadOnly ? '' : propSubRole;
 
   // Data states
   const [publications, setPublications] = useState([]);
@@ -626,16 +629,16 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
       {/* Quick Actions */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <span style={{ padding: '4px 12px', borderRadius: 12, fontSize: '0.8rem', fontWeight: 600, background: badge.bg, color: badge.color }}>{badge.text}</span>
-        {subRole === 'HOD' && (!thesis.enrollmentVerified || thesis.status === 'REGISTRATION_PENDING') && (
+        {!isReadOnly && subRole === 'HOD' && (!thesis.enrollmentVerified || thesis.status === 'REGISTRATION_PENDING') && (
           <button className="btn-primary" onClick={() => act(onVerify)} disabled={loading} style={{ padding: '5px 14px', fontSize: '0.82rem', background: '#059669' }}>✓ Verify Enrollment</button>
         )}
-        {thesis.status === 'COURSEWORK' && (
+        {!isReadOnly && thesis.status === 'COURSEWORK' && (
           <button className="btn-primary" onClick={() => act(onClearCoursework)} disabled={loading} style={{ padding: '5px 14px', fontSize: '0.82rem', background: '#3B82F6' }}>✓ Clear Coursework</button>
         )}
-        {subRole !== 'HOD' && thesis.status === 'PRE_SUBMISSION' && milestones.find(m => m.type === 'FINAL_SUBMISSION' && (m.status === 'SUBMITTED' || m.status === 'APPROVED')) && (
+        {!isReadOnly && subRole !== 'HOD' && thesis.status === 'PRE_SUBMISSION' && milestones.find(m => m.type === 'FINAL_SUBMISSION' && (m.status === 'SUBMITTED' || m.status === 'APPROVED')) && (
           <button className="btn-primary" onClick={() => act(onFinalApprove)} disabled={loading} style={{ padding: '5px 14px', fontSize: '0.82rem', background: '#8B5CF6' }}>✓ Final Approval → SUBMITTED</button>
         )}
-        {subRole === 'HOD' && thesis.status === 'ACTIVE_RESEARCH' && (
+        {!isReadOnly && subRole === 'HOD' && thesis.status === 'ACTIVE_RESEARCH' && (
           <button className="btn-primary" onClick={async () => {
             setLoading(true);
             try {
@@ -652,7 +655,7 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
       </div>
 
       {/* HOD: Supervisor assignment */}
-      {subRole === 'HOD' && thesis.status !== 'AWARDED' && (
+      {!isReadOnly && subRole === 'HOD' && thesis.status !== 'AWARDED' && (
         <div className="usm-card" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <select className="form-input" style={{ padding: '5px 10px', height: 'auto', fontSize: '0.82rem', flex: 1 }} value={selSupervisor} onChange={e => setSelSupervisor(e.target.value)} disabled={!!thesis.supervisorId}>
             <option value="">Assign Supervisor...</option>
@@ -793,7 +796,7 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
         {(synopsisApproved || thesis.status !== 'SYNOPSIS_PENDING') && (
           <>
             {/* HOD Actions */}
-            {subRole === 'HOD' && (
+            {!isReadOnly && subRole === 'HOD' && (
               (thesis.status === 'SYNOPSIS_PENDING' && synopsisApproved) ||
               (thesis.status !== 'SYNOPSIS_PENDING')
             ) && !showDrcSchedule && !showOfflineDrc && (
@@ -819,7 +822,7 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
                   {drc.committeeMembers && <div style={{ gridColumn: 'span 2' }}><strong>Committee:</strong> {drc.committeeMembers}</div>}
                   {drc.remarks && <div style={{ gridColumn: 'span 2', background: '#FFFBEB', padding: 6, borderRadius: 6, color: '#92400E', borderLeft: '3px solid #F59E0B', marginTop: 4 }}><strong>Remarks:</strong> {drc.remarks}</div>}
                 </div>
-                {subRole === 'HOD' && drc.status === 'SCHEDULED' && (
+                {!isReadOnly && subRole === 'HOD' && drc.status === 'SCHEDULED' && (
                   <button className="btn-primary" onClick={() => { setSelectedDrc(drc); setShowDrcResult(true); }} style={{ marginTop: 10, padding: '5px 12px', fontSize: '0.75rem', background: '#059669' }}>📝 Record Outcome</button>
                 )}
               </div>
@@ -891,7 +894,9 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div className="usm-section-title" style={{ marginBottom: 0 }}>📋 Research Advisory Committee (RAC)</div>
-        <button onClick={() => setShowRacSchedule(!showRacSchedule)} className="btn-primary" style={{ background: '#059669', padding: '6px 14px', fontSize: '0.78rem', display: 'flex', gap: 4, alignItems: 'center' }}><Plus size={14} /> Schedule RAC</button>
+        {!isReadOnly && (
+          <button onClick={() => setShowRacSchedule(!showRacSchedule)} className="btn-primary" style={{ background: '#059669', padding: '6px 14px', fontSize: '0.78rem', display: 'flex', gap: 4, alignItems: 'center' }}><Plus size={14} /> Schedule RAC</button>
+        )}
       </div>
 
 
@@ -986,9 +991,11 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
             {r.committeeChairedBy && <div><strong>Chaired By:</strong> {r.committeeChairedBy}</div>}
             {r.nextMeetingDate && <div><strong>Next Meeting:</strong> {new Date(r.nextMeetingDate).toLocaleDateString()}</div>}
           </div>
-          <button onClick={() => setSelectedRAC(r)} className={r.status === 'SCHEDULED' ? "btn-primary" : "btn-outline"} style={{ marginTop: 10, padding: '6px 14px', fontSize: '0.78rem', background: r.status === 'SCHEDULED' ? '#059669' : 'transparent', borderColor: '#059669', color: r.status === 'SCHEDULED' ? '#fff' : '#059669' }}>
-            {r.status === 'SCHEDULED' ? 'Evaluate Meeting' : 'Edit Review'}
-          </button>
+          {!isReadOnly && (
+            <button onClick={() => setSelectedRAC(r)} className={r.status === 'SCHEDULED' ? "btn-primary" : "btn-outline"} style={{ marginTop: 10, padding: '6px 14px', fontSize: '0.78rem', background: r.status === 'SCHEDULED' ? '#059669' : 'transparent', borderColor: '#059669', color: r.status === 'SCHEDULED' ? '#fff' : '#059669' }}>
+              {r.status === 'SCHEDULED' ? 'Evaluate Meeting' : 'Edit Review'}
+            </button>
+          )}
         </div>
       ))}
     </div>
@@ -1001,7 +1008,7 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div className="usm-section-title" style={{ marginBottom: 0 }}>{type === 'reports' ? '📑' : '📖'} {typeName}</div>
-          {type === 'reports' && !showAssignReport && (
+          {type === 'reports' && !showAssignReport && !isReadOnly && (
             <button onClick={() => { setShowAssignReport(true); setNewReportTitle(`6-Month Progress Report #${reports.length + 1}`); setNewReportDueDate(new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]); }} className="btn-primary" style={{ padding: '4px 10px', fontSize: '0.75rem', background: '#059669' }}>+ Assign Report</button>
           )}
         </div>
@@ -1033,7 +1040,7 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
             {item.comments?.length > 0 && (
               <div style={{ background: '#FFFBEB', borderLeft: '3px solid #F59E0B', padding: '6px 10px', borderRadius: 6, fontSize: '0.8rem', color: '#92400E', margin: '8px 0' }}><strong>Feedback:</strong> {item.comments[item.comments.length - 1].text}</div>
             )}
-            {item.status === 'SUBMITTED' && (
+            {item.status === 'SUBMITTED' && !isReadOnly && (
               <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
                 <button onClick={() => setSelectedEvalDoc({ ...item, docType: 'MILESTONE', scholarName: thesis.scholarId?.name, enrollmentNumber: thesis.scholarId?.username, thesisTitle: thesis.title })} className="btn-primary" style={{ padding: '6px 14px', fontSize: '0.78rem', background: '#133A26' }}>Evaluate</button>
               </div>
@@ -1082,7 +1089,7 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
             </a>
           )}
           {p.remarks && <div style={{ background: '#FFFBEB', borderLeft: '3px solid #F59E0B', padding: '6px 10px', borderRadius: 6, fontSize: '0.8rem', color: '#92400E', margin: '8px 0' }}><strong>Remarks:</strong> {p.remarks}</div>}
-          {p.status === 'PENDING' && (
+          {p.status === 'PENDING' && !isReadOnly && (
             <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
               <button onClick={() => setSelectedEvalDoc({ ...p, docType: 'PUBLICATION', scholarName: thesis.scholarId?.name, enrollmentNumber: thesis.scholarId?.username, thesisTitle: thesis.title })} className="btn-primary" style={{ padding: '6px 14px', fontSize: '0.78rem', background: '#133A26' }}>Evaluate</button>
             </div>
@@ -1173,11 +1180,15 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
             </table>
 
             {m.comments?.length > 0 && <div style={{ background: '#FFFBEB', borderLeft: '3px solid #F59E0B', padding: 8, borderRadius: 6, marginBottom: 8, fontSize: '0.8rem', color: '#92400E' }}>Previous feedback: "{m.comments[m.comments.length - 1].text}"</div>}
-            <textarea className="form-input" placeholder="Add evaluation remarks..." rows="2" value={remarks[m._id] || ''} onChange={e => setRemarks(r => ({ ...r, [m._id]: e.target.value }))} style={{ marginBottom: 8, resize: 'vertical' }} disabled={m.status === 'REVISION_REQUIRED'} />
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn-primary" onClick={() => act(() => onReview(m._id, 'APPROVE', remarks[m._id]))} disabled={loading || m.status === 'REVISION_REQUIRED'} style={{ flex: 1, padding: '6px', fontSize: '0.82rem', background: '#059669', ...(m.status === 'REVISION_REQUIRED' ? { opacity: 0.5, cursor: 'not-allowed' } : {}) }}><CheckCircle2 size={14} style={{ marginRight: 4 }} />Approve</button>
-              <button onClick={() => act(() => onReview(m._id, 'REVISION', remarks[m._id]))} disabled={loading || m.status === 'REVISION_REQUIRED'} style={{ flex: 1, padding: '6px', fontSize: '0.82rem', border: '1px solid #F87171', color: '#DC2626', background: 'none', borderRadius: 6, cursor: m.status === 'REVISION_REQUIRED' ? 'not-allowed' : 'pointer', ...(m.status === 'REVISION_REQUIRED' ? { opacity: 0.5 } : {}) }}><XCircle size={14} style={{ marginRight: 4 }} />Request Revision</button>
-            </div>
+            {!isReadOnly && (
+              <>
+                <textarea className="form-input" placeholder="Add evaluation remarks..." rows="2" value={remarks[m._id] || ''} onChange={e => setRemarks(r => ({ ...r, [m._id]: e.target.value }))} style={{ marginBottom: 8, resize: 'vertical' }} disabled={m.status === 'REVISION_REQUIRED'} />
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="btn-primary" onClick={() => act(() => onReview(m._id, 'APPROVE', remarks[m._id]))} disabled={loading || m.status === 'REVISION_REQUIRED'} style={{ flex: 1, padding: '6px', fontSize: '0.82rem', background: '#059669', ...(m.status === 'REVISION_REQUIRED' ? { opacity: 0.5, cursor: 'not-allowed' } : {}) }}><CheckCircle2 size={14} style={{ marginRight: 4 }} />Approve</button>
+                  <button onClick={() => act(() => onReview(m._id, 'REVISION', remarks[m._id]))} disabled={loading || m.status === 'REVISION_REQUIRED'} style={{ flex: 1, padding: '6px', fontSize: '0.82rem', border: '1px solid #F87171', color: '#DC2626', background: 'none', borderRadius: 6, cursor: m.status === 'REVISION_REQUIRED' ? 'not-allowed' : 'pointer', ...(m.status === 'REVISION_REQUIRED' ? { opacity: 0.5 } : {}) }}><XCircle size={14} style={{ marginRight: 4 }} />Request Revision</button>
+                </div>
+              </>
+            )}
             {m.status === 'REVISION_REQUIRED' && <div style={{ marginTop: 12, background: '#FEF2F2', border: '1px solid #FCA5A5', borderLeft: '4px solid #EF4444', padding: '10px 14px', borderRadius: 8, fontSize: '0.82rem', fontWeight: 600, color: '#991B1B' }}>ℹ️ Sent for correction. Awaiting resubmission.</div>}
           </div>
         ))}
@@ -1223,7 +1234,7 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
                     <strong>Review Remarks:</strong> {doc.remarks}
                   </div>
                 )}
-                {doc.status === 'SUBMITTED' && (
+                {doc.status === 'SUBMITTED' && !isReadOnly && (
                   <div style={{ marginTop: 10 }}>
                     <textarea
                       className="form-input"
@@ -1272,7 +1283,7 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
       <div className="usm-section-title">🔄 Change Requests & Transfer History</div>
 
       {/* Transfer button */}
-      {thesis.supervisorId?._id === user._id && !['SUBMITTED', 'AWARDED'].includes(thesis.status) && (
+      {!isReadOnly && thesis.supervisorId?._id === user._id && !['SUBMITTED', 'AWARDED'].includes(thesis.status) && (
         <div className="usm-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div><div style={{ fontWeight: 700, fontSize: '0.85rem' }}>Transfer Supervision</div><div style={{ fontSize: '0.72rem', color: '#64748B' }}>Permanently transfer to another faculty in {thesis.department}.</div></div>
           <button onClick={() => setShowTransferModal(true)} className="btn-outline" style={{ borderColor: '#F59E0B', color: '#B45309', padding: '6px 12px', fontSize: '0.78rem', fontWeight: 700 }}>Transfer</button>
@@ -1788,7 +1799,7 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole, onClose, onRefresh, 
               </div>
             </div>
             <div className="usm-header-actions">
-              {thesis.supervisorId?._id === user._id && !['SUBMITTED', 'AWARDED'].includes(thesis.status) && (
+              {!isReadOnly && thesis.supervisorId?._id === user._id && !['SUBMITTED', 'AWARDED'].includes(thesis.status) && (
                 <button onClick={() => setShowTransferModal(true)} className="btn-outline" style={{ borderColor: '#F59E0B', color: '#B45309', padding: '5px 10px', fontSize: '0.75rem', fontWeight: 700 }}>Transfer</button>
               )}
               <button className="usm-close-btn" onClick={onClose}>✕</button>
