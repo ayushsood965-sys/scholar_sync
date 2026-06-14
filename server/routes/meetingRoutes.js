@@ -13,6 +13,6 @@ router.post('/', protect, authorize('STUDENT'), requestMeeting);
 router.get('/me', protect, authorize('STUDENT'), getMyMeetings);
 router.get('/dept', protect, authorize('HOD', 'ADMIN'), getDeptMeetings);
 router.get('/faculty', protect, authorize('FACULTY'), getFacultyMeetings);
-router.put('/:id/respond', protect, authorize('HOD', 'ADMIN'), respondMeeting);
+router.put('/:id/respond', protect, authorize('FACULTY', 'HOD', 'ADMIN'), respondMeeting);
 
 module.exports = router;

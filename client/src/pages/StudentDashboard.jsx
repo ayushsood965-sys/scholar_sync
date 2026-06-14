@@ -2552,25 +2552,41 @@ const MeetingsTab = ({ thesis }) => {
                       <strong>Agenda:</strong> {meeting.reason}
                     </div>
 
-                    {meeting.attendees && meeting.attendees.length > 0 && (
+                    {meeting.invitedAttendees && meeting.invitedAttendees.length > 0 && (
                       <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                         <span style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary, #64748B)', fontWeight: 600 }}>Invited Attendees:</span>
-                        {meeting.attendees.map(member => (
-                          <span
-                            key={member._id}
-                            style={{
-                              fontSize: '0.72rem',
-                              padding: '2px 8px',
-                              background: 'var(--color-bg, #F1F5F9)',
-                              border: '1px solid var(--color-border, #E2E8F0)',
-                              color: 'var(--color-text, #334155)',
-                              borderRadius: 6,
-                              fontWeight: 600
-                            }}
-                          >
-                            {member.name} {member.role === 'HOD' ? '(HOD)' : `(${member.subRole || 'Faculty'})`}
-                          </span>
-                        ))}
+                        {meeting.invitedAttendees.map(member => {
+                          const accepted = meeting.attendees?.some(a => (a._id || a) === member._id);
+                          const rejected = meeting.rejectedAttendees?.some(r => (r._id || r) === member._id);
+                          let statusText = 'Pending';
+                          let badgeBg = 'var(--color-bg, #F1F5F9)';
+                          let badgeColor = 'var(--color-text-secondary, #64748B)';
+                          if (accepted) {
+                            statusText = 'Accepted';
+                            badgeBg = '#D1FAE5';
+                            badgeColor = '#065F46';
+                          } else if (rejected) {
+                            statusText = 'Rejected';
+                            badgeBg = '#FEE2E2';
+                            badgeColor = '#991B1B';
+                          }
+                          return (
+                            <span
+                              key={member._id}
+                              style={{
+                                fontSize: '0.72rem',
+                                padding: '2px 8px',
+                                background: badgeBg,
+                                border: '1px solid var(--color-border, #E2E8F0)',
+                                color: badgeColor,
+                                borderRadius: 6,
+                                fontWeight: 600
+                              }}
+                            >
+                              {member.name} {member.role === 'HOD' ? '(HOD)' : `(${member.subRole || 'Faculty'})`} ({statusText})
+                            </span>
+                          );
+                        })}
                       </div>
                     )}
 

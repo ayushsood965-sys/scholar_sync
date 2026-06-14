@@ -7,7 +7,9 @@ const meetingSchema = new mongoose.Schema(
     date: { type: Date, required: true },
     time: { type: String, required: true },
     reason: { type: String, required: true },
-    attendees: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    invitedAttendees: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    attendees: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // Accepted
+    rejectedAttendees: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // Rejected
     department: { type: String, required: true },
     status: {
       type: String,

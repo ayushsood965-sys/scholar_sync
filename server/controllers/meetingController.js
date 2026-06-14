@@ -21,21 +21,24 @@ const requestMeeting = async (req, res) => {
       date: new Date(date),
       time,
       reason,
-      attendees: attendees || [],
+      invitedAttendees: attendees || [],
+      attendees: [],
+      rejectedAttendees: [],
       department: thesis.department,
       status: 'PENDING'
     });
 
-    // Notify HOD
-    const hod = await User.findOne({ department: thesis.department, role: 'HOD' });
-    if (hod) {
-      await createNotification({
-        recipient: hod._id,
-        title: '⏳ New Meeting Request Approval Pending',
-        message: `Scholar "${req.user.name}" has requested a meeting on ${new Date(date).toLocaleDateString()} at ${time} and is awaiting your approval.`,
-        type: 'PENDING_ACTION',
-        link: 'meetings'
-      });
+    // Notify invited faculty members (check members)
+    if (attendees && attendees.length > 0) {
+      await Promise.all(attendees.map(async (facultyId) => {
+        await createNotification({
+          recipient: facultyId,
+          title: '⏳ New Guidance Consultation Request',
+          message: `Scholar "${req.user.name}" has requested a meeting on ${new Date(date).toLocaleDateString()} at ${time}. Agenda: "${reason}".`,
+          type: 'PENDING_ACTION',
+          link: 'meetings'
+        });
+      }));
     }
 
     res.status(201).json(newMeeting);
@@ -48,9 +51,24 @@ const requestMeeting = async (req, res) => {
 const getMyMeetings = async (req, res) => {
   try {
     const meetings = await Meeting.find({ scholarId: req.user._id })
+      .populate('invitedAttendees', 'name email username role subRole')
       .populate('attendees', 'name email username role subRole')
+      .populate('rejectedAttendees', 'name email username role subRole')
       .sort({ createdAt: -1 });
-    res.json(meetings);
+
+    // Legacy data fallback
+    const formatted = meetings.map(m => {
+      const mObj = m.toObject ? m.toObject() : m;
+      if ((!mObj.invitedAttendees || mObj.invitedAttendees.length === 0) && mObj.attendees && mObj.attendees.length > 0) {
+        mObj.invitedAttendees = mObj.attendees;
+        if (mObj.status !== 'APPROVED') {
+          mObj.attendees = [];
+        }
+      }
+      return mObj;
+    });
+
+    res.json(formatted);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -61,9 +79,24 @@ const getDeptMeetings = async (req, res) => {
   try {
     const meetings = await Meeting.find({ department: req.user.department })
       .populate('scholarId', 'name email username profile')
+      .populate('invitedAttendees', 'name email username role subRole')
       .populate('attendees', 'name email username role subRole')
+      .populate('rejectedAttendees', 'name email username role subRole')
       .sort({ createdAt: -1 });
-    res.json(meetings);
+
+    // Legacy data fallback
+    const formatted = meetings.map(m => {
+      const mObj = m.toObject ? m.toObject() : m;
+      if ((!mObj.invitedAttendees || mObj.invitedAttendees.length === 0) && mObj.attendees && mObj.attendees.length > 0) {
+        mObj.invitedAttendees = mObj.attendees;
+        if (mObj.status !== 'APPROVED') {
+          mObj.attendees = [];
+        }
+      }
+      return mObj;
+    });
+
+    res.json(formatted);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -73,64 +106,109 @@ const getDeptMeetings = async (req, res) => {
 const getFacultyMeetings = async (req, res) => {
   try {
     const meetings = await Meeting.find({ 
-      attendees: req.user._id, 
-      status: 'APPROVED' 
+      invitedAttendees: req.user._id
     })
       .populate('scholarId', 'name email username profile')
+      .populate('invitedAttendees', 'name email username role subRole')
       .populate('attendees', 'name email username role subRole')
+      .populate('rejectedAttendees', 'name email username role subRole')
       .sort({ createdAt: -1 });
-    res.json(meetings);
+
+    // Legacy data fallback
+    const formatted = meetings.map(m => {
+      const mObj = m.toObject ? m.toObject() : m;
+      if ((!mObj.invitedAttendees || mObj.invitedAttendees.length === 0) && mObj.attendees && mObj.attendees.length > 0) {
+        mObj.invitedAttendees = mObj.attendees;
+        if (mObj.status !== 'APPROVED') {
+          mObj.attendees = [];
+        }
+      }
+      return mObj;
+    });
+
+    res.json(formatted);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-// PUT /api/meetings/:id/respond — HOD approves/rejects meeting
+// Helper to get user ID string robustly (works if populated or not)
+const getUserIdStr = (userObj) => {
+  if (!userObj) return '';
+  return userObj._id ? userObj._id.toString() : userObj.toString();
+};
+
+// PUT /api/meetings/:id/respond — Faculty/HOD responds to meeting request
 const respondMeeting = async (req, res) => {
   try {
-    const { status, remarks } = req.body;
-    if (!status || !['APPROVED', 'REJECTED'].includes(status)) {
-      return res.status(400).json({ message: 'Valid status is required (APPROVED/REJECTED)' });
+    const { response } = req.body; // 'ACCEPT' or 'REJECT'
+    if (!response || !['ACCEPT', 'REJECT'].includes(response)) {
+      return res.status(400).json({ message: 'Valid response (ACCEPT/REJECT) is required' });
     }
 
     const meeting = await Meeting.findById(req.params.id)
       .populate('scholarId', 'name')
-      .populate('attendees', 'name');
+      .populate('invitedAttendees', 'name')
+      .populate('attendees', 'name')
+      .populate('rejectedAttendees', 'name');
+
     if (!meeting) return res.status(404).json({ message: 'Meeting request not found.' });
 
-    // HOD department check
-    if (req.user.role === 'HOD' && meeting.department !== req.user.department) {
-      return res.status(403).json({ message: 'Not authorized. This meeting request belongs to another department.' });
+    // Legacy fix if invitedAttendees is empty
+    if (!meeting.invitedAttendees || meeting.invitedAttendees.length === 0) {
+      meeting.invitedAttendees = meeting.attendees || [];
     }
 
-    meeting.status = status;
-    meeting.remarks = remarks || '';
+    // Check if user is in invitedAttendees
+    const isInvited = meeting.invitedAttendees.some(id => getUserIdStr(id) === req.user._id.toString());
+    if (!isInvited) {
+      return res.status(403).json({ message: 'Not authorized. You are not invited to this meeting.' });
+    }
+
+    if (response === 'ACCEPT') {
+      // Add user to attendees (if not already there)
+      if (!meeting.attendees.some(id => getUserIdStr(id) === req.user._id.toString())) {
+        meeting.attendees.push(req.user._id);
+      }
+      // Remove from rejectedAttendees if they had rejected before
+      meeting.rejectedAttendees = meeting.rejectedAttendees.filter(id => getUserIdStr(id) !== req.user._id.toString());
+
+      // Set overall status to APPROVED
+      meeting.status = 'APPROVED';
+
+      // Notify Student
+      await createNotification({
+        recipient: meeting.scholarId._id,
+        title: '✅ Meeting Request Accepted!',
+        message: `Faculty member "${req.user.name}" has accepted your meeting request for ${new Date(meeting.date).toLocaleDateString()} at ${meeting.time}.`,
+        type: 'SUCCESSFUL_ACTION',
+        link: 'meetings'
+      });
+    } else if (response === 'REJECT') {
+      // Add user to rejectedAttendees (if not already there)
+      if (!meeting.rejectedAttendees.some(id => getUserIdStr(id) === req.user._id.toString())) {
+        meeting.rejectedAttendees.push(req.user._id);
+      }
+      // Remove from attendees if they had accepted before
+      meeting.attendees = meeting.attendees.filter(id => getUserIdStr(id) !== req.user._id.toString());
+
+      // If all invited attendees have rejected and no one has accepted, set status to REJECTED
+      const hasAcceptedAny = meeting.attendees.length > 0;
+      if (!hasAcceptedAny && meeting.rejectedAttendees.length === meeting.invitedAttendees.length) {
+        meeting.status = 'REJECTED';
+      }
+
+      // Notify Student
+      await createNotification({
+        recipient: meeting.scholarId._id,
+        title: '❌ Meeting Request Rejected',
+        message: `Faculty member "${req.user.name}" has rejected your meeting request for ${new Date(meeting.date).toLocaleDateString()} at ${meeting.time}.`,
+        type: 'PENDING_ACTION',
+        link: 'meetings'
+      });
+    }
+
     await meeting.save();
-
-    // 1. Notify Student
-    await createNotification({
-      recipient: meeting.scholarId._id,
-      title: status === 'APPROVED' ? '✅ Meeting Request Approved!' : '❌ Meeting Request Rejected',
-      message: status === 'APPROVED'
-        ? `Your requested meeting on ${new Date(meeting.date).toLocaleDateString()} at ${meeting.time} has been APPROVED by the HOD.`
-        : `Your requested meeting on ${new Date(meeting.date).toLocaleDateString()} at ${meeting.time} has been rejected: "${remarks || 'No remarks'}"`,
-      type: status === 'APPROVED' ? 'SUCCESSFUL_ACTION' : 'PENDING_ACTION',
-      link: 'meetings'
-    });
-
-    // 2. Notify all Attendees (if APPROVED)
-    if (status === 'APPROVED') {
-      await Promise.all(meeting.attendees.map(async (faculty) => {
-        await createNotification({
-          recipient: faculty._id,
-          title: '📅 New Approved Meeting Invite',
-          message: `Scholar "${meeting.scholarId.name}" has scheduled a meeting on ${new Date(meeting.date).toLocaleDateString()} at ${meeting.time}. Reason: "${meeting.reason}". You are invited to attend.`,
-          type: 'INFO',
-          link: 'meetings'
-        });
-      }));
-    }
-
     res.json(meeting);
   } catch (err) {
     res.status(500).json({ message: err.message });

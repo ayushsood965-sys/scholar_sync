@@ -4307,6 +4307,7 @@ const Sidebar = ({ activeTab, setActiveTab, isVerified }) => {
     { key: 'overview', label: user?.role === 'ADMIN' ? 'System Overview' : 'Department Overview', Icon: Home },
     { key: 'profile', label: 'My Profile', Icon: User },
     { key: 'scholars', label: 'Manage Scholars', Icon: GraduationCap },
+    ...(user?.role === 'HOD' ? [{ key: 'meetings', label: 'Guidance Meetings', Icon: Calendar }] : []),
     ...(user?.role === 'ADMIN' ? [{ key: 'global_transfers', label: 'Global Transfers', Icon: Layers }] : []),
     { key: 'defaulters', label: 'Defaulter Tracking', Icon: Clock },
     { key: 'requests', label: 'Change Requests', Icon: Edit },
@@ -4355,6 +4356,248 @@ const Sidebar = ({ activeTab, setActiveTab, isVerified }) => {
           <LogOut className="nav-icon" /> Logout
         </button>
       </div>
+    </div>
+  );
+};
+
+// ── Meetings Tab Component ──
+const MeetingsTab = ({ user }) => {
+  const toast = useToast();
+  const [meetings, setMeetings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [btnLoading, setBtnLoading] = useState({});
+
+  const fetchMeetings = async () => {
+    try {
+      const endpoint = user?.role === 'HOD' ? 'dept' : 'faculty';
+      const res = await axios.get(`${API}/meetings/${endpoint}`, getAuthHeader());
+      
+      // Legacy data fix
+      const formatted = res.data.map(m => {
+        if ((!m.invitedAttendees || m.invitedAttendees.length === 0) && m.attendees && m.attendees.length > 0) {
+          m.invitedAttendees = m.attendees;
+          if (m.status !== 'APPROVED') {
+            m.attendees = [];
+          }
+        }
+        return m;
+      });
+
+      setMeetings(formatted);
+    } catch (err) {
+      toast.error('Failed to load meetings.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMeetings();
+  }, []);
+
+  const handleRespond = async (meetingId, response) => {
+    setBtnLoading(prev => ({ ...prev, [meetingId]: response }));
+    try {
+      await axios.put(`${API}/meetings/${meetingId}/respond`, { response }, getAuthHeader());
+      toast.success(`Meeting request ${response === 'ACCEPT' ? 'accepted' : 'rejected'} successfully.`);
+      fetchMeetings();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Error responding to meeting.');
+    } finally {
+      setBtnLoading(prev => ({ ...prev, [meetingId]: null }));
+    }
+  };
+
+  const getStatusStyle = (status) => {
+    if (status === 'APPROVED') return { bg: '#ECFDF5', text: '#059669', border: 'rgba(16, 185, 129, 0.2)' };
+    if (status === 'REJECTED') return { bg: '#FEF2F2', text: '#DC2626', border: 'rgba(239, 68, 68, 0.2)' };
+    return { bg: '#FFFBEB', text: '#D97706', border: 'rgba(245, 158, 11, 0.2)' };
+  };
+
+  return (
+    <div className="card">
+      <div style={{ marginBottom: 20 }}>
+        <h3 className="card-title" style={{ margin: 0 }}>Guidance Consultations & Meetings</h3>
+        <p style={{ color: 'var(--color-text-secondary, #64748B)', fontSize: '0.85rem', marginTop: 4 }}>
+          {user?.role === 'HOD' 
+            ? 'Monitor and respond to custom research guidance and consultation meetings proposed by department scholars.'
+            : 'Respond to and view custom research guidance and consultation meetings you are invited to.'}
+        </p>
+      </div>
+
+      {loading ? (
+        <div className="premium-preloader-container" style={{ padding: '32px 20px' }}>
+          <div className="premium-preloader-spinner" style={{ width: '40px', height: '40px', borderWidth: '3px', marginBottom: '12px' }}></div>
+          <div className="premium-preloader-text" style={{ fontSize: '0.85rem' }}>Loading meetings...</div>
+        </div>
+      ) : meetings.length === 0 ? (
+        <div style={{ padding: 48, textAlign: 'center', color: '#94A3B8' }}>
+          <Calendar size={48} style={{ margin: '0 auto 12px', opacity: 0.5 }} />
+          <p style={{ margin: 0, fontWeight: 600 }}>No meeting requests found</p>
+          <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem' }}>When scholars propose guidance consultation meetings, they will appear here.</p>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {meetings.map((meeting) => {
+            const statusStyle = getStatusStyle(meeting.status);
+            const isInvited = meeting.invitedAttendees?.some(a => (a._id || a) === user._id);
+            const hasAccepted = meeting.attendees?.some(a => (a._id || a) === user._id);
+            const hasRejected = meeting.rejectedAttendees?.some(r => (r._id || r) === user._id);
+
+            return (
+              <div
+                key={meeting._id}
+                style={{
+                  background: 'var(--color-surface, #ffffff)',
+                  border: `1px solid var(--color-border, #E2E8F0)`,
+                  borderRadius: 12,
+                  padding: 16,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 12,
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                    <div style={{
+                      background: 'var(--color-bg, #F1F5F9)',
+                      padding: '8px 12px',
+                      borderRadius: 8,
+                      textAlign: 'center',
+                      border: '1px solid var(--color-border, #E2E8F0)'
+                    }}>
+                      <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--color-text-secondary, #64748B)', textTransform: 'uppercase' }}>
+                        {new Date(meeting.date).toLocaleString('default', { month: 'short' })}
+                      </div>
+                      <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--color-text, #0F172A)' }}>
+                        {new Date(meeting.date).getDate()}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, color: 'var(--color-text, #0F172A)' }}>
+                        Suggested Time: {meeting.time}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary, #64748B)' }}>
+                        Proposed by: <strong>{meeting.scholarId?.name}</strong> ({meeting.department})
+                      </div>
+                    </div>
+                  </div>
+                  <span style={{
+                    padding: '4px 10px',
+                    borderRadius: 12,
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    background: statusStyle.bg,
+                    color: statusStyle.text,
+                    border: `1px solid ${statusStyle.border}`
+                  }}>
+                    {meeting.status}
+                  </span>
+                </div>
+
+                <div style={{ fontSize: '0.85rem', color: 'var(--color-text, #334155)', lineHeight: 1.4 }}>
+                  <strong>Agenda:</strong> {meeting.reason}
+                </div>
+
+                {meeting.invitedAttendees && meeting.invitedAttendees.length > 0 && (
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary, #64748B)', fontWeight: 600 }}>Invited Attendees:</span>
+                    {meeting.invitedAttendees.map(member => {
+                      const acc = meeting.attendees?.some(a => (a._id || a) === member._id);
+                      const rej = meeting.rejectedAttendees?.some(r => (r._id || r) === member._id);
+                      let memberStatus = 'Pending';
+                      let mBg = 'var(--color-bg, #F1F5F9)';
+                      let mColor = 'var(--color-text-secondary, #64748B)';
+                      if (acc) {
+                        memberStatus = 'Accepted';
+                        mBg = '#D1FAE5';
+                        mColor = '#065F46';
+                      } else if (rej) {
+                        memberStatus = 'Rejected';
+                        mBg = '#FEE2E2';
+                        mColor = '#991B1B';
+                      }
+                      return (
+                        <span
+                          key={member._id}
+                          style={{
+                            fontSize: '0.72rem',
+                            padding: '2px 8px',
+                            background: mBg,
+                            border: '1px solid var(--color-border, #E2E8F0)',
+                            color: mColor,
+                            borderRadius: 6,
+                            fontWeight: 600
+                          }}
+                        >
+                          {member.name} {member.role === 'HOD' ? '(HOD)' : `(${member.subRole || 'Faculty'})`} ({memberStatus})
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {isInvited && (
+                  <div style={{ display: 'flex', gap: 12, marginTop: 4, alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)' }}>Your Response:</span>
+                    
+                    <button
+                      className="btn-primary"
+                      disabled={btnLoading[meeting._id]}
+                      onClick={() => handleRespond(meeting._id, 'ACCEPT')}
+                      style={{
+                        background: hasAccepted ? '#059669' : '#10B981',
+                        border: 'none',
+                        color: '#ffffff',
+                        padding: '6px 12px',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        borderRadius: 6,
+                        opacity: hasAccepted ? 0.7 : 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4
+                      }}
+                    >
+                      {hasAccepted ? '✓ You Accepted' : 'Accept'}
+                    </button>
+
+                    <button
+                      className="btn-outline"
+                      disabled={btnLoading[meeting._id]}
+                      onClick={() => handleRespond(meeting._id, 'REJECT')}
+                      style={{
+                        borderColor: hasRejected ? '#991B1B' : '#EF4444',
+                        color: hasRejected ? '#991B1B' : '#EF4444',
+                        background: 'transparent',
+                        padding: '6px 12px',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        borderRadius: 6,
+                        opacity: hasRejected ? 0.7 : 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4
+                      }}
+                    >
+                      {hasRejected ? '✗ You Rejected' : 'Reject'}
+                    </button>
+                  </div>
+                )}
+
+                {!isInvited && user?.role === 'HOD' && (
+                  <div style={{ fontSize: '0.75rem', color: '#64748B', fontStyle: 'italic', marginTop: 4 }}>
+                    ℹ️ You are viewing this meeting as HOD (Not invited as attendee).
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
@@ -4424,6 +4667,7 @@ const AdminDashboard = () => {
     requests: 'Student Change Requests Desk', 
     lifecycle: 'RAC Reviews', 
     documents: 'Document Review Manager', 
+    meetings: 'Guidance Consultations & Meetings',
     users: 'Manage Users', 
     profile: 'My Profile', 
     evaluation: 'External Evaluation', 
@@ -4468,6 +4712,7 @@ const AdminDashboard = () => {
       case 'scholars': return <ManageScholars theses={allTheses} onSelectThesis={handleSelectThesis} onAction={handleAction} />;
       case 'global_transfers': return <GlobalTransfersTab theses={allTheses} onRefresh={fetchAllTheses} />;
       case 'requests': return <HODChangeRequestsTab user={user} />;
+      case 'meetings': return <MeetingsTab user={user} />;
       case 'users': return <ManageUsers />;
       case 'defaulters': return <DefaultersTab />;
       case 'profile': return <ProfileTab />;
