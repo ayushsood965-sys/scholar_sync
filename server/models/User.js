@@ -49,6 +49,7 @@ const userSchema = new mongoose.Schema(
     },
     profile: {
       phoneNumber: { type: String, default: '' },
+      email: { type: String, default: '' },
       address: { type: String, default: '' },
       academicBackground: { type: String, default: '' },
       areaOfInterest: { type: String, default: '' },

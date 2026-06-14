@@ -1,5 +1,29 @@
 const Notification = require('../models/Notification');
 
+const getWelcomeNotificationData = (user) => {
+  let title = '🎉 Welcome to ScholarSync!';
+  let message = `Welcome, ${user.name}! We are excited to have you on board. Please start by completing your doctoral profile details and thesis registration.`;
+  let link = 'profile';
+
+  if (user.role === 'FACULTY') {
+    title = '🎉 Welcome to ScholarSync Guide Portal!';
+    message = `Welcome, Prof. ${user.name}! We are excited to have you on board. Please start by completing your supervisor profile, including specialization area and office room details.`;
+  } else if (user.role === 'HOD') {
+    title = '🎉 Welcome to ScholarSync HOD Portal!';
+    message = `Welcome, Dr. ${user.name}! As the Head of Department, please start by completing your profile details to verify your account and begin reviewing departmental registration requests.`;
+  } else if (user.role === 'ADMIN') {
+    title = '🎉 Welcome to ScholarSync Admin Console!';
+    message = `Welcome, ${user.name}! We are excited to have you on board. Please start by completing your administrator profile details.`;
+  } else if (user.role === 'SUPER_ADMIN') {
+    title = '🎉 Welcome to ScholarSync Super Admin Panel!';
+    message = `Welcome, ${user.name}! We are excited to have you on board. Please start by completing your super administrator profile details.`;
+  }
+
+  return { title, message, link };
+};
+
+exports.getWelcomeNotificationData = getWelcomeNotificationData;
+
 // @desc    Get all notifications for logged-in user (personal + role scope)
 // @route   GET /api/notifications
 // @access  Private
@@ -8,6 +32,26 @@ exports.getNotifications = async (req, res) => {
     const userId = req.user._id;
     const userRole = req.user.role;
     const userDept = req.user.department;
+
+    // Ensure the welcome notification exists and is role-appropriate
+    const welcomeNotif = await Notification.findOne({ recipient: userId, type: 'WELCOME' });
+    const expected = getWelcomeNotificationData(req.user);
+    if (welcomeNotif) {
+      if (welcomeNotif.title !== expected.title || welcomeNotif.message !== expected.message || welcomeNotif.link !== expected.link) {
+        welcomeNotif.title = expected.title;
+        welcomeNotif.message = expected.message;
+        welcomeNotif.link = expected.link;
+        await welcomeNotif.save();
+      }
+    } else {
+      await Notification.create({
+        recipient: userId,
+        title: expected.title,
+        message: expected.message,
+        type: 'WELCOME',
+        link: expected.link
+      });
+    }
 
     // Fetch personal notifications OR role-scoped notifications (optional dept-specific)
     const notifications = await Notification.find({
@@ -122,7 +166,15 @@ exports.createNotification = async ({ recipient, roleScope, department, title, m
     // Avoid duplicate welcome notifications for the same recipient
     if (type === 'WELCOME' && recipient) {
       const exists = await Notification.findOne({ recipient, type: 'WELCOME' });
-      if (exists) return exists;
+      if (exists) {
+        if (exists.message !== message || exists.link !== link || exists.title !== title) {
+          exists.title = title;
+          exists.message = message;
+          exists.link = link;
+          await exists.save();
+        }
+        return exists;
+      }
     }
 
     const newNotification = await Notification.create({

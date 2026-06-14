@@ -38,13 +38,17 @@ connectDB().then(async () => {
       await User.create({
         name: 'Super Administrator',
         username: 'admin',
-        password: 'admin',
+        password: 'password',
         role: 'SUPER_ADMIN',
         isActive: true,
         isVerified: true,
-        profileCompleted: true
+        profileCompleted: true,
+        profile: {
+          email: 'admin@scholarsync.com',
+          phoneNumber: '+91 99999-88888'
+        }
       });
-      console.log('👑 Super Admin user auto-seeded (admin/admin)');
+      console.log('👑 Super Admin user auto-seeded (admin/password)');
     } else {
       console.log('👑 Super Admin user already exists.');
     }

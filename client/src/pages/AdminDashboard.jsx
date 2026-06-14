@@ -4614,6 +4614,16 @@ const AdminDashboard = () => {
 
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(user && !user.profileCompleted);
 
+  const handleTabChange = (tab) => {
+    if (tab === 'registration' || tab === 'registrations') {
+      setActiveTab('scholars');
+    } else if (tab === 'documents') {
+      setActiveTab('scholars');
+    } else {
+      setActiveTab(tab);
+    }
+  };
+
   useEffect(() => { 
     fetchAllTheses(); 
     fetchMe();
@@ -4710,7 +4720,7 @@ const AdminDashboard = () => {
     }
 
     switch (activeTab) {
-      case 'overview': return <OverviewPage theses={allTheses} onSelectThesis={handleSelectThesis} user={user} setActiveTab={setActiveTab} />;
+      case 'overview': return <OverviewPage theses={allTheses} onSelectThesis={handleSelectThesis} user={user} setActiveTab={handleTabChange} />;
       case 'scholars': return <ManageScholars theses={allTheses} onSelectThesis={handleSelectThesis} onAction={handleAction} />;
       case 'global_transfers': return <GlobalTransfersTab theses={allTheses} onRefresh={fetchAllTheses} />;
       case 'requests': return <HODChangeRequestsTab user={user} />;

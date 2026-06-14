@@ -200,11 +200,15 @@ async function seedUserData(selectedDepartments, studentCount = 10, facultyCount
   await User.create({
     name: 'Super Administrator',
     username: 'admin',
-    password: passwordHash,
+    password: 'password',
     role: 'SUPER_ADMIN',
     isActive: true,
     isVerified: true,
-    profileCompleted: true
+    profileCompleted: true,
+    profile: {
+      email: 'admin@scholarsync.com',
+      phoneNumber: '+91 99999-88888'
+    }
   });
   console.log('👑 Super Admin user seeded (admin/password).');
 

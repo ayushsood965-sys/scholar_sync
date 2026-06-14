@@ -259,9 +259,26 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
 
 // ── SUPER ADMIN PROFILE COMPONENT ──
 const SAProfileTab = ({ uploadAvatar }) => {
-  const { user } = useContext(AuthContext);
+  const { user, updateProfile, fetchMe } = useContext(AuthContext);
   const [avatarLoading, setAvatarLoading] = useState(false);
   const [avatarMsg, setAvatarMsg] = useState('');
+  
+  const [phoneNumber, setPhoneNumber] = useState(user?.profile?.phoneNumber || '');
+  const [email, setEmail] = useState(user?.profile?.email || '');
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+
+  useEffect(() => {
+    fetchMe();
+  }, []);
+
+  useEffect(() => {
+    if (user?.profile) {
+      setPhoneNumber(user.profile.phoneNumber || '');
+      setEmail(user.profile.email || '');
+    }
+  }, [user]);
 
   const handleAvatarChange = async (e) => {
     const file = e.target.files[0];
@@ -274,6 +291,34 @@ const SAProfileTab = ({ uploadAvatar }) => {
       setAvatarMsg('Profile picture uploaded successfully!');
     } else {
       setAvatarMsg('Failed to upload profile picture: ' + res.message);
+    }
+  };
+
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setMsg('');
+    setErrorMsg('');
+
+    if (phoneNumber) {
+      const cleanedPhone = phoneNumber.trim().replace(/[\s\-()]/g, '');
+      const indianPhoneRegex = /^(\+91|91|0)?[6-9]\d{9}$/;
+      if (!indianPhoneRegex.test(cleanedPhone)) {
+        setErrorMsg('Please enter a valid 10-digit Indian phone number (starts with 6-9).');
+        setLoading(false);
+        return;
+      }
+    }
+
+    const res = await updateProfile({
+      phoneNumber,
+      email
+    });
+    setLoading(false);
+    if (res.success) {
+      setMsg('Profile credentials updated successfully!');
+    } else {
+      setErrorMsg('Failed to update profile: ' + res.message);
     }
   };
 
@@ -308,19 +353,68 @@ const SAProfileTab = ({ uploadAvatar }) => {
         )}
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ background: '#f8fafc', padding: 16, borderRadius: 8, border: '1px solid #e2e8f0' }}>
-          <span style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>MASTER USERNAME</span>
-          <strong style={{ fontSize: '1rem', color: '#0f172a' }}>admin</strong>
+      {msg && (
+        <div style={{ background: '#ecfdf5', border: '1px solid #d1fae5', color: '#047857', padding: '12px', borderRadius: '8px', marginBottom: '16px', fontSize: '0.85rem', fontWeight: 600, textAlign: 'center' }}>
+          {msg}
         </div>
-        <div style={{ background: '#f8fafc', padding: 16, borderRadius: 8, border: '1px solid #e2e8f0' }}>
-          <span style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>MASTER ROLE</span>
-          <strong style={{ fontSize: '1rem', color: '#059669' }}>SUPER_ADMIN (ROOT)</strong>
+      )}
+      {errorMsg && (
+        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', padding: '12px', borderRadius: '8px', marginBottom: '16px', fontSize: '0.85rem', fontWeight: 600, textAlign: 'center' }}>
+          ⚠️ {errorMsg}
         </div>
-        <div style={{ background: '#fef2f2', padding: 16, borderRadius: 8, border: '1px solid #fecaca', color: '#991b1b' }}>
-          <strong>🔒 High Security Area:</strong> Super Admin password is auto-seeded to "admin" on every server connection bootstrap. You do not need to perform manual registration checks for this node.
+      )}
+
+      <form onSubmit={handleUpdate} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ background: '#f8fafc', padding: 16, borderRadius: 8, border: '1px solid #e2e8f0' }}>
+            <span style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: 4 }}>MASTER USERNAME</span>
+            <strong style={{ fontSize: '1rem', color: '#0f172a' }}>admin</strong>
+          </div>
+          <div style={{ background: '#f8fafc', padding: 16, borderRadius: 8, border: '1px solid #e2e8f0' }}>
+            <span style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: 4 }}>MASTER ROLE</span>
+            <strong style={{ fontSize: '1rem', color: '#059669' }}>SUPER_ADMIN (ROOT)</strong>
+          </div>
         </div>
-      </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Contact Email Address</label>
+          <input 
+            type="email" 
+            className="form-input" 
+            placeholder="Enter contact email address" 
+            value={email} 
+            onChange={e => setEmail(e.target.value)} 
+            required 
+            style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '0.9rem', outline: 'none' }}
+          />
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Phone Number (Indian Format)</label>
+          <input 
+            type="text" 
+            className="form-input" 
+            placeholder="Enter 10-digit mobile number e.g. 9876543210" 
+            value={phoneNumber} 
+            onChange={e => setPhoneNumber(e.target.value)} 
+            required 
+            style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '0.9rem', outline: 'none' }}
+          />
+        </div>
+
+        <button 
+          type="submit" 
+          disabled={loading}
+          className="btn-primary" 
+          style={{ width: '100%', padding: '12px', background: '#059669', border: 'none', borderRadius: '8px', color: 'white', cursor: 'pointer', fontWeight: 600, fontSize: '0.95rem' }}
+        >
+          {loading ? 'Updating Credentials...' : 'Save Profile Credentials'}
+        </button>
+
+        <div style={{ background: '#fef2f2', padding: 16, borderRadius: 8, border: '1px solid #fecaca', color: '#991b1b', fontSize: '0.85rem' }}>
+          <strong>🔒 High Security Area:</strong> Super Admin password is auto-seeded to "password" on every server connection bootstrap. You do not need to perform manual registration checks for this node.
+        </div>
+      </form>
     </div>
   );
 };

@@ -20,12 +20,14 @@ const login = async (req, res) => {
 
     if (await user.matchPassword(password)) {
       // Proactively ensure seeded users have a welcome notification
+      const { getWelcomeNotificationData } = require('./notificationController');
+      const welcomeData = getWelcomeNotificationData(user);
       await createNotification({
         recipient: user._id,
-        title: '🎉 Welcome to ScholarSync!',
-        message: `Welcome, ${user.name}! We are excited to have you on board. Please start by completing your doctoral profile details and thesis registration.`,
+        title: welcomeData.title,
+        message: welcomeData.message,
         type: 'WELCOME',
-        link: 'profile'
+        link: welcomeData.link
       });
 
       res.json({
@@ -79,12 +81,14 @@ const register = async (req, res) => {
       profile: { phoneNumber: formattedPhone }
     });
 
+    const { getWelcomeNotificationData } = require('./notificationController');
+    const welcomeData = getWelcomeNotificationData(user);
     await createNotification({
       recipient: user._id,
-      title: '🎉 Welcome to ScholarSync!',
-      message: `Welcome, ${user.name}! We are excited to have you on board. Please start by completing your doctoral profile details and thesis registration.`,
+      title: welcomeData.title,
+      message: welcomeData.message,
       type: 'WELCOME',
-      link: 'profile'
+      link: welcomeData.link
     });
 
     res.status(201).json({

@@ -3991,6 +3991,16 @@ const FacultyDashboard = () => {
 
   const subRole = user?.role === 'HOD' ? 'HOD' : user?.subRole;
 
+  const handleTabChange = (tab) => {
+    if (tab === 'registration' || tab === 'registrations') {
+      setActiveTab(subRole === 'HOD' ? 'registrations' : 'scholars');
+    } else if (tab === 'documents') {
+      setActiveTab('scholars');
+    } else {
+      setActiveTab(tab);
+    }
+  };
+
   useEffect(() => {
     if (subRole === 'HOD') fetchDeptTheses();
     else fetchAssignedTheses();
@@ -4061,7 +4071,7 @@ const FacultyDashboard = () => {
     }
 
     switch (activeTab) {
-      case 'overview': return <OverviewPage theses={allTheses} user={user} onSelect={handleSelectThesis} setActiveTab={setActiveTab} />;
+      case 'overview': return <OverviewPage theses={allTheses} user={user} onSelect={handleSelectThesis} setActiveTab={handleTabChange} />;
       case 'registrations': return <ScholarList theses={allTheses.filter(t => t.status === 'REGISTRATION_PENDING')} onSelect={handleSelectThesis} title="Scholars Awaiting Registration Approval" />;
       case 'scholars': return <ScholarList theses={allTheses} onSelect={handleSelectThesis} title="My Assigned Scholars" />;
       case 'dept': return <ScholarList theses={allTheses} onSelect={handleSelectThesis} title="All Department Scholars" />;
