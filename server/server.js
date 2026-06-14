@@ -307,6 +307,11 @@ app.use('/api/additional-documents', additionalDocumentRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/config', adminConfigRoutes);
 
+// Health check endpoint for UptimeRobot
+app.get('/api/health', (req, res) => {
+  res.status(200).send('Server is awake');
+});
+
 // -------------------------------------------------------------
 // SYSTEM UTILITY ROUTES (/clear-all & /seed)
 // -------------------------------------------------------------

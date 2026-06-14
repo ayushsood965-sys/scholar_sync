@@ -730,6 +730,11 @@ const GenericPage = ({ title, description }) => {
 
   return (
     <div className="subpage-container">
+      <div className="liquid-bg-wrapper">
+        <div className="liquid-blob blob-1"></div>
+        <div className="liquid-blob blob-2"></div>
+        <div className="liquid-blob blob-3"></div>
+      </div>
       <Navbar />
       
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>

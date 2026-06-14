@@ -41,6 +41,11 @@ const Landing = () => {
 
   return (
     <div className="landing-page">
+      <div className="liquid-bg-wrapper">
+        <div className="liquid-blob blob-1"></div>
+        <div className="liquid-blob blob-2"></div>
+        <div className="liquid-blob blob-3"></div>
+      </div>
       <Navbar />
 
       {/* Hero Section */}
@@ -106,7 +111,7 @@ const Landing = () => {
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', maxWidth: '1200px', margin: '0 auto' }}>
               {projects.slice(0, 4).map((proj, idx) => (
-                <div className="project-card" key={proj._id || idx} style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '20px', background: 'rgba(255, 255, 255, 0.95)', border: '1px solid rgba(0, 0, 0, 0.05)', borderRadius: '16px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)', transition: 'transform 0.2s ease-in-out' }}>
+                <div className="project-card" key={proj._id || idx}>
                   <img 
                     src={proj.imageUrl || getDeptImage(proj.department)} 
                     alt={proj.title} 

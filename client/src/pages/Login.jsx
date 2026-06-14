@@ -36,6 +36,11 @@ const Login = () => {
 
   return (
     <div className="subpage-container">
+      <div className="liquid-bg-wrapper">
+        <div className="liquid-blob blob-1"></div>
+        <div className="liquid-blob blob-2"></div>
+        <div className="liquid-blob blob-3"></div>
+      </div>
       {isLoggingIn && (
         <div className="login-preloader-overlay">
           <div className="login-preloader-container">

@@ -54,6 +54,11 @@ const Signup = () => {
 
   return (
     <div className="subpage-container">
+      <div className="liquid-bg-wrapper">
+        <div className="liquid-blob blob-1"></div>
+        <div className="liquid-blob blob-2"></div>
+        <div className="liquid-blob blob-3"></div>
+      </div>
       <Navbar />
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 0' }}>
         <div className="glass-panel auth-panel" style={{ margin: 0 }}>
