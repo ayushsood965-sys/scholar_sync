@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { Link, useNavigate } from 'react-router-dom';
@@ -14,6 +14,10 @@ const Signup = () => {
   const [department, setDepartment] = useState('');
   const [depts, setDepts] = useState([]);
   const [error, setError] = useState('');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const dropdownRef = useRef(null);
+
   const { register } = useContext(AuthContext);
   const navigate = useNavigate();
 
@@ -24,6 +28,18 @@ const Signup = () => {
         if (Array.isArray(data)) setDepts(data);
       })
       .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
 
   const handleSubmit = async (e) => {
@@ -127,17 +143,66 @@ const Signup = () => {
             </div>
             <div className="form-group">
               <label className="form-label">Department</label>
-              <select 
-                className="form-input" 
-                value={department} 
-                onChange={(e) => setDepartment(e.target.value)}
-                required
-              >
-                <option value="">Select your department</option>
-                {depts.map(d => (
-                  <option key={d._id} value={d.name}>{d.name}</option>
-                ))}
-              </select>
+              <div className="searchable-dropdown-container" ref={dropdownRef}>
+                <div 
+                  className="form-input searchable-dropdown-trigger" 
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                >
+                  <span style={{ color: department ? 'inherit' : '#9CA3AF' }}>
+                    {department || 'Select your department'}
+                  </span>
+                  <span style={{ 
+                    transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)', 
+                    transition: 'transform 0.2s ease',
+                    fontSize: '0.8rem',
+                    color: '#6B7280'
+                  }}>
+                    ▼
+                  </span>
+                </div>
+
+                {isDropdownOpen && (
+                  <div className="searchable-dropdown-menu">
+                    <div className="searchable-dropdown-search-wrapper">
+                      <input 
+                        type="text"
+                        className="form-input searchable-dropdown-search"
+                        placeholder="Search department..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        autoFocus
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                    
+                    <div className="searchable-dropdown-list">
+                      {depts.filter(d => 
+                        d.name.toLowerCase().includes(searchQuery.toLowerCase())
+                      ).length > 0 ? (
+                        depts
+                          .filter(d => d.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                          .map(d => (
+                            <div
+                              key={d._id}
+                              className={`searchable-dropdown-item ${department === d.name ? 'active' : ''}`}
+                              onClick={() => {
+                                setDepartment(d.name);
+                                setIsDropdownOpen(false);
+                                setSearchQuery('');
+                              }}
+                            >
+                              {d.name}
+                            </div>
+                          ))
+                      ) : (
+                        <div style={{ padding: '10px', color: '#6B7280', fontSize: '0.9rem', textAlign: 'center' }}>
+                          No departments found
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="form-group">
               <label className="form-label">Role</label>
