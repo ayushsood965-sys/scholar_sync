@@ -1,177 +1,160 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-/* ────────────────────────────────────────────────────────────
- *  WORKFLOW DATA
- * ──────────────────────────────────────────────────────────── */
-const PHASES = [
+/* ═══════════════════════════════════════════════════════════════
+ *  ANIMATED PRESENTATION — ScholarSync Portal Walkthrough
+ *  For university authorities (non-technical audience)
+ * ═══════════════════════════════════════════════════════════════ */
+
+/* ── ACT 1: STUDENT JOURNEY ────────────────────────────────── */
+const STUDENT_SCENES = [
   {
-    id: 1, title: 'Onboarding & Registration', icon: '🔑', color: '#3b82f6',
-    status: 'REGISTRATION_PENDING',
-    description: 'Scholar creates their account, completes the academic profile, and submits their thesis registration for HOD approval.',
-    steps: [
-      { actor: 'Student', action: 'Creates account on Signup page', page: 'Signup', notify: null },
-      { actor: 'Student', action: 'Logs in — Profile Onboarding Modal appears if profile incomplete', page: 'Login → Dashboard', notify: null },
-      { actor: 'Student', action: 'Fills General Info, Qualifications, Preferred Guide, Thesis Details in Profile tab', page: 'Student Dashboard → Profile', notify: null },
-      { actor: 'Student', action: 'Clicks "Save Profile" to persist all academic details', page: 'Student Dashboard → Profile', notify: null },
-      { actor: 'Student', action: 'Clicks "Submit for HOD Approval" in Overview tab', page: 'Student Dashboard → Overview', notify: { to: 'HOD (dept)', title: '⏳ New Scholar Profile Verification', type: 'PENDING_ACTION', page: 'Registration tab' } },
-    ]
+    id: 's1', phase: 'Registration',
+    title: 'Step 1 — Student Creates Account',
+    narrative: 'The scholar visits the ScholarSync portal and creates an account by entering their full name, email, phone number, department, and password. They select "Student / Scholar" as their role.',
+    mockUI: 'signup',
+    highlight: 'All dashboard features remain LOCKED at this stage.',
+    icon: '📝', color: '#3b82f6',
   },
   {
-    id: 2, title: 'Registration Verification', icon: '📋', color: '#f59e0b',
-    status: 'COURSEWORK',
-    description: 'The Head of Department reviews the scholar\'s submitted profile and verifies their enrollment to advance them into the Coursework phase.',
-    steps: [
-      { actor: 'HOD', action: 'Reviews scholar profile details on Registration tab', page: 'Admin Dashboard → Registration', notify: null },
-      { actor: 'HOD', action: 'Clicks "Verify Enrollment" — thesis moves to COURSEWORK', page: 'Admin Dashboard → Registration', notify: { to: 'Student', title: '🎉 Enrollment Verified!', type: 'SUCCESSFUL_ACTION', page: 'Overview tab' } },
-      { actor: 'HOD', action: 'Assigns a Faculty Supervisor to the scholar', page: 'Admin Dashboard → Registration', notify: { to: 'Student + Faculty', title: '👨‍🏫 Supervisor Allocated / 📚 Assigned as Supervisor', type: 'SUCCESSFUL_ACTION', page: 'Overview tab' } },
-    ]
+    id: 's2', phase: 'Registration',
+    title: 'Step 2 — Profile Completion & Thesis Registration',
+    narrative: 'After logging in, the student sees the Profile Onboarding modal. They must fill in personal details (DOB, category, address), academic qualifications (Graduation, Post-Graduation with certificates), preferred research guide, specialization, and tentative thesis title with abstract.',
+    mockUI: 'profile',
+    highlight: 'Dashboard sidebar shows all tabs LOCKED 🔒 until verification.',
+    icon: '📋', color: '#8b5cf6',
   },
   {
-    id: 3, title: 'Coursework Phase', icon: '📚', color: '#8b5cf6',
-    status: 'SYNOPSIS_PENDING',
-    description: 'The scholar completes mandatory coursework requirements. The supervisor or HOD clears them, auto-creating the Synopsis milestone.',
-    steps: [
-      { actor: 'Student', action: 'Completes all doctoral coursework requirements (offline)', page: 'Offline / University', notify: null },
-      { actor: 'Supervisor / HOD', action: 'Clears coursework — thesis advances to SYNOPSIS_PENDING', page: 'Admin Dashboard / Faculty Dashboard', notify: { to: 'Student', title: '📚 Coursework Cleared!', type: 'SUCCESSFUL_ACTION', page: 'Overview tab' } },
-      { actor: 'System', action: 'Auto-creates SYNOPSIS milestone (seq: 1)', page: 'Automatic', notify: null },
-    ]
+    id: 's3', phase: 'Registration',
+    title: 'Step 3 — Submit for HOD Approval',
+    narrative: 'The student clicks "Submit for HOD Approval" from the Overview tab. A notification is instantly sent to the Head of Department of their department: "⏳ New Scholar Profile Verification".',
+    mockUI: 'submit_approval',
+    highlight: 'Student enters a "Waiting Room" — all uploads remain disabled.',
+    icon: '📤', color: '#f59e0b',
   },
   {
-    id: 4, title: 'Synopsis & DRC Approval', icon: '📝', color: '#06b6d4',
-    status: 'ACTIVE_RESEARCH',
-    description: 'Scholar uploads their research synopsis document. After supervisor review, the HOD schedules a DRC (Departmental Research Committee) meeting to evaluate and approve the synopsis.',
-    steps: [
-      { actor: 'Student', action: 'Uploads synopsis document + plagiarism report in Thesis tab', page: 'Student Dashboard → Thesis', notify: { to: 'Supervisor', title: '⏳ Milestone Review Pending', type: 'PENDING_ACTION', page: 'Overview tab' } },
-      { actor: 'Supervisor', action: 'Reviews synopsis — Approves or Requests Revision', page: 'Faculty Dashboard → Milestone Review', notify: { to: 'Student', title: '🎉 Approved / ⚠️ Revision Required', type: 'SUCCESSFUL_ACTION / PENDING_ACTION', page: 'Overview tab' } },
-      { actor: 'HOD', action: 'Schedules DRC meeting for synopsis approval (date, time, venue)', page: 'Admin Dashboard → DRC', notify: { to: 'Student', title: '📆 DRC Scheduled!', type: 'INFO', page: 'Overview tab' } },
-      { actor: 'DRC Panel', action: 'Evaluates synopsis — Approved or Revision Required', page: 'Admin Dashboard → DRC', notify: { to: 'Student', title: '🎉 DRC Approved! / ⚠️ Revision Required', type: 'SUCCESSFUL_ACTION / PENDING_ACTION', page: 'Overview tab' } },
-      { actor: 'System', action: 'On DRC approval: thesis → ACTIVE_RESEARCH, 6-Month Report #1 auto-created', page: 'Automatic', notify: null },
-    ]
+    id: 's4', phase: 'HOD Verification',
+    title: 'Step 4 — HOD Reviews & Verifies Enrollment',
+    narrative: 'The HOD receives the notification on their dashboard. They open the scholar\'s full profile — personal info, academic credentials, certificates, thesis details — and click "Verify Enrollment". The HOD also assigns a Faculty Supervisor to guide the scholar.',
+    mockUI: 'hod_verify',
+    highlight: 'Notification sent to student: "🎉 Enrollment Verified!" + "👨‍🏫 Supervisor Allocated"',
+    icon: '✅', color: '#10b981',
   },
   {
-    id: 5, title: 'Active Research', icon: '🔬', color: '#10b981',
-    status: 'PRE_SUBMISSION',
-    description: 'The core research phase. Every 6 months a progress report milestone is auto-generated. Scholars also submit publications and attend RAC reviews. Prerequisites must be met before advancing.',
-    steps: [
-      { actor: 'System', action: 'Auto-creates 6-Month Progress Report milestones every semester', page: 'Automatic', notify: null },
-      { actor: 'Student', action: 'Uploads 6-month progress report document for each semester', page: 'Student Dashboard → Thesis', notify: { to: 'Supervisor', title: '⏳ Milestone Review Pending', type: 'PENDING_ACTION', page: 'Overview tab' } },
-      { actor: 'Supervisor', action: 'Reviews and grades each progress report', page: 'Faculty Dashboard → Milestone Review', notify: { to: 'Student', title: '🎉 Approved / ⚠️ Revision Required', type: 'SUCCESSFUL_ACTION / PENDING_ACTION', page: 'Overview tab' } },
-      { actor: 'Student', action: 'Submits research publications (Journals, Conferences, Patents)', page: 'Student Dashboard → Research Outputs', notify: null },
-      { actor: 'Supervisor / HOD', action: 'Verifies publications — marks VERIFIED or REJECTED', page: 'Faculty/Admin Dashboard → Publications', notify: null },
-      { actor: 'HOD', action: 'Schedules and conducts RAC reviews (RAC-1, RAC-2, etc.)', page: 'Admin Dashboard → RAC', notify: null },
-      { actor: 'System', action: 'When 36+ months passed + all reports approved + 2 journals + 2 conferences verified → PRE_SUBMISSION milestone unlocked', page: 'Automatic', notify: null },
-    ]
+    id: 's5', phase: 'Dashboard Unlocks',
+    title: 'Step 5 — Student Dashboard Unfreezes',
+    narrative: 'Once verified, the student\'s dashboard comes alive! The sidebar tabs progressively unlock based on the current milestone phase. The student can now see their full PhD Research Progression Timeline showing all 7 milestones from Registration to Degree Award.',
+    mockUI: 'dashboard_unlock',
+    highlight: 'Milestones unlock automatically as the scholar progresses through each phase.',
+    icon: '🔓', color: '#06b6d4',
   },
   {
-    id: 6, title: 'Pre-Submission & Seminar', icon: '📤', color: '#f97316',
-    status: 'SUBMITTED',
-    description: 'Scholar uploads their rough thesis draft and plagiarism clearance. The HOD schedules a pre-submission seminar defense. After clearance, the final submission milestone is created.',
-    steps: [
-      { actor: 'Student', action: 'Uploads pre-submission thesis draft + plagiarism clearance package', page: 'Student Dashboard → Thesis', notify: { to: 'Supervisor', title: '⏳ Milestone Review Pending', type: 'PENDING_ACTION', page: 'Overview tab' } },
-      { actor: 'HOD', action: 'Schedules pre-submission seminar defense (date, time, venue, panel)', page: 'Admin Dashboard → Pre-Submission', notify: { to: 'Student', title: '📆 Seminar Scheduled!', type: 'PENDING_ACTION', page: 'Overview tab' } },
-      { actor: 'HOD', action: 'Clears seminar defense (requires 2 verified journals + 2 verified conferences)', page: 'Admin Dashboard → Pre-Submission', notify: { to: 'Student', title: '🎯 Seminar Cleared!', type: 'SUCCESSFUL_ACTION', page: 'Overview tab' } },
-      { actor: 'System', action: 'Auto-creates FINAL_SUBMISSION milestone (seq: 100)', page: 'Automatic', notify: null },
-      { actor: 'Student', action: 'Uploads final thesis package for supervisor sign-off', page: 'Student Dashboard → Thesis', notify: { to: 'Supervisor', title: '⏳ Milestone Review Pending', type: 'PENDING_ACTION', page: 'Overview tab' } },
-      { actor: 'Supervisor', action: 'Provides final digital sign-off → thesis status → SUBMITTED', page: 'Faculty Dashboard', notify: { to: 'Student', title: '🚀 Final Sign-off!', type: 'SUCCESSFUL_ACTION', page: 'Overview tab' } },
-    ]
+    id: 's6', phase: 'Coursework',
+    title: 'Step 6 — Coursework Phase',
+    narrative: 'The student completes mandatory doctoral coursework (offline exams and classes). The supervisor or HOD clears the coursework on the portal. The system automatically creates the SYNOPSIS milestone.',
+    mockUI: 'coursework',
+    highlight: 'Tabs unlocked: My Thesis, Milestones. Notification: "📚 Coursework Cleared!"',
+    icon: '📚', color: '#8b5cf6',
   },
   {
-    id: 7, title: 'Evaluation & Degree Award', icon: '🎓', color: '#ef4444',
-    status: 'AWARDED',
-    description: 'The thesis is dispatched to external examiners. After favorable reports, a Viva-Voce defense is scheduled. A successful viva leads to the PhD degree being officially awarded.',
-    steps: [
-      { actor: 'HOD', action: 'Logs dispatch to external examiners (date, method, tracking number)', page: 'Admin Dashboard → Final', notify: { to: 'Student', title: '📬 Thesis Dispatched', type: 'SUCCESSFUL_ACTION', page: 'Overview tab' } },
-      { actor: 'HOD', action: 'Schedules Viva-Voce defense (date, time, venue, panel members)', page: 'Admin Dashboard → Final', notify: { to: 'Student', title: '📅 Viva-Voce Scheduled!', type: 'SUCCESSFUL_ACTION', page: 'Overview tab' } },
-      { actor: 'Viva Panel', action: 'Conducts Viva-Voce examination (offline)', page: 'University', notify: null },
-      { actor: 'HOD', action: 'Records Viva outcome — SUCCESSFUL or UNSUCCESSFUL', page: 'Admin Dashboard → Final', notify: { to: 'Student', title: '🎉 Successful! / ⚠️ Revisions', type: 'SUCCESSFUL_ACTION / PENDING_ACTION', page: 'Overview tab' } },
-      { actor: 'HOD', action: 'Awards PhD degree (only after successful viva)', page: 'Admin Dashboard → Final', notify: { to: 'Student', title: '🎓 PhD Degree Awarded!', type: 'SUCCESSFUL_ACTION', page: 'Overview tab' } },
-    ]
+    id: 's7', phase: 'Synopsis & DRC',
+    title: 'Step 7 — Synopsis Submission & DRC Approval',
+    narrative: 'Student uploads the synopsis document + plagiarism report. The supervisor reviews it — approves or requests revision. Once approved, the HOD schedules a DRC (Departmental Research Committee) meeting with date, time, venue. The DRC panel evaluates and approves the synopsis.',
+    mockUI: 'synopsis',
+    highlight: 'On DRC approval → Status moves to ACTIVE RESEARCH. 6-Month Report #1 auto-created.',
+    icon: '📝', color: '#06b6d4',
+  },
+  {
+    id: 's8', phase: 'Active Research',
+    title: 'Step 8 — Active Research & RAC Reviews',
+    narrative: 'The core research phase lasting 3+ years. Every 6 months, a progress report milestone is auto-generated. The student uploads reports, the supervisor reviews. Students also submit research publications (journals, conferences, patents). The HOD conducts periodic RAC (Research Advisory Committee) reviews.',
+    mockUI: 'active_research',
+    highlight: 'Tabs unlocked: RAC Progress, 6-Month Reports, Research Outputs, Meetings, Documents, Changes.',
+    icon: '🔬', color: '#10b981',
+  },
+  {
+    id: 's9', phase: 'Pre-Submission',
+    title: 'Step 9 — Pre-Submission Seminar & Final Submission',
+    narrative: 'After 36+ months with all reports approved, 2 verified journals, and 2 verified conferences — the Pre-Submission milestone unlocks. Student uploads rough thesis draft. HOD schedules a pre-submission seminar defense. After clearance, the FINAL_SUBMISSION milestone is created. Student uploads final thesis, supervisor provides digital sign-off.',
+    mockUI: 'pre_submission',
+    highlight: 'Prerequisites enforced automatically: 2 Journals + 2 Conferences + All Reports.',
+    icon: '📤', color: '#f97316',
+  },
+  {
+    id: 's10', phase: 'Evaluation & Degree',
+    title: 'Step 10 — Viva-Voce & Degree Award',
+    narrative: 'HOD dispatches thesis to external examiners (logs date, method, tracking number). After favorable reports, the HOD schedules a Viva-Voce defense (date, time, venue, panel). The viva panel conducts the examination. HOD records the outcome — SUCCESSFUL or UNSUCCESSFUL. On success, the HOD awards the PhD degree.',
+    mockUI: 'degree_award',
+    highlight: '🎓 PhD Degree Awarded! Scholar\'s journey on ScholarSync is complete.',
+    icon: '🎓', color: '#ef4444',
   },
 ];
 
-const PARALLEL_WORKFLOWS = [
+/* ── ACT 2: HOD & FACULTY SIGNUP ───────────────────────────── */
+const FACULTY_SCENES = [
   {
-    id: 'publications', title: 'Research Publications', icon: '📄', color: '#a855f7',
-    description: 'Scholars submit journal papers, conference presentations, and patents. Supervisors/HOD verify them. Required: 2 verified journals + 2 verified conferences before pre-submission clearance.',
-    flow: ['Student submits publication', 'Status: PENDING', 'Supervisor/HOD reviews', 'VERIFIED or REJECTED']
+    id: 'f1',
+    title: 'Faculty / HOD Creates Account',
+    narrative: 'Faculty members and HODs visit the same signup page. They enter their name, email, phone, and select their department. They choose their role — either "Faculty / Supervisor" or "Head of Department (HOD)". Account is created instantly.',
+    icon: '👨‍🏫', color: '#8b5cf6',
+    mockUI: 'faculty_signup',
   },
   {
-    id: 'rac', title: 'RAC Reviews', icon: '🏛️', color: '#14b8a6',
-    description: 'The Research Advisory Committee conducts periodic evaluations of the scholar\'s progress. HOD schedules RAC meetings, student uploads reports, and the committee marks Satisfactory/Unsatisfactory.',
-    flow: ['HOD schedules RAC', 'Student uploads report', 'Committee evaluates', 'SATISFACTORY / UNSATISFACTORY']
+    id: 'f2',
+    title: 'Account Verification by Super Admin / HOD',
+    narrative: 'After signup, the faculty/HOD account is in an UNVERIFIED state. All dashboard tabs except "Profile" are locked (🔒). The department HOD or Super Admin reviews the account and marks it as "Verified". Only verified accounts can access system features.',
+    icon: '🔐', color: '#f59e0b',
+    mockUI: 'faculty_locked',
   },
   {
-    id: 'meetings', title: 'Guidance Meetings', icon: '📅', color: '#f43f5e',
-    description: 'Students request guidance meetings with their supervisor. HOD must approve. Once approved, all invited faculty are notified.',
-    flow: ['Student requests meeting', '🔔 HOD notified', 'HOD approves/rejects', '🔔 Student + Attendees notified']
-  },
-  {
-    id: 'changes', title: 'Academic Change Requests', icon: '🔄', color: '#eab308',
-    description: 'Scholars can request a change of thesis title or research guide. Requests go through HOD review. If approved, the thesis record is updated automatically.',
-    flow: ['Student submits request', 'Type: Title/Guide Change', 'HOD reviews', 'APPROVED → Auto-update / REJECTED']
-  },
-  {
-    id: 'vault', title: 'Document Vault', icon: '📂', color: '#64748b',
-    description: 'Students upload additional documents (certificates, reports, letters) and forward them to their supervisor or HOD for review and remarks.',
-    flow: ['Student uploads document', 'Forwards to Supervisor/HOD', '🔔 Recipient notified', 'Recipient reviews + remarks']
-  },
-  {
-    id: 'transfer', title: 'Scholar Transfer', icon: '🔀', color: '#f97316',
-    description: 'HOD can transfer a scholar\'s supervision to another faculty within the same department. Admin can execute global cross-department transfers.',
-    flow: ['HOD/Admin initiates', 'Select target supervisor', 'Thesis updated', '🔔 All parties notified']
+    id: 'f3',
+    title: 'Dashboard Activates After Verification',
+    narrative: 'Once verified, the faculty/HOD dashboard fully activates. All sidebar navigation items unlock — My Scholars, Pending Reviews, Guidance Meetings, Reports, Search, Public Portal Config, and more. The system sends a welcome notification.',
+    icon: '✅', color: '#10b981',
+    mockUI: 'faculty_active',
   },
 ];
 
-const ROLES = [
-  { role: 'Student', color: '#3b82f6', icon: '🎓', actions: ['Create account', 'Fill profile', 'Submit thesis', 'Upload milestones', 'Submit publications', 'Request meetings', 'Request changes', 'Upload vault docs', 'Download certificates'] },
-  { role: 'Supervisor', color: '#8b5cf6', icon: '👨‍🏫', actions: ['Review milestones', 'Approve/Reject submissions', 'Verify publications', 'Clear coursework', 'Transfer scholars', 'Final digital sign-off'] },
-  { role: 'HOD', color: '#10b981', icon: '🏛️', actions: ['Verify enrollment', 'Assign supervisors', 'Clear coursework', 'Schedule DRC/RAC', 'Approve meetings', 'Clear seminars', 'Dispatch thesis', 'Schedule viva', 'Record viva', 'Award degree', 'Force advancement', 'Manage dept users'] },
-  { role: 'Admin', color: '#f59e0b', icon: '⚙️', actions: ['View all theses', 'Manage defaulters', 'Global transfers', 'Cross-dept operations'] },
-  { role: 'Super Admin', color: '#ef4444', icon: '👑', actions: ['Create/Delete users', 'Manage departments', 'System seed/clear', 'Full access'] },
+/* ── ACT 3: DASHBOARD CAPABILITIES ────────────────────────── */
+const FACULTY_DASHBOARD_FEATURES = [
+  { icon: '🏠', title: 'Dashboard Overview', desc: 'At-a-glance view of all assigned scholars, their current phase, pending reviews, upcoming deadlines, and departmental statistics.', color: '#3b82f6' },
+  { icon: '👥', title: 'My Scholars / Department Scholars', desc: 'Complete list of all scholars under supervision (Faculty) or in the department (HOD). Click any scholar to open their full 360° profile — personal info, qualifications, thesis details, milestones, publications.', color: '#8b5cf6' },
+  { icon: '📝', title: 'Pending Reviews', desc: 'Queue of all submissions awaiting review — synopsis documents, progress reports, chapter drafts, pre-submission packages. Faculty can approve, request revision, or provide detailed feedback with remarks.', color: '#f59e0b' },
+  { icon: '📊', title: 'Detailed Reports & Analytics', desc: 'Generate comprehensive reports — scholar progress summaries, department-wide status distribution, milestone completion rates, publication counts, defaulter lists, and exportable PDF/Excel reports.', color: '#10b981' },
+  { icon: '🔍', title: 'Scholar Search', desc: 'Advanced search across all scholars by name, enrollment number, department, status, supervisor, thesis title, or date range. Filter and sort results for quick access.', color: '#06b6d4' },
+  { icon: '📅', title: 'Guidance Meetings', desc: 'Manage guidance meeting requests from scholars. HOD approves/rejects meeting requests. All invited faculty and attendees receive notifications with date, time, and venue.', color: '#f97316' },
+  { icon: '⚠️', title: 'Defaulter Scholars', desc: 'Identify scholars who have missed deadlines, have overdue progress reports, or are behind schedule. Take corrective action with automated alerts.', color: '#ef4444' },
+  { icon: '🔄', title: 'Change Requests (HOD)', desc: 'Review and approve/reject scholar requests for thesis title changes or guide changes. On approval, the system auto-updates records and notifies all parties.', color: '#eab308' },
 ];
 
-const NOTIFICATIONS_TABLE = [
-  { trigger: 'Student submits for approval', from: 'Student', to: 'HOD (dept)', title: '⏳ New Scholar Profile Verification', type: 'PENDING_ACTION', tab: 'Registration' },
-  { trigger: 'HOD verifies enrollment', from: 'HOD', to: 'Student', title: '🎉 Enrollment Verified!', type: 'SUCCESSFUL', tab: 'Overview' },
-  { trigger: 'HOD assigns supervisor', from: 'HOD', to: 'Student', title: '👨‍🏫 Supervisor Allocated', type: 'SUCCESSFUL', tab: 'Overview' },
-  { trigger: 'HOD assigns supervisor', from: 'HOD', to: 'Faculty', title: '📚 Assigned as Supervisor', type: 'SUCCESSFUL', tab: 'Overview' },
-  { trigger: 'Coursework cleared', from: 'HOD/Faculty', to: 'Student', title: '📚 Coursework Cleared!', type: 'SUCCESSFUL', tab: 'Overview' },
-  { trigger: 'Student uploads milestone', from: 'Student', to: 'Supervisor', title: '⏳ Milestone Review Pending', type: 'PENDING_ACTION', tab: 'Overview' },
-  { trigger: 'Supervisor approves milestone', from: 'Faculty', to: 'Student', title: '🎉 Milestone Approved!', type: 'SUCCESSFUL', tab: 'Overview' },
-  { trigger: 'Supervisor requests revision', from: 'Faculty', to: 'Student', title: '⚠️ Revision Required', type: 'PENDING_ACTION', tab: 'Overview' },
-  { trigger: 'HOD schedules DRC', from: 'HOD', to: 'Student', title: '📆 DRC Scheduled!', type: 'INFO', tab: 'Overview' },
-  { trigger: 'DRC approves synopsis', from: 'HOD', to: 'Student', title: '🎉 DRC Approved!', type: 'SUCCESSFUL', tab: 'Overview' },
-  { trigger: 'HOD schedules seminar', from: 'HOD', to: 'Student', title: '📆 Seminar Scheduled!', type: 'PENDING_ACTION', tab: 'Overview' },
-  { trigger: 'HOD clears seminar', from: 'HOD', to: 'Student', title: '🎯 Seminar Cleared!', type: 'SUCCESSFUL', tab: 'Overview' },
-  { trigger: 'Supervisor final sign-off', from: 'Faculty', to: 'Student', title: '🚀 Final Sign-off!', type: 'SUCCESSFUL', tab: 'Overview' },
-  { trigger: 'HOD dispatches thesis', from: 'HOD', to: 'Student', title: '📬 Thesis Dispatched', type: 'SUCCESSFUL', tab: 'Overview' },
-  { trigger: 'HOD schedules viva', from: 'HOD', to: 'Student', title: '📅 Viva Scheduled!', type: 'SUCCESSFUL', tab: 'Overview' },
-  { trigger: 'Viva successful', from: 'HOD', to: 'Student', title: '🎉 Viva Successful!', type: 'SUCCESSFUL', tab: 'Overview' },
-  { trigger: 'Degree awarded', from: 'HOD', to: 'Student', title: '🎓 PhD Degree Awarded!', type: 'SUCCESSFUL', tab: 'Overview' },
-  { trigger: 'Meeting requested', from: 'Student', to: 'HOD', title: '⏳ Meeting Approval Pending', type: 'PENDING_ACTION', tab: 'Meetings' },
-  { trigger: 'Meeting approved', from: 'HOD', to: 'Student + Attendees', title: '✅ Meeting Approved / 📅 Invite', type: 'SUCCESSFUL + INFO', tab: 'Meetings' },
-  { trigger: 'Document uploaded', from: 'Student', to: 'Forwarded recipient', title: '⏳ New Document Uploaded', type: 'PENDING_ACTION', tab: 'Documents' },
-  { trigger: 'Document reviewed', from: 'Faculty/HOD', to: 'Student', title: '📋 Document Reviewed', type: 'SUCCESSFUL', tab: 'Documents' },
-  { trigger: 'Scholar transferred', from: 'HOD/Admin', to: 'Student + New/Old Supervisor', title: '🔄 Transfer Executed', type: 'SYSTEM_ALERT', tab: 'Overview' },
+const HOD_EXCLUSIVE_FEATURES = [
+  { icon: '✅', title: 'Registration Verification', desc: 'Review and verify new scholar registrations. View complete profiles with academic credentials and certificates. Assign faculty supervisors.' },
+  { icon: '📋', title: 'DRC Scheduling & Results', desc: 'Schedule DRC meetings (date, time, venue, panel). Record DRC outcomes — Approved, Revision Required, or Reschedule. Also supports recording offline DRC outcomes.' },
+  { icon: '🏛️', title: 'RAC Session Management', desc: 'Schedule and manage periodic RAC (Research Advisory Committee) evaluation sessions. Record outcomes as Satisfactory or Unsatisfactory.' },
+  { icon: '📤', title: 'Pre-Submission Seminar', desc: 'Schedule seminar defense. Clear or revise pre-submission packages. System enforces publication prerequisites (2 Journals + 2 Conferences).' },
+  { icon: '📬', title: 'Thesis Dispatch & Viva', desc: 'Log dispatch to external examiners. Schedule Viva-Voce (date, time, venue, panel). Record viva outcome. Award PhD degree.' },
+  { icon: '🔀', title: 'Scholar Transfer', desc: 'Transfer supervision of any scholar to another verified faculty within the department. System notifies all parties automatically.' },
+  { icon: '⚡', title: 'Force Advancement', desc: 'In exceptional cases, HOD can force-advance a scholar\'s thesis status to the next phase, bypassing normal prerequisites.' },
 ];
 
-const STATUS_FLOW = [
-  { label: 'REGISTRATION_PENDING', color: '#f59e0b', by: 'Student submits' },
-  { label: 'COURSEWORK', color: '#8b5cf6', by: 'HOD verifies' },
-  { label: 'SYNOPSIS_PENDING', color: '#06b6d4', by: 'Coursework cleared' },
-  { label: 'ACTIVE_RESEARCH', color: '#10b981', by: 'DRC approves' },
-  { label: 'PRE_SUBMISSION', color: '#f97316', by: 'Seminar cleared' },
-  { label: 'SUBMITTED', color: '#3b82f6', by: 'Supervisor signs off' },
-  { label: 'AWARDED', color: '#ef4444', by: 'Degree awarded' },
+/* ── ACT 4: PUBLIC PORTAL VISION ───────────────────────────── */
+const PUBLIC_PORTAL_POINTS = [
+  { icon: '🌐', title: 'University Research Directory', desc: 'All active doctoral research projects are listed publicly — thesis title, abstract, scholar name, supervisor, department, and current status. Visible to the world without login.', color: '#3b82f6' },
+  { icon: '🤝', title: 'Cross-Department Collaboration', desc: 'Researchers from different departments can discover overlapping research areas, find potential collaborators, and initiate joint projects.', color: '#8b5cf6' },
+  { icon: '📈', title: 'University Research Dashboard', desc: 'Real-time analytics of the university\'s overall research output — total scholars, active researchers, publications count, department-wise distribution, completion rates.', color: '#10b981' },
+  { icon: '🏛️', title: 'Departmental Research Labs', desc: 'Each department\'s research labs, areas of expertise, and ongoing projects are showcased publicly. Attracts external funding and partnerships.', color: '#06b6d4' },
+  { icon: '📄', title: 'Publication Archive', desc: 'A searchable repository of all verified publications — journals, conferences, patents — linked to scholars and supervisors. Builds the university\'s academic reputation.', color: '#f97316' },
+  { icon: '🔔', title: 'Research Events & Seminars', desc: 'Upcoming DRC meetings, RAC sessions, pre-submission seminars, and viva defenses can be listed publicly for transparency and institutional accountability.', color: '#ef4444' },
+  { icon: '💰', title: 'Funding & Grants Portal', desc: 'Centralized hub for research funding opportunities, grant applications, and sponsored project management.', color: '#eab308' },
+  { icon: '🔒', title: 'Proper Monitoring & Compliance', desc: 'Authorities can monitor all ongoing research in real-time — track defaulters, ensure timely progress, enforce publication requirements, and maintain UGC/regulatory compliance.', color: '#a855f7' },
 ];
 
-/* ────────────────────────────────────────────────────────────
+
+/* ═══════════════════════════════════════════════════════════════
  *  PARTICLE BACKGROUND
- * ──────────────────────────────────────────────────────────── */
+ * ═══════════════════════════════════════════════════════════════ */
 const ParticleCanvas = () => {
   const canvasRef = useRef(null);
-
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -181,18 +164,13 @@ const ParticleCanvas = () => {
     const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
     resize();
     window.addEventListener('resize', resize);
-
-    for (let i = 0; i < 80; i++) {
+    for (let i = 0; i < 60; i++) {
       particles.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        r: Math.random() * 2 + 0.5,
-        dx: (Math.random() - 0.5) * 0.4,
-        dy: (Math.random() - 0.5) * 0.4,
-        opacity: Math.random() * 0.5 + 0.1,
+        x: Math.random() * canvas.width, y: Math.random() * canvas.height,
+        r: Math.random() * 2 + 0.5, dx: (Math.random() - 0.5) * 0.3, dy: (Math.random() - 0.5) * 0.3,
+        opacity: Math.random() * 0.4 + 0.1,
       });
     }
-
     const draw = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       particles.forEach((p, i) => {
@@ -203,18 +181,13 @@ const ParticleCanvas = () => {
         ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(52, 211, 153, ${p.opacity})`;
         ctx.fill();
-        // Draw lines between close particles
         for (let j = i + 1; j < particles.length; j++) {
-          const dx = p.x - particles[j].x;
-          const dy = p.y - particles[j].y;
+          const dx = p.x - particles[j].x, dy = p.y - particles[j].y;
           const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 120) {
-            ctx.beginPath();
-            ctx.moveTo(p.x, p.y);
-            ctx.lineTo(particles[j].x, particles[j].y);
-            ctx.strokeStyle = `rgba(52, 211, 153, ${0.06 * (1 - dist / 120)})`;
-            ctx.lineWidth = 0.5;
-            ctx.stroke();
+          if (dist < 130) {
+            ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.strokeStyle = `rgba(52, 211, 153, ${0.05 * (1 - dist / 130)})`;
+            ctx.lineWidth = 0.5; ctx.stroke();
           }
         }
       });
@@ -223,14 +196,516 @@ const ParticleCanvas = () => {
     draw();
     return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', resize); };
   }, []);
-
   return <canvas ref={canvasRef} style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0, pointerEvents: 'none' }} />;
 };
 
-/* ────────────────────────────────────────────────────────────
- *  SCROLL OBSERVER HOOK
- * ──────────────────────────────────────────────────────────── */
-const useInView = (threshold = 0.15) => {
+/* ═══════════════════════════════════════════════════════════════
+ *  MOCK UI ILLUSTRATIONS (animated SVG-like components)
+ * ═══════════════════════════════════════════════════════════════ */
+
+const MockSidebar = ({ items, frozenAll = false, activeIndex = 0, unlocking = false }) => (
+  <div className="pres-mock-sidebar">
+    <div className="pres-mock-sidebar-logo">
+      <div style={{ fontSize: '1.1rem', fontWeight: 900, color: '#10B981' }}>📚 ScholarHub</div>
+    </div>
+    {items.map((item, i) => {
+      const isFrozen = frozenAll || (item.frozen && !unlocking);
+      const isActive = i === activeIndex && !isFrozen;
+      return (
+        <div key={i}
+          className={`pres-mock-nav-item ${isActive ? 'pres-mock-nav-active' : ''} ${isFrozen ? 'pres-mock-nav-frozen' : ''}`}
+          style={{ animationDelay: unlocking ? `${i * 0.12}s` : '0s' }}
+        >
+          <span>{item.icon}</span>
+          <span>{item.label}</span>
+          {isFrozen && <span className="pres-mock-lock">🔒</span>}
+          {unlocking && !item.frozen && <span className="pres-mock-unlock-badge">✓</span>}
+        </div>
+      );
+    })}
+  </div>
+);
+
+const MockDashboardFrame = ({ title, children, statusBadge, notification }) => (
+  <div className="pres-mock-dashboard">
+    <div className="pres-mock-header">
+      <div className="pres-mock-header-title">{title}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {notification && (
+          <div className="pres-mock-notification-ping">
+            <span>🔔</span>
+            <span className="pres-mock-notif-dot" />
+          </div>
+        )}
+        {statusBadge && <div className="pres-mock-status-badge" style={{ background: statusBadge.bg, color: statusBadge.color }}>{statusBadge.text}</div>}
+        <div className="pres-mock-avatar" />
+      </div>
+    </div>
+    <div className="pres-mock-body">{children}</div>
+  </div>
+);
+
+const MockMilestoneTimeline = ({ activeStep = 0, total = 7 }) => {
+  const phases = ['Registration', 'Coursework', 'Synopsis', 'Active Research', 'Pre-Submission', 'Thesis Submitted', 'Degree Awarded'];
+  return (
+    <div className="pres-mock-timeline">
+      <div className="pres-mock-timeline-track">
+        <div className="pres-mock-timeline-fill" style={{ width: `${(activeStep / (total - 1)) * 100}%` }} />
+      </div>
+      {phases.map((p, i) => (
+        <div key={i} className={`pres-mock-timeline-node ${i < activeStep ? 'pres-mock-tl-done' : i === activeStep ? 'pres-mock-tl-active' : 'pres-mock-tl-pending'}`}>
+          <div className="pres-mock-tl-circle">
+            {i < activeStep ? '✓' : i + 1}
+          </div>
+          <div className="pres-mock-tl-label">{p}</div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const MockNotificationToast = ({ title, message, type = 'success' }) => (
+  <div className={`pres-mock-toast pres-mock-toast-${type}`}>
+    <div className="pres-mock-toast-icon">
+      {type === 'success' ? '✅' : type === 'pending' ? '⏳' : type === 'info' ? 'ℹ️' : '🔔'}
+    </div>
+    <div>
+      <div className="pres-mock-toast-title">{title}</div>
+      <div className="pres-mock-toast-msg">{message}</div>
+    </div>
+  </div>
+);
+
+/* Scene-specific mock UIs */
+const SceneMockUI = ({ mockUI, isActive }) => {
+  const sidebarItems = [
+    { icon: '🏠', label: 'Dashboard', frozen: false },
+    { icon: '👤', label: 'Profile', frozen: false },
+    { icon: '📖', label: 'My Thesis', frozen: true },
+    { icon: '🏁', label: 'Milestones', frozen: true },
+    { icon: '📊', label: 'RAC Progress', frozen: true },
+    { icon: '📅', label: '6-Month Reports', frozen: true },
+    { icon: '📄', label: 'Chapter Drafts', frozen: true },
+    { icon: '🏆', label: 'Research Outputs', frozen: true },
+    { icon: '📤', label: 'Pre-Submission', frozen: true },
+    { icon: '📅', label: 'Meetings', frozen: true },
+    { icon: '📂', label: 'Documents', frozen: true },
+    { icon: '✏️', label: 'Request Changes', frozen: true },
+    { icon: '🎖️', label: 'Certificates', frozen: true },
+  ];
+
+  const unlockedSidebar = sidebarItems.map(item => ({ ...item, frozen: false }));
+
+  switch (mockUI) {
+    case 'signup':
+      return (
+        <div className="pres-mock-scene">
+          <div className="pres-mock-signup-form">
+            <div className="pres-mock-form-header">Join ScholarSync</div>
+            <div className="pres-mock-form-field"><span>Full Name</span><div className="pres-mock-input">Rahul Sharma</div></div>
+            <div className="pres-mock-form-field"><span>Email</span><div className="pres-mock-input">rahul@hpuniv.ac.in</div></div>
+            <div className="pres-mock-form-field"><span>Phone</span><div className="pres-mock-input">9876543210</div></div>
+            <div className="pres-mock-form-field"><span>Department</span><div className="pres-mock-input">Department of Computer Science</div></div>
+            <div className="pres-mock-form-field"><span>Role</span><div className="pres-mock-input pres-mock-input-highlight">Student / Scholar</div></div>
+            <div className="pres-mock-btn">Create Account →</div>
+          </div>
+        </div>
+      );
+
+    case 'profile':
+      return (
+        <div className="pres-mock-scene pres-mock-scene-split">
+          <MockSidebar items={sidebarItems} frozenAll={false} activeIndex={1} />
+          <MockDashboardFrame title="Profile Completion" statusBadge={{ text: 'PENDING VERIFICATION', bg: '#FEF3C7', color: '#D97706' }}>
+            <div className="pres-mock-profile-sections">
+              <div className="pres-mock-profile-card">
+                <div className="pres-mock-card-title">📋 General Info</div>
+                <div className="pres-mock-mini-fields">
+                  <span>DOB: 15/03/1998</span><span>Gender: Male</span><span>Category: General</span>
+                </div>
+              </div>
+              <div className="pres-mock-profile-card">
+                <div className="pres-mock-card-title">🎓 Qualifications</div>
+                <div className="pres-mock-mini-fields">
+                  <span>PG: M.Sc. CS — 78%</span><span>UG: B.Sc. — 82%</span>
+                </div>
+              </div>
+              <div className="pres-mock-profile-card">
+                <div className="pres-mock-card-title">📝 Thesis Details</div>
+                <div className="pres-mock-mini-fields">
+                  <span>Title: AI in Healthcare</span><span>Guide Preference: Dr. Mehta</span>
+                </div>
+              </div>
+            </div>
+          </MockDashboardFrame>
+        </div>
+      );
+
+    case 'submit_approval':
+      return (
+        <div className="pres-mock-scene pres-mock-scene-split">
+          <MockSidebar items={sidebarItems} activeIndex={0} />
+          <MockDashboardFrame title="Dashboard — Overview" statusBadge={{ text: 'REGISTRATION PENDING', bg: '#FEF3C7', color: '#D97706' }}>
+            <div className="pres-mock-waiting-room">
+              <div className="pres-mock-waiting-icon">⏳</div>
+              <div className="pres-mock-waiting-title">Awaiting Admin Verification</div>
+              <div className="pres-mock-waiting-text">Your registration has been submitted. All uploads are locked until verification is complete.</div>
+              <div className="pres-mock-submit-btn-glow">Submit for HOD Approval ✓</div>
+            </div>
+            <MockNotificationToast title="⏳ New Scholar Profile Verification" message="Notification sent to HOD of Computer Science dept." type="pending" />
+          </MockDashboardFrame>
+        </div>
+      );
+
+    case 'hod_verify':
+      return (
+        <div className="pres-mock-scene pres-mock-scene-split">
+          <div className="pres-mock-sidebar" style={{ background: 'linear-gradient(135deg, #064e3b, #065f46)' }}>
+            <div className="pres-mock-sidebar-logo" style={{ color: '#34d399' }}>🏛️ HOD Panel</div>
+            {['Dashboard', 'Registrations ⚡', 'Dept Scholars', 'Meetings', 'Reports'].map((l, i) => (
+              <div key={i} className={`pres-mock-nav-item ${i === 1 ? 'pres-mock-nav-active' : ''}`}>
+                <span>{l}</span>
+              </div>
+            ))}
+          </div>
+          <MockDashboardFrame title="Registration Requests" notification statusBadge={{ text: 'HOD VIEW', bg: '#D1FAE5', color: '#065F46' }}>
+            <div className="pres-mock-scholar-card-review">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#0f172a' }}>🎓 Rahul Sharma</div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Dept. of Computer Science | Enr: 2024-CS-001</div>
+                </div>
+                <div style={{ background: '#FEF3C7', color: '#D97706', padding: '4px 12px', borderRadius: '8px', fontSize: '0.7rem', fontWeight: 800 }}>AWAITING</div>
+              </div>
+              <div className="pres-mock-verify-actions">
+                <div className="pres-mock-action-btn pres-mock-action-assign">👨‍🏫 Assign Supervisor ▸ Dr. Mehta</div>
+                <div className="pres-mock-action-btn pres-mock-action-verify">✅ Verify Enrollment</div>
+              </div>
+            </div>
+            <MockNotificationToast title="🎉 Enrollment Verified!" message="Sent to Rahul Sharma" type="success" />
+          </MockDashboardFrame>
+        </div>
+      );
+
+    case 'dashboard_unlock':
+      return (
+        <div className="pres-mock-scene pres-mock-scene-split">
+          <MockSidebar items={[
+            { icon: '🏠', label: 'Dashboard', frozen: false },
+            { icon: '👤', label: 'Profile', frozen: false },
+            { icon: '📖', label: 'My Thesis', frozen: false },
+            { icon: '🏁', label: 'Milestones', frozen: false },
+            { icon: '📊', label: 'RAC Progress', frozen: true },
+            { icon: '📅', label: '6-Month Reports', frozen: true },
+            { icon: '📄', label: 'Chapter Drafts', frozen: true },
+            { icon: '🏆', label: 'Research Outputs', frozen: true },
+            { icon: '📤', label: 'Pre-Submission', frozen: true },
+            { icon: '📅', label: 'Meetings', frozen: true },
+            { icon: '📂', label: 'Documents', frozen: true },
+          ]} activeIndex={0} unlocking />
+          <MockDashboardFrame title="Dashboard — Overview" statusBadge={{ text: 'COURSEWORK', bg: '#DBEAFE', color: '#1D4ED8' }}>
+            <MockMilestoneTimeline activeStep={1} />
+            <div style={{ marginTop: '16px', textAlign: 'center', fontSize: '0.8rem', color: '#10b981', fontWeight: 700 }}>
+              🔓 Thesis & Milestones tabs now accessible!
+            </div>
+          </MockDashboardFrame>
+        </div>
+      );
+
+    case 'coursework':
+      return (
+        <div className="pres-mock-scene pres-mock-scene-split">
+          <MockSidebar items={sidebarItems.map((s, i) => ({ ...s, frozen: i > 3 }))} activeIndex={0} />
+          <MockDashboardFrame title="Dashboard — Coursework Phase" statusBadge={{ text: 'COURSEWORK', bg: '#DBEAFE', color: '#1D4ED8' }}>
+            <MockMilestoneTimeline activeStep={1} />
+            <div className="pres-mock-coursework-info">
+              <div style={{ fontSize: '2rem', textAlign: 'center' }}>📚</div>
+              <div style={{ fontWeight: 800, color: '#1e3a5f', textAlign: 'center' }}>Coursework Phase Active</div>
+              <div style={{ color: '#64748b', fontSize: '0.8rem', textAlign: 'center' }}>Attend offline classes. Supervisor will clear when complete.</div>
+            </div>
+            <MockNotificationToast title="📚 Coursework Cleared!" message="Synopsis milestone auto-created" type="success" />
+          </MockDashboardFrame>
+        </div>
+      );
+
+    case 'synopsis':
+      return (
+        <div className="pres-mock-scene pres-mock-scene-split">
+          <MockSidebar items={sidebarItems.map((s, i) => ({ ...s, frozen: i > 3 }))} activeIndex={3} />
+          <MockDashboardFrame title="Synopsis & DRC Approval" statusBadge={{ text: 'SYNOPSIS PENDING', bg: '#EDE9FE', color: '#7C3AED' }}>
+            <MockMilestoneTimeline activeStep={2} />
+            <div className="pres-mock-synopsis-flow">
+              {['📝 Upload Synopsis', '👨‍🏫 Supervisor Review', '📅 DRC Scheduled', '✅ DRC Approved'].map((s, i) => (
+                <div key={i} className="pres-mock-sub-step" style={{ animationDelay: `${i * 0.3}s` }}>
+                  <div className={`pres-mock-sub-dot ${i < 3 ? 'pres-mock-sub-done' : 'pres-mock-sub-active'}`} />
+                  <span>{s}</span>
+                </div>
+              ))}
+            </div>
+          </MockDashboardFrame>
+        </div>
+      );
+
+    case 'active_research':
+      return (
+        <div className="pres-mock-scene pres-mock-scene-split">
+          <MockSidebar items={unlockedSidebar.slice(0, 11)} activeIndex={4} />
+          <MockDashboardFrame title="Active Research Phase" statusBadge={{ text: 'ACTIVE RESEARCH', bg: '#D1FAE5', color: '#059669' }}>
+            <MockMilestoneTimeline activeStep={3} />
+            <div className="pres-mock-research-grid">
+              <div className="pres-mock-research-card"><span>📊</span><span>6-Month Reports</span><span className="pres-mock-count">4/6</span></div>
+              <div className="pres-mock-research-card"><span>📄</span><span>Publications</span><span className="pres-mock-count">3</span></div>
+              <div className="pres-mock-research-card"><span>🏛️</span><span>RAC Reviews</span><span className="pres-mock-count">2</span></div>
+              <div className="pres-mock-research-card"><span>📅</span><span>Meetings</span><span className="pres-mock-count">5</span></div>
+            </div>
+          </MockDashboardFrame>
+        </div>
+      );
+
+    case 'pre_submission':
+      return (
+        <div className="pres-mock-scene pres-mock-scene-split">
+          <MockSidebar items={unlockedSidebar.slice(0, 11)} activeIndex={8} />
+          <MockDashboardFrame title="Pre-Submission & Final Thesis" statusBadge={{ text: 'PRE-SUBMISSION', bg: '#FFE8D6', color: '#EA580C' }}>
+            <MockMilestoneTimeline activeStep={4} />
+            <div className="pres-mock-prereqs">
+              <div className="pres-mock-prereq-title">Prerequisites Check</div>
+              <div className="pres-mock-prereq-item pres-mock-prereq-pass">✅ 2 Verified Journals</div>
+              <div className="pres-mock-prereq-item pres-mock-prereq-pass">✅ 2 Verified Conferences</div>
+              <div className="pres-mock-prereq-item pres-mock-prereq-pass">✅ 36+ Months Completed</div>
+              <div className="pres-mock-prereq-item pres-mock-prereq-pass">✅ All Reports Approved</div>
+            </div>
+          </MockDashboardFrame>
+        </div>
+      );
+
+    case 'degree_award':
+      return (
+        <div className="pres-mock-scene pres-mock-scene-split">
+          <MockSidebar items={unlockedSidebar.slice(0, 11)} activeIndex={0} />
+          <MockDashboardFrame title="🎓 Degree Awarded!" statusBadge={{ text: 'AWARDED', bg: '#ECFDF5', color: '#10B981' }}>
+            <MockMilestoneTimeline activeStep={6} total={7} />
+            <div className="pres-mock-degree-celebration">
+              <div className="pres-mock-degree-icon">🎓</div>
+              <div className="pres-mock-degree-text">PhD Degree Officially Awarded!</div>
+              <div className="pres-mock-degree-sub">Congratulations, Dr. Rahul Sharma</div>
+              <div className="pres-mock-confetti-container">
+                {Array.from({ length: 20 }).map((_, i) => (
+                  <div key={i} className="pres-mock-confetti" style={{
+                    left: `${Math.random() * 100}%`,
+                    animationDelay: `${Math.random() * 2}s`,
+                    background: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'][i % 6],
+                  }} />
+                ))}
+              </div>
+            </div>
+          </MockDashboardFrame>
+        </div>
+      );
+
+    case 'faculty_signup':
+      return (
+        <div className="pres-mock-scene">
+          <div className="pres-mock-signup-form">
+            <div className="pres-mock-form-header">Join ScholarSync — Faculty</div>
+            <div className="pres-mock-form-field"><span>Full Name</span><div className="pres-mock-input">Dr. Priya Mehta</div></div>
+            <div className="pres-mock-form-field"><span>Email</span><div className="pres-mock-input">priya.mehta@hpuniv.ac.in</div></div>
+            <div className="pres-mock-form-field"><span>Department</span><div className="pres-mock-input">Department of Computer Science</div></div>
+            <div className="pres-mock-form-field"><span>Role</span><div className="pres-mock-input pres-mock-input-highlight" style={{ background: '#EDE9FE', color: '#7C3AED' }}>Faculty / Supervisor</div></div>
+            <div className="pres-mock-btn" style={{ background: '#7C3AED' }}>Create Faculty Account →</div>
+          </div>
+        </div>
+      );
+
+    case 'faculty_locked':
+      return (
+        <div className="pres-mock-scene pres-mock-scene-split">
+          <div className="pres-mock-sidebar" style={{ background: 'linear-gradient(135deg, #312e81, #3730a3)' }}>
+            <div className="pres-mock-sidebar-logo" style={{ color: '#a78bfa' }}>👨‍🏫 Faculty Panel</div>
+            {['Profile', 'My Scholars 🔒', 'Pending Reviews 🔒', 'Meetings 🔒', 'Reports 🔒', 'Search 🔒'].map((l, i) => (
+              <div key={i} className={`pres-mock-nav-item ${i === 0 ? 'pres-mock-nav-active' : 'pres-mock-nav-frozen'}`}>
+                <span>{l}</span>
+              </div>
+            ))}
+          </div>
+          <MockDashboardFrame title="Account Not Verified" statusBadge={{ text: 'UNVERIFIED', bg: '#FEF2F2', color: '#DC2626' }}>
+            <div className="pres-mock-waiting-room">
+              <div className="pres-mock-waiting-icon" style={{ fontSize: '3rem' }}>🔐</div>
+              <div className="pres-mock-waiting-title" style={{ color: '#DC2626' }}>Account Pending Verification</div>
+              <div className="pres-mock-waiting-text">Your account must be verified by the department HOD or Super Admin before you can access any features. Only your Profile tab is accessible.</div>
+            </div>
+          </MockDashboardFrame>
+        </div>
+      );
+
+    case 'faculty_active':
+      return (
+        <div className="pres-mock-scene pres-mock-scene-split">
+          <div className="pres-mock-sidebar" style={{ background: 'linear-gradient(135deg, #312e81, #3730a3)' }}>
+            <div className="pres-mock-sidebar-logo" style={{ color: '#a78bfa' }}>👨‍🏫 Faculty Panel</div>
+            {['Dashboard ✓', 'Profile ✓', 'My Scholars ✓', 'Reviews ✓', 'Meetings ✓', 'Defaulters ✓', 'Search ✓', 'Reports ✓', 'Portal Config ✓'].map((l, i) => (
+              <div key={i} className={`pres-mock-nav-item`} style={{ animationDelay: `${i * 0.1}s`, opacity: 0, animation: `presFadeSlide 0.4s forwards ${i * 0.1}s` }}>
+                <span>{l}</span>
+              </div>
+            ))}
+          </div>
+          <MockDashboardFrame title="Faculty Dashboard — Active" statusBadge={{ text: 'VERIFIED ✅', bg: '#D1FAE5', color: '#059669' }}>
+            <div className="pres-mock-research-grid">
+              <div className="pres-mock-research-card"><span>👥</span><span>My Scholars</span><span className="pres-mock-count">8</span></div>
+              <div className="pres-mock-research-card"><span>📝</span><span>Pending Reviews</span><span className="pres-mock-count">3</span></div>
+              <div className="pres-mock-research-card"><span>📅</span><span>Meetings</span><span className="pres-mock-count">2</span></div>
+              <div className="pres-mock-research-card"><span>📊</span><span>Reports</span><span className="pres-mock-count">∞</span></div>
+            </div>
+            <MockNotificationToast title="🎉 Welcome to ScholarSync!" message="Your account has been verified. All features are now active." type="success" />
+          </MockDashboardFrame>
+        </div>
+      );
+
+    default:
+      return null;
+  }
+};
+
+
+/* ═══════════════════════════════════════════════════════════════
+ *  ACT SECTION COMPONENTS
+ * ═══════════════════════════════════════════════════════════════ */
+
+const ActHeader = ({ number, title, subtitle, color, icon }) => (
+  <div className="pres-act-header" style={{ '--act-color': color }}>
+    <div className="pres-act-number">ACT {number}</div>
+    <div className="pres-act-icon">{icon}</div>
+    <h2 className="pres-act-title">{title}</h2>
+    <p className="pres-act-subtitle">{subtitle}</p>
+  </div>
+);
+
+const ScenePlayer = ({ scenes, actColor }) => {
+  const [currentScene, setCurrentScene] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const timerRef = useRef(null);
+
+  const goTo = useCallback((idx) => {
+    setCurrentScene(Math.max(0, Math.min(idx, scenes.length - 1)));
+  }, [scenes.length]);
+
+  const play = useCallback(() => {
+    setIsPlaying(true);
+  }, []);
+
+  const pause = useCallback(() => {
+    setIsPlaying(false);
+    if (timerRef.current) clearTimeout(timerRef.current);
+  }, []);
+
+  useEffect(() => {
+    if (isPlaying) {
+      timerRef.current = setTimeout(() => {
+        if (currentScene < scenes.length - 1) {
+          setCurrentScene(prev => prev + 1);
+        } else {
+          setIsPlaying(false);
+        }
+      }, 6000);
+    }
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [isPlaying, currentScene, scenes.length]);
+
+  const scene = scenes[currentScene];
+
+  return (
+    <div className="pres-scene-player">
+      {/* Progress bar */}
+      <div className="pres-scene-progress">
+        {scenes.map((s, i) => (
+          <button
+            key={i}
+            className={`pres-progress-dot ${i === currentScene ? 'pres-progress-active' : i < currentScene ? 'pres-progress-done' : ''}`}
+            style={{ '--dot-color': s.color || actColor }}
+            onClick={() => { pause(); goTo(i); }}
+            title={s.title}
+          />
+        ))}
+      </div>
+
+      {/* Controls */}
+      <div className="pres-scene-controls">
+        <button className="pres-ctrl-btn" onClick={() => { pause(); goTo(currentScene - 1); }} disabled={currentScene === 0}>◀ Prev</button>
+        <button className="pres-ctrl-btn pres-ctrl-play" onClick={isPlaying ? pause : play}>
+          {isPlaying ? '⏸ Pause' : '▶ Auto-Play'}
+        </button>
+        <span className="pres-scene-counter">{currentScene + 1} / {scenes.length}</span>
+        <button className="pres-ctrl-btn" onClick={() => { pause(); goTo(currentScene + 1); }} disabled={currentScene === scenes.length - 1}>Next ▶</button>
+      </div>
+
+      {/* Scene content */}
+      <div className="pres-scene-card" key={scene.id} style={{ '--scene-color': scene.color || actColor }}>
+        {scene.phase && <div className="pres-scene-phase">{scene.phase}</div>}
+        <div className="pres-scene-title-row">
+          <span className="pres-scene-icon">{scene.icon}</span>
+          <h3 className="pres-scene-title">{scene.title}</h3>
+        </div>
+        <p className="pres-scene-narrative">{scene.narrative}</p>
+
+        {/* Mock UI */}
+        {scene.mockUI && (
+          <div className="pres-scene-mock-container">
+            <SceneMockUI mockUI={scene.mockUI} isActive />
+          </div>
+        )}
+
+        {scene.highlight && (
+          <div className="pres-scene-highlight" style={{ borderColor: scene.color || actColor }}>
+            <span className="pres-highlight-icon">💡</span>
+            <span>{scene.highlight}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+
+/* ═══════════════════════════════════════════════════════════════
+ *  FEATURE GRID COMPONENT
+ * ═══════════════════════════════════════════════════════════════ */
+const FeatureGrid = ({ features, columns = 2 }) => {
+  const [visibleCards, setVisibleCards] = useState([]);
+  const gridRef = useRef(null);
+
+  useEffect(() => {
+    const obs = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) {
+        features.forEach((_, i) => {
+          setTimeout(() => setVisibleCards(prev => [...prev, i]), i * 120);
+        });
+        obs.disconnect();
+      }
+    }, { threshold: 0.1 });
+    if (gridRef.current) obs.observe(gridRef.current);
+    return () => obs.disconnect();
+  }, [features]);
+
+  return (
+    <div ref={gridRef} className="pres-feature-grid" style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}>
+      {features.map((f, i) => (
+        <div key={i} className={`pres-feature-card ${visibleCards.includes(i) ? 'pres-feature-visible' : ''}`} style={{ '--feat-color': f.color || '#3b82f6' }}>
+          <div className="pres-feature-icon">{f.icon}</div>
+          <div className="pres-feature-info">
+            <h4 className="pres-feature-title">{f.title}</h4>
+            <p className="pres-feature-desc">{f.desc}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+
+/* ═══════════════════════════════════════════════════════════════
+ *  SCROLL OBSERVER
+ * ═══════════════════════════════════════════════════════════════ */
+const useInView = (threshold = 0.1) => {
   const ref = useRef(null);
   const [isVisible, setVisible] = useState(false);
   useEffect(() => {
@@ -241,311 +716,170 @@ const useInView = (threshold = 0.15) => {
   return [ref, isVisible];
 };
 
-/* ────────────────────────────────────────────────────────────
- *  SECTION COMPONENTS
- * ──────────────────────────────────────────────────────────── */
 
-const HeroSection = () => {
-  const [ref, vis] = useInView(0.1);
-  return (
-    <section ref={ref} className={`wf-hero ${vis ? 'wf-visible' : ''}`}>
-      <div className="wf-hero-badge">ScholarSync Hub</div>
-      <h1 className="wf-hero-title">
-        <span className="wf-hero-gradient">PhD Lifecycle</span>
-        <br />Workflow Documentation
-      </h1>
-      <p className="wf-hero-subtitle">
-        A comprehensive, interactive visualization of every role, action, notification, and milestone across the entire doctoral journey — from registration to degree award.
-      </p>
-      <div className="wf-hero-stats">
-        <div className="wf-stat"><span className="wf-stat-num">7</span><span className="wf-stat-label">Phases</span></div>
-        <div className="wf-stat"><span className="wf-stat-num">5</span><span className="wf-stat-label">Roles</span></div>
-        <div className="wf-stat"><span className="wf-stat-num">22+</span><span className="wf-stat-label">Notifications</span></div>
-        <div className="wf-stat"><span className="wf-stat-num">6</span><span className="wf-stat-label">Parallel Flows</span></div>
-      </div>
-      <div className="wf-scroll-cue">
-        <span>Scroll to explore</span>
-        <div className="wf-scroll-arrow">↓</div>
-      </div>
-    </section>
-  );
-};
-
-const StatusPipeline = () => {
-  const [ref, vis] = useInView(0.1);
-  return (
-    <section ref={ref} className={`wf-section ${vis ? 'wf-visible' : ''}`}>
-      <h2 className="wf-section-title">Thesis Status Pipeline</h2>
-      <p className="wf-section-desc">The thesis record progresses through 7 sequential statuses. Each transition is triggered by a specific role action.</p>
-      <div className="wf-pipeline">
-        {STATUS_FLOW.map((s, i) => (
-          <React.Fragment key={s.label}>
-            <div className="wf-pipeline-node" style={{ '--node-color': s.color, '--delay': `${i * 0.12}s` }}>
-              <div className="wf-pipeline-dot" />
-              <div className="wf-pipeline-label">{s.label.replace(/_/g, ' ')}</div>
-              <div className="wf-pipeline-by">{s.by}</div>
-            </div>
-            {i < STATUS_FLOW.length - 1 && <div className="wf-pipeline-arrow" style={{ '--delay': `${i * 0.12 + 0.06}s` }}>→</div>}
-          </React.Fragment>
-        ))}
-      </div>
-    </section>
-  );
-};
-
-const PhaseCard = ({ phase, index }) => {
-  const [open, setOpen] = useState(false);
-  const [ref, vis] = useInView(0.1);
-
-  return (
-    <div ref={ref} className={`wf-phase-card ${vis ? 'wf-visible' : ''} ${open ? 'wf-phase-open' : ''}`}
-      style={{ '--phase-color': phase.color, '--delay': `${index * 0.08}s` }}>
-      <div className="wf-phase-header" onClick={() => setOpen(!open)}>
-        <div className="wf-phase-number">{String(phase.id).padStart(2, '0')}</div>
-        <div className="wf-phase-icon">{phase.icon}</div>
-        <div className="wf-phase-info">
-          <h3 className="wf-phase-title">{phase.title}</h3>
-          <p className="wf-phase-desc">{phase.description}</p>
-        </div>
-        <div className="wf-phase-status-badge" style={{ background: phase.color + '22', color: phase.color }}>
-          → {phase.status.replace(/_/g, ' ')}
-        </div>
-        <div className={`wf-phase-chevron ${open ? 'wf-phase-chevron-open' : ''}`}>▾</div>
-      </div>
-      <div className={`wf-phase-steps ${open ? 'wf-phase-steps-open' : ''}`}>
-        <div className="wf-steps-inner">
-          {phase.steps.map((step, si) => (
-            <div key={si} className="wf-step" style={{ '--step-delay': `${si * 0.06}s` }}>
-              <div className="wf-step-connector">
-                <div className="wf-step-dot" style={{ background: phase.color }} />
-                {si < phase.steps.length - 1 && <div className="wf-step-line" style={{ background: phase.color + '33' }} />}
-              </div>
-              <div className="wf-step-content">
-                <div className="wf-step-actor-row">
-                  <span className="wf-step-actor" style={{ background: phase.color + '22', color: phase.color }}>{step.actor}</span>
-                  <span className="wf-step-page">📍 {step.page}</span>
-                </div>
-                <p className="wf-step-action">{step.action}</p>
-                {step.notify && (
-                  <div className="wf-step-notify">
-                    <div className="wf-notify-pulse" />
-                    <div className="wf-notify-content">
-                      <span className="wf-notify-label">🔔 Notification →</span>
-                      <span className="wf-notify-to">{step.notify.to}</span>
-                      <span className="wf-notify-title">{step.notify.title}</span>
-                      <span className="wf-notify-type" data-type={step.notify.type.includes('PENDING') ? 'pending' : step.notify.type.includes('SUCCESSFUL') ? 'success' : 'info'}>{step.notify.type}</span>
-                      <span className="wf-notify-page">→ {step.notify.page}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const PhaseTimeline = () => {
-  const [ref, vis] = useInView(0.05);
-  return (
-    <section ref={ref} className={`wf-section ${vis ? 'wf-visible' : ''}`}>
-      <h2 className="wf-section-title">Lifecycle Phases — Detailed Breakdown</h2>
-      <p className="wf-section-desc">Click each phase to expand the complete step-by-step workflow with actors, actions, notification triggers, and destination pages.</p>
-      <div className="wf-phases">
-        {PHASES.map((p, i) => <PhaseCard key={p.id} phase={p} index={i} />)}
-      </div>
-    </section>
-  );
-};
-
-const ParallelFlows = () => {
-  const [active, setActive] = useState(null);
-  const [ref, vis] = useInView(0.1);
-  return (
-    <section ref={ref} className={`wf-section ${vis ? 'wf-visible' : ''}`}>
-      <h2 className="wf-section-title">Parallel Workflows</h2>
-      <p className="wf-section-desc">These workflows run alongside the main thesis pipeline and can be initiated at any time during the active phases.</p>
-      <div className="wf-parallel-grid">
-        {PARALLEL_WORKFLOWS.map((pw, i) => (
-          <div key={pw.id}
-            className={`wf-parallel-card ${active === pw.id ? 'wf-parallel-active' : ''}`}
-            style={{ '--pw-color': pw.color, '--delay': `${i * 0.1}s` }}
-            onClick={() => setActive(active === pw.id ? null : pw.id)}
-          >
-            <div className="wf-parallel-icon">{pw.icon}</div>
-            <h4 className="wf-parallel-title">{pw.title}</h4>
-            <p className="wf-parallel-desc">{pw.description}</p>
-            <div className={`wf-parallel-flow ${active === pw.id ? 'wf-parallel-flow-open' : ''}`}>
-              {pw.flow.map((f, fi) => (
-                <React.Fragment key={fi}>
-                  <div className="wf-flow-node" style={{ '--fdelay': `${fi * 0.1}s` }}>
-                    <div className="wf-flow-dot" style={{ background: pw.color }} />
-                    <span>{f}</span>
-                  </div>
-                  {fi < pw.flow.length - 1 && <div className="wf-flow-connector-h" style={{ background: pw.color + '44' }} />}
-                </React.Fragment>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-};
-
-const RoleMatrix = () => {
-  const [activeRole, setActiveRole] = useState(0);
-  const [ref, vis] = useInView(0.1);
-  return (
-    <section ref={ref} className={`wf-section ${vis ? 'wf-visible' : ''}`}>
-      <h2 className="wf-section-title">Role Responsibilities</h2>
-      <p className="wf-section-desc">Select a role to view their complete set of actions and capabilities within the portal.</p>
-      <div className="wf-role-tabs">
-        {ROLES.map((r, i) => (
-          <button key={r.role} className={`wf-role-tab ${activeRole === i ? 'wf-role-tab-active' : ''}`}
-            style={{ '--role-color': r.color }}
-            onClick={() => setActiveRole(i)}>
-            <span className="wf-role-tab-icon">{r.icon}</span>
-            <span>{r.role}</span>
-          </button>
-        ))}
-      </div>
-      <div className="wf-role-detail" style={{ '--role-color': ROLES[activeRole].color }}>
-        <div className="wf-role-detail-header">
-          <span className="wf-role-big-icon">{ROLES[activeRole].icon}</span>
-          <h3>{ROLES[activeRole].role}</h3>
-        </div>
-        <div className="wf-role-actions">
-          {ROLES[activeRole].actions.map((a, i) => (
-            <div key={a} className="wf-role-action-chip" style={{ '--achip-delay': `${i * 0.05}s` }}>
-              <span className="wf-action-bullet" style={{ background: ROLES[activeRole].color }} />
-              {a}
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-};
-
-const NotificationExplorer = () => {
-  const [filter, setFilter] = useState('ALL');
-  const [ref, vis] = useInView(0.1);
-  const filtered = filter === 'ALL' ? NOTIFICATIONS_TABLE : NOTIFICATIONS_TABLE.filter(n => n.type.includes(filter));
-  return (
-    <section ref={ref} className={`wf-section ${vis ? 'wf-visible' : ''}`}>
-      <h2 className="wf-section-title">Notification Routing Explorer</h2>
-      <p className="wf-section-desc">Every system notification — who triggers it, who receives it, and which dashboard tab it links to.</p>
-      <div className="wf-notif-filters">
-        {['ALL', 'PENDING_ACTION', 'SUCCESSFUL', 'INFO', 'SYSTEM_ALERT'].map(f => (
-          <button key={f} className={`wf-notif-filter ${filter === f ? 'wf-notif-filter-active' : ''}`} onClick={() => setFilter(f)}>
-            {f === 'ALL' ? '🔔 All' : f === 'PENDING_ACTION' ? '⏳ Pending' : f === 'SUCCESSFUL' ? '✅ Success' : f === 'INFO' ? 'ℹ️ Info' : '⚠️ System'}
-          </button>
-        ))}
-      </div>
-      <div className="wf-notif-table-wrap">
-        <table className="wf-notif-table">
-          <thead>
-            <tr>
-              <th>Trigger Action</th>
-              <th>From</th>
-              <th>To</th>
-              <th>Notification</th>
-              <th>Type</th>
-              <th>Dashboard Tab</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((n, i) => (
-              <tr key={i} className="wf-notif-row" style={{ '--row-delay': `${i * 0.03}s` }}>
-                <td className="wf-notif-trigger">{n.trigger}</td>
-                <td><span className="wf-notif-badge wf-notif-from">{n.from}</span></td>
-                <td><span className="wf-notif-badge wf-notif-to">{n.to}</span></td>
-                <td className="wf-notif-title-cell">{n.title}</td>
-                <td><span className={`wf-notif-type-badge ${n.type.includes('PENDING') ? 'wf-type-pending' : n.type.includes('SUCCESSFUL') ? 'wf-type-success' : n.type.includes('INFO') ? 'wf-type-info' : 'wf-type-system'}`}>{n.type.split(' ')[0]}</span></td>
-                <td><span className="wf-notif-tab-badge">{n.tab}</span></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  );
-};
-
-const MilestoneAutoGen = () => {
-  const [ref, vis] = useInView(0.1);
-  const milestones = [
-    { type: 'SYNOPSIS', seq: 1, trigger: 'Coursework cleared', icon: '📝' },
-    { type: '6_MONTH_REPORT', seq: 'N', trigger: 'Every 6 months in Active Research', icon: '📊' },
-    { type: 'PRE_SUBMISSION', seq: 99, trigger: '36+ months + all reports approved + 2J + 2C verified', icon: '📤' },
-    { type: 'FINAL_SUBMISSION', seq: 100, trigger: 'Seminar cleared by HOD', icon: '📦' },
-  ];
-  return (
-    <section ref={ref} className={`wf-section ${vis ? 'wf-visible' : ''}`}>
-      <h2 className="wf-section-title">Milestone Auto-Generation</h2>
-      <p className="wf-section-desc">The system automatically creates milestone checkpoints at key lifecycle transitions. Scholars upload documents against these milestones for supervisor review.</p>
-      <div className="wf-milestone-grid">
-        {milestones.map((m, i) => (
-          <div key={m.type} className="wf-milestone-card" style={{ '--ms-color': PHASES[Math.min(i + 2, 6)].color, '--delay': `${i * 0.12}s` }}>
-            <div className="wf-ms-icon">{m.icon}</div>
-            <div className="wf-ms-type">{m.type.replace(/_/g, ' ')}</div>
-            <div className="wf-ms-seq">Sequence: {m.seq}</div>
-            <div className="wf-ms-trigger">
-              <span className="wf-ms-trigger-label">Trigger:</span>
-              {m.trigger}
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-};
-
-/* ────────────────────────────────────────────────────────────
- *  MAIN PAGE
- * ──────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+ *  MAIN PRESENTATION PAGE
+ * ═══════════════════════════════════════════════════════════════ */
 const WorkflowPage = () => {
   const navigate = useNavigate();
+  const [heroRef, heroVis] = useInView(0.1);
+  const [act1Ref, act1Vis] = useInView(0.05);
+  const [act2Ref, act2Vis] = useInView(0.05);
+  const [act3Ref, act3Vis] = useInView(0.05);
+  const [act4Ref, act4Vis] = useInView(0.05);
 
   return (
-    <div className="wf-page">
+    <div className="pres-page">
       <ParticleCanvas />
 
       {/* Floating nav */}
-      <nav className="wf-nav">
-        <button className="wf-nav-back" onClick={() => navigate('/')}>← Back to Portal</button>
-        <span className="wf-nav-title">ScholarSync Workflow</span>
+      <nav className="pres-nav">
+        <button className="pres-nav-back" onClick={() => navigate('/')}>← Back to Portal</button>
+        <span className="pres-nav-title">ScholarSync — System Walkthrough</span>
+        <div className="pres-nav-links">
+          <a href="#act-1">Student Journey</a>
+          <a href="#act-2">Faculty Signup</a>
+          <a href="#act-3">Dashboards</a>
+          <a href="#act-4">Public Portal</a>
+        </div>
       </nav>
 
-      <HeroSection />
-      <StatusPipeline />
-      <PhaseTimeline />
-      <ParallelFlows />
-      <RoleMatrix />
-      <MilestoneAutoGen />
-      <NotificationExplorer />
+      {/* ── HERO ── */}
+      <section ref={heroRef} className={`pres-hero ${heroVis ? 'pres-visible' : ''}`}>
+        <div className="pres-hero-badge">🎯 Presentation Mode</div>
+        <h1 className="pres-hero-title">
+          <span className="pres-hero-gradient">ScholarSync</span>
+          <br />PhD Lifecycle Management Portal
+        </h1>
+        <p className="pres-hero-subtitle">
+          An animated walkthrough of the complete doctoral research journey — from student registration
+          to PhD degree award — designed for university authorities and decision makers.
+        </p>
+        <div className="pres-hero-stats">
+          <div className="pres-stat"><span className="pres-stat-num">4</span><span className="pres-stat-label">Acts</span></div>
+          <div className="pres-stat"><span className="pres-stat-num">10</span><span className="pres-stat-label">Student Steps</span></div>
+          <div className="pres-stat"><span className="pres-stat-num">5</span><span className="pres-stat-label">Roles</span></div>
+          <div className="pres-stat"><span className="pres-stat-num">22+</span><span className="pres-stat-label">Auto Notifications</span></div>
+        </div>
+        <div className="pres-hero-toc">
+          <div className="pres-toc-title">Presentation Outline</div>
+          <div className="pres-toc-items">
+            <a href="#act-1" className="pres-toc-item" style={{ '--toc-color': '#3b82f6' }}>
+              <span className="pres-toc-num">01</span>
+              <span>Student Journey — Registration to Degree Award</span>
+            </a>
+            <a href="#act-2" className="pres-toc-item" style={{ '--toc-color': '#8b5cf6' }}>
+              <span className="pres-toc-num">02</span>
+              <span>HOD & Faculty — Signup & Account Activation</span>
+            </a>
+            <a href="#act-3" className="pres-toc-item" style={{ '--toc-color': '#10b981' }}>
+              <span className="pres-toc-num">03</span>
+              <span>Faculty & HOD Dashboard Capabilities</span>
+            </a>
+            <a href="#act-4" className="pres-toc-item" style={{ '--toc-color': '#f97316' }}>
+              <span className="pres-toc-num">04</span>
+              <span>Public Portal — Collaborative Research Environment</span>
+            </a>
+          </div>
+        </div>
+        <div className="pres-scroll-cue">
+          <span>Scroll to begin presentation</span>
+          <div className="pres-scroll-arrow">↓</div>
+        </div>
+      </section>
 
-      {/* Footer */}
-      <footer className="wf-footer">
-        <p>ScholarSync Hub — PhD Lifecycle Management Portal</p>
-        <p style={{ opacity: 0.5, fontSize: '0.75rem', marginTop: 4 }}>Himachal Pradesh University, Shimla</p>
+      {/* ── ACT 1: STUDENT JOURNEY ── */}
+      <section id="act-1" ref={act1Ref} className={`pres-act ${act1Vis ? 'pres-visible' : ''}`}>
+        <ActHeader number="I" title="The Scholar's Journey" subtitle="How a PhD candidate progresses through the entire doctoral lifecycle — from registration to degree award — with animated dashboard demonstrations." color="#3b82f6" icon="🎓" />
+        <ScenePlayer scenes={STUDENT_SCENES} actColor="#3b82f6" />
+      </section>
+
+      {/* ── ACT 2: FACULTY SIGNUP ── */}
+      <section id="act-2" ref={act2Ref} className={`pres-act ${act2Vis ? 'pres-visible' : ''}`}>
+        <ActHeader number="II" title="Faculty & HOD Onboarding" subtitle="How faculty members and heads of department create accounts, get verified, and gain access to the system." color="#8b5cf6" icon="👨‍🏫" />
+        <ScenePlayer scenes={FACULTY_SCENES} actColor="#8b5cf6" />
+      </section>
+
+      {/* ── ACT 3: DASHBOARD CAPABILITIES ── */}
+      <section id="act-3" ref={act3Ref} className={`pres-act ${act3Vis ? 'pres-visible' : ''}`}>
+        <ActHeader number="III" title="Dashboard Capabilities" subtitle="What faculty and HOD can do from their dashboard — reviews, reports, search, analytics, and administrative controls." color="#10b981" icon="📊" />
+
+        <div className="pres-capabilities-section">
+          <div className="pres-cap-header">
+            <div className="pres-cap-badge" style={{ background: 'rgba(139,92,246,0.1)', color: '#8b5cf6' }}>👨‍🏫 Faculty + HOD — Shared Features</div>
+          </div>
+          <FeatureGrid features={FACULTY_DASHBOARD_FEATURES} columns={2} />
+        </div>
+
+        <div className="pres-capabilities-section" style={{ marginTop: '48px' }}>
+          <div className="pres-cap-header">
+            <div className="pres-cap-badge" style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981' }}>🏛️ HOD-Exclusive Powers</div>
+            <p className="pres-cap-desc">These capabilities are available only to the Head of Department role, enabling full lifecycle control and administrative authority.</p>
+          </div>
+          <FeatureGrid features={HOD_EXCLUSIVE_FEATURES.map(f => ({ ...f, color: '#10b981' }))} columns={2} />
+        </div>
+      </section>
+
+      {/* ── ACT 4: PUBLIC PORTAL ── */}
+      <section id="act-4" ref={act4Ref} className={`pres-act ${act4Vis ? 'pres-visible' : ''}`}>
+        <ActHeader number="IV" title="Public Portal & Research Ecosystem" subtitle="How the public-facing portal transforms the university into a collaborative, transparent, and well-monitored research environment." color="#f97316" icon="🌐" />
+
+        <div className="pres-portal-vision">
+          <div className="pres-portal-vision-header">
+            <h3 className="pres-portal-vision-title">The Vision: A University-Wide Research Hub</h3>
+            <p className="pres-portal-vision-desc">
+              ScholarSync's public portal configuration turns every department's research into a visible, searchable, and collaborative ecosystem. University authorities gain real-time oversight of all ongoing doctoral research, publications, and scholar progress — without needing to log in.
+            </p>
+          </div>
+          <FeatureGrid features={PUBLIC_PORTAL_POINTS} columns={2} />
+
+          {/* Summary visual */}
+          <div className="pres-portal-summary">
+            <div className="pres-portal-summary-card">
+              <div className="pres-portal-summary-icon">🔄</div>
+              <div className="pres-portal-summary-title">Complete Research Lifecycle</div>
+              <div className="pres-portal-summary-text">From registration to degree award, every step is tracked, documented, and transparent.</div>
+            </div>
+            <div className="pres-portal-summary-card">
+              <div className="pres-portal-summary-icon">👁️</div>
+              <div className="pres-portal-summary-title">Real-Time Monitoring</div>
+              <div className="pres-portal-summary-text">Authorities can see department-wise statistics, defaulter alerts, and progress metrics in real-time.</div>
+            </div>
+            <div className="pres-portal-summary-card">
+              <div className="pres-portal-summary-icon">🤝</div>
+              <div className="pres-portal-summary-title">Collaborative Environment</div>
+              <div className="pres-portal-summary-text">Cross-department research discovery, publication sharing, and collaborative opportunities.</div>
+            </div>
+            <div className="pres-portal-summary-card">
+              <div className="pres-portal-summary-icon">📋</div>
+              <div className="pres-portal-summary-title">Regulatory Compliance</div>
+              <div className="pres-portal-summary-text">Built-in compliance with UGC guidelines — publication requirements, timeline enforcement, and audit trails.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── FOOTER ── */}
+      <footer className="pres-footer">
+        <div className="pres-footer-logo">📚 ScholarSync</div>
+        <p>PhD Lifecycle Management Portal — Complete System Walkthrough</p>
+        <p style={{ opacity: 0.4, fontSize: '0.75rem', marginTop: 8 }}>Himachal Pradesh University, Shimla</p>
       </footer>
 
-      <style>{workflowCSS}</style>
+      <style>{presentationCSS}</style>
     </div>
   );
 };
 
-/* ────────────────────────────────────────────────────────────
- *  STYLES (inline for self-contained component)
- * ──────────────────────────────────────────────────────────── */
-const workflowCSS = `
+
+/* ═══════════════════════════════════════════════════════════════
+ *  STYLES
+ * ═══════════════════════════════════════════════════════════════ */
+const presentationCSS = `
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
-.wf-page {
+/* ── PAGE ── */
+.pres-page {
   background: #07080c;
   color: #e2e8f0;
   font-family: 'Inter', -apple-system, sans-serif;
@@ -555,326 +889,408 @@ const workflowCSS = `
 }
 
 /* ── NAV ── */
-.wf-nav {
+.pres-nav {
   position: fixed; top: 0; left: 0; right: 0; z-index: 100;
   display: flex; align-items: center; gap: 16px;
-  padding: 14px 28px;
-  background: rgba(7, 8, 12, 0.75);
+  padding: 12px 28px;
+  background: rgba(7, 8, 12, 0.8);
   backdrop-filter: blur(20px) saturate(180%);
   border-bottom: 1px solid rgba(255,255,255,0.06);
 }
-.wf-nav-back {
+.pres-nav-back {
   background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
   color: #94a3b8; border-radius: 10px; padding: 8px 18px; cursor: pointer;
   font-size: 0.8rem; font-weight: 600; transition: all 0.2s;
 }
-.wf-nav-back:hover { background: rgba(255,255,255,0.12); color: #fff; }
-.wf-nav-title { font-size: 0.85rem; font-weight: 700; color: #64748b; letter-spacing: 0.5px; }
+.pres-nav-back:hover { background: rgba(255,255,255,0.12); color: #fff; }
+.pres-nav-title { font-size: 0.85rem; font-weight: 700; color: #64748b; letter-spacing: 0.5px; }
+.pres-nav-links {
+  margin-left: auto; display: flex; gap: 6px;
+}
+.pres-nav-links a {
+  color: #64748b; text-decoration: none; font-size: 0.72rem; font-weight: 600;
+  padding: 6px 14px; border-radius: 8px; background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06); transition: all 0.2s;
+}
+.pres-nav-links a:hover { color: #34d399; border-color: rgba(52,211,153,0.3); background: rgba(52,211,153,0.06); }
 
 /* ── HERO ── */
-.wf-hero {
+.pres-hero {
   min-height: 100vh; display: flex; flex-direction: column; align-items: center;
   justify-content: center; text-align: center; padding: 120px 24px 60px; position: relative; z-index: 1;
   opacity: 0; transform: translateY(40px); transition: all 0.9s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.wf-hero.wf-visible { opacity: 1; transform: translateY(0); }
-
-.wf-hero-badge {
-  font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 4px;
-  color: #34d399; background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.2);
-  padding: 8px 24px; border-radius: 100px; margin-bottom: 32px;
+.pres-hero.pres-visible { opacity: 1; transform: translateY(0); }
+.pres-hero-badge {
+  font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 4px;
+  color: #f59e0b; background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2);
+  padding: 8px 24px; border-radius: 100px; margin-bottom: 28px;
 }
-.wf-hero-title {
+.pres-hero-title {
   font-size: clamp(2.5rem, 6vw, 4.5rem); font-weight: 900; line-height: 1.1; margin-bottom: 24px;
   color: #ffffff; letter-spacing: -2px;
 }
-.wf-hero-gradient {
+.pres-hero-gradient {
   background: linear-gradient(135deg, #34d399 0%, #3b82f6 50%, #a855f7 100%);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  background-clip: text;
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
 }
-.wf-hero-subtitle {
-  max-width: 640px; font-size: 1.05rem; color: #94a3b8; line-height: 1.7; font-weight: 400; margin-bottom: 48px;
+.pres-hero-subtitle {
+  max-width: 640px; font-size: 1.05rem; color: #94a3b8; line-height: 1.7; font-weight: 400; margin-bottom: 40px;
 }
-.wf-hero-stats {
-  display: flex; gap: 32px; flex-wrap: wrap; justify-content: center;
+.pres-hero-stats {
+  display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; margin-bottom: 48px;
 }
-.wf-stat {
+.pres-stat {
   display: flex; flex-direction: column; align-items: center; gap: 4px;
   background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 16px; padding: 20px 28px; min-width: 100px;
-  transition: all 0.3s; cursor: default;
+  border-radius: 16px; padding: 18px 24px; min-width: 90px; transition: all 0.3s;
 }
-.wf-stat:hover { background: rgba(255,255,255,0.08); transform: translateY(-4px); border-color: rgba(52,211,153,0.3); }
-.wf-stat-num { font-size: 2rem; font-weight: 900; color: #34d399; }
-.wf-stat-label { font-size: 0.75rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
+.pres-stat:hover { background: rgba(255,255,255,0.08); transform: translateY(-4px); border-color: rgba(52,211,153,0.3); }
+.pres-stat-num { font-size: 1.8rem; font-weight: 900; color: #34d399; }
+.pres-stat-label { font-size: 0.7rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
 
-.wf-scroll-cue {
+/* Table of contents */
+.pres-hero-toc {
+  max-width: 500px; width: 100%; margin-bottom: 40px;
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 24px;
+}
+.pres-toc-title { font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 16px; }
+.pres-toc-items { display: flex; flex-direction: column; gap: 8px; }
+.pres-toc-item {
+  display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-radius: 10px;
+  background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);
+  text-decoration: none; color: #cbd5e1; font-size: 0.85rem; font-weight: 500; transition: all 0.3s;
+}
+.pres-toc-item:hover { background: rgba(255,255,255,0.06); border-color: var(--toc-color); transform: translateX(6px); }
+.pres-toc-num { font-size: 0.7rem; font-weight: 900; color: var(--toc-color); min-width: 24px; }
+
+.pres-scroll-cue {
   position: absolute; bottom: 40px; display: flex; flex-direction: column; align-items: center; gap: 6px;
   color: #475569; font-size: 0.75rem; font-weight: 600; letter-spacing: 1px;
 }
-.wf-scroll-arrow {
-  animation: wfBounce 2s infinite; font-size: 1.2rem;
-}
-@keyframes wfBounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(8px); } }
+.pres-scroll-arrow { animation: presBounce 2s infinite; font-size: 1.2rem; }
+@keyframes presBounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(8px); } }
 
-/* ── SECTIONS ── */
-.wf-section {
-  padding: 80px 24px; max-width: 1200px; margin: 0 auto; position: relative; z-index: 1;
+/* ── ACT SECTIONS ── */
+.pres-act {
+  padding: 100px 24px 80px; max-width: 1100px; margin: 0 auto; position: relative; z-index: 1;
   opacity: 0; transform: translateY(50px); transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.wf-section.wf-visible { opacity: 1; transform: translateY(0); }
+.pres-act.pres-visible { opacity: 1; transform: translateY(0); }
 
-.wf-section-title {
-  font-size: clamp(1.5rem, 3vw, 2.2rem); font-weight: 900; color: #fff; margin-bottom: 12px;
-  letter-spacing: -0.5px;
+.pres-act-header { text-align: center; margin-bottom: 48px; }
+.pres-act-number {
+  font-size: 0.7rem; font-weight: 900; color: var(--act-color); letter-spacing: 6px;
+  text-transform: uppercase; margin-bottom: 12px;
 }
-.wf-section-desc {
-  font-size: 0.95rem; color: #64748b; max-width: 700px; line-height: 1.7; margin-bottom: 40px;
-}
+.pres-act-icon { font-size: 3rem; margin-bottom: 16px; }
+.pres-act-title { font-size: clamp(1.8rem, 3.5vw, 2.8rem); font-weight: 900; color: #fff; letter-spacing: -1px; margin-bottom: 12px; }
+.pres-act-subtitle { font-size: 1rem; color: #64748b; max-width: 650px; margin: 0 auto; line-height: 1.7; }
 
-/* ── STATUS PIPELINE ── */
-.wf-pipeline {
-  display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: center;
-  padding: 28px 0;
+/* ── SCENE PLAYER ── */
+.pres-scene-player { margin: 0 auto; max-width: 960px; }
+.pres-scene-progress {
+  display: flex; gap: 6px; justify-content: center; margin-bottom: 20px; flex-wrap: wrap;
 }
-.wf-pipeline-node {
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
-  opacity: 0; animation: wfFadeUp 0.5s forwards; animation-delay: var(--delay);
+.pres-progress-dot {
+  width: 32px; height: 6px; border-radius: 3px; border: none; cursor: pointer;
+  background: rgba(255,255,255,0.1); transition: all 0.3s;
 }
-.wf-visible .wf-pipeline-node { opacity: 0; animation: wfFadeUp 0.5s forwards; animation-delay: var(--delay); }
-.wf-pipeline-dot {
-  width: 18px; height: 18px; border-radius: 50%; background: var(--node-color);
-  box-shadow: 0 0 20px var(--node-color), 0 0 40px color-mix(in srgb, var(--node-color) 30%, transparent);
-  animation: wfGlow 2s infinite alternate;
-}
-@keyframes wfGlow { from { box-shadow: 0 0 12px var(--node-color); } to { box-shadow: 0 0 24px var(--node-color), 0 0 48px color-mix(in srgb, var(--node-color) 20%, transparent); } }
-.wf-pipeline-label {
-  font-size: 0.65rem; font-weight: 800; color: var(--node-color); text-transform: uppercase;
-  letter-spacing: 0.5px; text-align: center; max-width: 110px;
-}
-.wf-pipeline-by { font-size: 0.6rem; color: #475569; text-align: center; max-width: 110px; }
-.wf-pipeline-arrow {
-  font-size: 1.4rem; color: #334155; margin: 0 2px; opacity: 0;
-  animation: wfFadeIn 0.3s forwards; animation-delay: var(--delay);
-}
-@keyframes wfFadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes wfFadeIn { from { opacity: 0; } to { opacity: 1; } }
+.pres-progress-dot:hover { background: rgba(255,255,255,0.25); }
+.pres-progress-done { background: var(--dot-color); opacity: 0.4; }
+.pres-progress-active { background: var(--dot-color); opacity: 1; width: 48px; box-shadow: 0 0 12px var(--dot-color); }
 
-/* ── PHASE CARDS ── */
-.wf-phases { display: flex; flex-direction: column; gap: 12px; }
-.wf-phase-card {
-  background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 16px; overflow: hidden; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-  opacity: 0; transform: translateX(-30px);
+.pres-scene-controls {
+  display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 24px;
 }
-.wf-phase-card.wf-visible { opacity: 1; transform: translateX(0); transition-delay: var(--delay); }
-.wf-phase-card:hover { border-color: var(--phase-color); box-shadow: 0 0 30px color-mix(in srgb, var(--phase-color) 8%, transparent); }
-.wf-phase-card.wf-phase-open { border-color: var(--phase-color); background: rgba(255,255,255,0.03); }
-
-.wf-phase-header {
-  display: flex; align-items: center; gap: 16px; padding: 20px 24px; cursor: pointer;
-  transition: background 0.2s;
+.pres-ctrl-btn {
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  color: #94a3b8; border-radius: 10px; padding: 8px 18px; cursor: pointer;
+  font-size: 0.78rem; font-weight: 700; transition: all 0.2s;
 }
-.wf-phase-header:hover { background: rgba(255,255,255,0.02); }
+.pres-ctrl-btn:hover:not(:disabled) { background: rgba(255,255,255,0.12); color: #fff; }
+.pres-ctrl-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.pres-ctrl-play { background: rgba(52,211,153,0.1); border-color: rgba(52,211,153,0.3); color: #34d399; }
+.pres-ctrl-play:hover { background: rgba(52,211,153,0.2); }
+.pres-scene-counter { font-size: 0.75rem; font-weight: 800; color: #475569; min-width: 50px; text-align: center; }
 
-.wf-phase-number { font-size: 0.7rem; font-weight: 900; color: var(--phase-color); opacity: 0.5; min-width: 24px; }
-.wf-phase-icon { font-size: 1.6rem; flex-shrink: 0; }
-.wf-phase-info { flex: 1; min-width: 0; }
-.wf-phase-title { font-size: 1rem; font-weight: 800; color: #fff; margin-bottom: 4px; }
-.wf-phase-desc { font-size: 0.78rem; color: #64748b; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.wf-phase-open .wf-phase-desc { -webkit-line-clamp: unset; }
+.pres-scene-card {
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px; padding: 32px; animation: presFadeIn 0.5s ease-out;
+  border-left: 4px solid var(--scene-color);
+}
+@keyframes presFadeIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 
-.wf-phase-status-badge {
-  font-size: 0.6rem; font-weight: 800; padding: 6px 12px; border-radius: 8px;
-  text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; flex-shrink: 0;
+.pres-scene-phase {
+  font-size: 0.65rem; font-weight: 800; color: var(--scene-color); text-transform: uppercase;
+  letter-spacing: 3px; margin-bottom: 8px;
+}
+.pres-scene-title-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.pres-scene-icon { font-size: 1.8rem; }
+.pres-scene-title { font-size: 1.15rem; font-weight: 800; color: #fff; margin: 0; }
+.pres-scene-narrative { font-size: 0.9rem; color: #94a3b8; line-height: 1.8; margin-bottom: 20px; }
+
+.pres-scene-mock-container {
+  margin: 20px 0; border-radius: 14px; overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.3);
 }
 
-.wf-phase-chevron {
-  font-size: 1.2rem; color: #475569; transition: transform 0.3s; flex-shrink: 0;
+.pres-scene-highlight {
+  display: flex; align-items: flex-start; gap: 10px; padding: 14px 18px;
+  background: rgba(255,255,255,0.03); border-radius: 12px;
+  border: 1px solid; font-size: 0.82rem; color: #cbd5e1; line-height: 1.5; font-weight: 600;
 }
-.wf-phase-chevron-open { transform: rotate(180deg); color: var(--phase-color); }
+.pres-highlight-icon { font-size: 1.1rem; flex-shrink: 0; }
 
-/* Steps */
-.wf-phase-steps {
-  max-height: 0; overflow: hidden; transition: max-height 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+/* ── MOCK UI STYLES ── */
+.pres-mock-scene { display: flex; justify-content: center; padding: 16px; }
+.pres-mock-scene-split { display: flex; gap: 0; align-items: stretch; }
+
+.pres-mock-sidebar {
+  width: 180px; background: linear-gradient(135deg, #0c1425, #0f172a);
+  padding: 16px 8px; display: flex; flex-direction: column; gap: 2px; flex-shrink: 0;
+  border-right: 1px solid rgba(255,255,255,0.06);
 }
-.wf-phase-steps-open { max-height: 2000px; }
-.wf-steps-inner { padding: 0 24px 24px 64px; }
+.pres-mock-sidebar-logo { padding: 8px 10px 14px; font-size: 0.85rem; font-weight: 900; color: #34d399; text-align: center; }
+.pres-mock-nav-item {
+  display: flex; align-items: center; gap: 6px; padding: 7px 10px; border-radius: 8px;
+  font-size: 0.68rem; color: #94a3b8; font-weight: 500; transition: all 0.2s;
+  white-space: nowrap; overflow: hidden;
+}
+.pres-mock-nav-active { background: rgba(52,211,153,0.12); color: #34d399; font-weight: 700; }
+.pres-mock-nav-frozen { opacity: 0.35; }
+.pres-mock-lock { margin-left: auto; font-size: 0.6rem; }
+.pres-mock-unlock-badge { margin-left: auto; font-size: 0.6rem; color: #10b981; font-weight: 900; animation: presPop 0.4s ease-out; }
+@keyframes presPop { from { transform: scale(0); } to { transform: scale(1); } }
 
-.wf-step { display: flex; gap: 16px; }
-.wf-step-connector { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; width: 20px; }
-.wf-step-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 6px; }
-.wf-step-line { width: 2px; flex: 1; min-height: 16px; margin: 4px 0; }
-.wf-step-content { flex: 1; padding-bottom: 20px; }
-.wf-step-actor-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
-.wf-step-actor {
-  font-size: 0.68rem; font-weight: 800; padding: 3px 10px; border-radius: 6px;
+.pres-mock-dashboard { flex: 1; display: flex; flex-direction: column; background: #0e1422; min-height: 300px; }
+.pres-mock-header {
+  display: flex; justify-content: space-between; align-items: center; padding: 12px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.02);
+}
+.pres-mock-header-title { font-size: 0.82rem; font-weight: 800; color: #e2e8f0; }
+.pres-mock-status-badge {
+  font-size: 0.58rem; font-weight: 800; padding: 4px 10px; border-radius: 6px;
   text-transform: uppercase; letter-spacing: 0.5px;
 }
-.wf-step-page { font-size: 0.68rem; color: #475569; }
-.wf-step-action { font-size: 0.85rem; color: #cbd5e1; line-height: 1.6; }
+.pres-mock-notification-ping { position: relative; }
+.pres-mock-notif-dot {
+  position: absolute; top: -2px; right: -2px; width: 8px; height: 8px; border-radius: 50%;
+  background: #ef4444; animation: presPulse 1.5s infinite;
+}
+@keyframes presPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+.pres-mock-avatar { width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #8b5cf6); }
+.pres-mock-body { flex: 1; padding: 16px; overflow-y: auto; }
 
-.wf-step-notify {
-  display: flex; align-items: flex-start; gap: 10px; margin-top: 10px;
-  background: rgba(52,211,153,0.04); border: 1px solid rgba(52,211,153,0.1);
-  border-radius: 10px; padding: 10px 14px; position: relative; overflow: hidden;
+/* Timeline */
+.pres-mock-timeline { position: relative; display: flex; justify-content: space-between; padding: 0 8px 16px; margin-bottom: 12px; }
+.pres-mock-timeline-track {
+  position: absolute; top: 14px; left: 8%; right: 8%; height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px;
 }
-.wf-notify-pulse {
-  width: 8px; height: 8px; border-radius: 50%; background: #34d399; flex-shrink: 0; margin-top: 4px;
-  animation: wfPulse 2s infinite;
+.pres-mock-timeline-fill {
+  height: 100%; border-radius: 2px; background: linear-gradient(90deg, #10b981, #3b82f6);
+  transition: width 0.6s ease;
 }
-@keyframes wfPulse { 0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(52,211,153,0.4); } 50% { opacity: 0.7; box-shadow: 0 0 0 6px rgba(52,211,153,0); } }
+.pres-mock-timeline-node { display: flex; flex-direction: column; align-items: center; z-index: 2; flex: 1; min-width: 0; }
+.pres-mock-tl-circle {
+  width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 0.6rem; font-weight: 900; margin-bottom: 6px; transition: all 0.3s;
+}
+.pres-mock-tl-done .pres-mock-tl-circle { background: #10b981; color: #fff; }
+.pres-mock-tl-active .pres-mock-tl-circle { background: #3b82f6; color: #fff; box-shadow: 0 0 12px rgba(59,130,246,0.5); }
+.pres-mock-tl-pending .pres-mock-tl-circle { background: rgba(255,255,255,0.06); color: #475569; border: 1.5px solid rgba(255,255,255,0.1); }
+.pres-mock-tl-label { font-size: 0.52rem; font-weight: 700; color: #64748b; text-align: center; max-width: 60px; line-height: 1.2; }
+.pres-mock-tl-active .pres-mock-tl-label { color: #3b82f6; }
 
-.wf-notify-content { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.wf-notify-label { font-size: 0.68rem; font-weight: 700; color: #34d399; }
-.wf-notify-to { font-size: 0.68rem; font-weight: 800; color: #fff; background: rgba(255,255,255,0.1); padding: 2px 8px; border-radius: 4px; }
-.wf-notify-title { font-size: 0.72rem; color: #94a3b8; }
-.wf-notify-type {
-  font-size: 0.58rem; font-weight: 800; padding: 2px 6px; border-radius: 4px;
-  text-transform: uppercase; letter-spacing: 0.5px;
+/* Toast */
+.pres-mock-toast {
+  display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px;
+  margin-top: 12px; font-size: 0.72rem; animation: presSlideUp 0.5s ease-out;
 }
-.wf-notify-type[data-type="pending"] { background: rgba(245,158,11,0.15); color: #f59e0b; }
-.wf-notify-type[data-type="success"] { background: rgba(52,211,153,0.15); color: #34d399; }
-.wf-notify-type[data-type="info"] { background: rgba(59,130,246,0.15); color: #3b82f6; }
-.wf-notify-page { font-size: 0.62rem; color: #475569; }
+@keyframes presSlideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+.pres-mock-toast-success { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.2); }
+.pres-mock-toast-pending { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.2); }
+.pres-mock-toast-info { background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.2); }
+.pres-mock-toast-icon { font-size: 1.2rem; }
+.pres-mock-toast-title { font-weight: 800; color: #e2e8f0; margin-bottom: 2px; }
+.pres-mock-toast-msg { color: #94a3b8; font-size: 0.68rem; }
 
-/* ── PARALLEL WORKFLOWS ── */
-.wf-parallel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
-.wf-parallel-card {
-  background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 16px; padding: 24px; cursor: pointer; transition: all 0.4s;
-  opacity: 0; animation: wfFadeUp 0.5s forwards; animation-delay: var(--delay);
+/* Signup form mock */
+.pres-mock-signup-form {
+  width: 320px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px; padding: 24px; margin: 16px auto;
 }
-.wf-parallel-card:hover { border-color: var(--pw-color); transform: translateY(-4px); box-shadow: 0 8px 30px color-mix(in srgb, var(--pw-color) 10%, transparent); }
-.wf-parallel-active { border-color: var(--pw-color) !important; background: rgba(255,255,255,0.04); }
-.wf-parallel-icon { font-size: 2rem; margin-bottom: 12px; }
-.wf-parallel-title { font-size: 1rem; font-weight: 800; color: #fff; margin-bottom: 8px; }
-.wf-parallel-desc { font-size: 0.78rem; color: #64748b; line-height: 1.6; margin-bottom: 16px; }
+.pres-mock-form-header { font-size: 1.1rem; font-weight: 900; color: #fff; text-align: center; margin-bottom: 18px; }
+.pres-mock-form-field { margin-bottom: 10px; }
+.pres-mock-form-field span { font-size: 0.65rem; font-weight: 700; color: #64748b; display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+.pres-mock-input {
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;
+  padding: 8px 12px; font-size: 0.78rem; color: #cbd5e1; font-weight: 500;
+}
+.pres-mock-input-highlight { background: rgba(52,211,153,0.1); border-color: rgba(52,211,153,0.3); color: #34d399; font-weight: 700; }
+.pres-mock-btn {
+  background: #3b82f6; color: #fff; border-radius: 10px; padding: 10px; text-align: center;
+  font-size: 0.82rem; font-weight: 800; margin-top: 16px; cursor: default;
+  animation: presBtnPulse 2s infinite;
+}
+@keyframes presBtnPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); } 50% { box-shadow: 0 0 0 8px rgba(59,130,246,0); } }
 
-.wf-parallel-flow {
-  max-height: 0; overflow: hidden; transition: max-height 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-  display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding-top: 0;
+/* Profile sections */
+.pres-mock-profile-sections { display: flex; flex-direction: column; gap: 10px; }
+.pres-mock-profile-card {
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px; padding: 12px;
 }
-.wf-parallel-flow-open { max-height: 200px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.06); }
-.wf-flow-node {
-  display: flex; align-items: center; gap: 6px; font-size: 0.72rem; color: #94a3b8; font-weight: 500;
-  opacity: 0; animation: wfFadeIn 0.3s forwards; animation-delay: var(--fdelay);
-}
-.wf-parallel-flow-open .wf-flow-node { opacity: 0; animation: wfFadeIn 0.3s forwards; animation-delay: var(--fdelay); }
-.wf-flow-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.wf-flow-connector-h { width: 20px; height: 2px; flex-shrink: 0; border-radius: 1px; }
-
-/* ── ROLE MATRIX ── */
-.wf-role-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; }
-.wf-role-tab {
-  display: flex; align-items: center; gap: 8px; padding: 10px 20px; border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.02);
-  color: #94a3b8; font-size: 0.8rem; font-weight: 700; cursor: pointer; transition: all 0.3s;
-}
-.wf-role-tab:hover { border-color: var(--role-color); color: #fff; }
-.wf-role-tab-active { border-color: var(--role-color) !important; background: color-mix(in srgb, var(--role-color) 12%, transparent) !important; color: var(--role-color) !important; }
-.wf-role-tab-icon { font-size: 1.1rem; }
-
-.wf-role-detail {
-  background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 16px; padding: 28px; transition: all 0.3s; border-color: color-mix(in srgb, var(--role-color) 30%, transparent);
-}
-.wf-role-detail-header { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
-.wf-role-big-icon { font-size: 2.5rem; }
-.wf-role-detail-header h3 { font-size: 1.3rem; font-weight: 900; color: #fff; }
-
-.wf-role-actions { display: flex; flex-wrap: wrap; gap: 10px; }
-.wf-role-action-chip {
-  display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 10px;
+.pres-mock-card-title { font-size: 0.72rem; font-weight: 800; color: #cbd5e1; margin-bottom: 8px; }
+.pres-mock-mini-fields { display: flex; flex-wrap: wrap; gap: 6px; }
+.pres-mock-mini-fields span {
   background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
-  font-size: 0.78rem; color: #cbd5e1; font-weight: 500; transition: all 0.2s;
-  opacity: 0; animation: wfFadeUp 0.3s forwards; animation-delay: var(--achip-delay);
+  border-radius: 6px; padding: 4px 8px; font-size: 0.65rem; color: #94a3b8;
 }
-.wf-role-action-chip:hover { background: rgba(255,255,255,0.08); transform: translateY(-2px); }
-.wf-action-bullet { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
 
-/* ── MILESTONE AUTO-GEN ── */
-.wf-milestone-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
-.wf-milestone-card {
+/* Waiting room */
+.pres-mock-waiting-room { text-align: center; padding: 20px 0; }
+.pres-mock-waiting-icon { font-size: 2.5rem; margin-bottom: 8px; animation: presFloat 3s ease-in-out infinite; }
+@keyframes presFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+.pres-mock-waiting-title { font-size: 0.95rem; font-weight: 800; color: #f59e0b; margin-bottom: 8px; }
+.pres-mock-waiting-text { font-size: 0.75rem; color: #94a3b8; max-width: 400px; margin: 0 auto; line-height: 1.6; }
+
+.pres-mock-submit-btn-glow {
+  display: inline-block; margin-top: 16px; background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3);
+  color: #34d399; font-weight: 800; font-size: 0.78rem; padding: 10px 24px; border-radius: 10px;
+  animation: presGlowBtn 2s infinite;
+}
+@keyframes presGlowBtn { 0%, 100% { box-shadow: 0 0 0 0 rgba(52,211,153,0.4); } 50% { box-shadow: 0 0 0 10px rgba(52,211,153,0); } }
+
+/* Scholar card review */
+.pres-mock-scholar-card-review {
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px; padding: 16px; margin-bottom: 12px;
+}
+.pres-mock-verify-actions { display: flex; gap: 8px; }
+.pres-mock-action-btn {
+  flex: 1; padding: 8px 12px; border-radius: 8px; font-size: 0.72rem; font-weight: 700; text-align: center;
+}
+.pres-mock-action-assign { background: rgba(139,92,246,0.1); color: #a78bfa; border: 1px solid rgba(139,92,246,0.2); }
+.pres-mock-action-verify { background: rgba(16,185,129,0.1); color: #34d399; border: 1px solid rgba(16,185,129,0.2); animation: presGlowBtn 2s infinite; }
+
+/* Research grid */
+.pres-mock-research-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.pres-mock-research-card {
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px; padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.pres-mock-research-card span:first-child { font-size: 1.3rem; }
+.pres-mock-research-card span:nth-child(2) { font-size: 0.68rem; color: #94a3b8; font-weight: 600; }
+.pres-mock-count { font-size: 1.1rem !important; font-weight: 900; color: #34d399 !important; }
+
+/* Synopsis flow */
+.pres-mock-synopsis-flow { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.pres-mock-sub-step {
+  display: flex; align-items: center; gap: 10px; font-size: 0.75rem; color: #cbd5e1; font-weight: 600;
+  opacity: 0; animation: presFadeSlide 0.4s forwards;
+}
+@keyframes presFadeSlide { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+.pres-mock-sub-dot {
+  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; border: 2px solid rgba(255,255,255,0.15);
+}
+.pres-mock-sub-done { background: #10b981; border-color: #10b981; }
+.pres-mock-sub-active { background: #3b82f6; border-color: #3b82f6; animation: presPulse 1.5s infinite; }
+
+/* Coursework info */
+.pres-mock-coursework-info {
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px; padding: 20px; margin-top: 12px;
+}
+
+/* Prerequisites */
+.pres-mock-prereqs {
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px; padding: 16px; margin-top: 12px;
+}
+.pres-mock-prereq-title { font-size: 0.75rem; font-weight: 800; color: #f97316; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }
+.pres-mock-prereq-item { font-size: 0.78rem; padding: 6px 0; color: #cbd5e1; font-weight: 600; }
+.pres-mock-prereq-pass { color: #34d399; }
+
+/* Degree celebration */
+.pres-mock-degree-celebration { text-align: center; padding: 16px 0; position: relative; overflow: hidden; }
+.pres-mock-degree-icon { font-size: 3.5rem; animation: presFloat 2s ease-in-out infinite; }
+.pres-mock-degree-text { font-size: 1.1rem; font-weight: 900; color: #10b981; margin: 8px 0 4px; }
+.pres-mock-degree-sub { font-size: 0.82rem; color: #94a3b8; font-weight: 600; }
+
+.pres-mock-confetti-container { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.pres-mock-confetti {
+  position: absolute; width: 6px; height: 6px; border-radius: 1px; top: -10px;
+  animation: presConfetti 3s linear infinite;
+}
+@keyframes presConfetti {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(350px) rotate(720deg); opacity: 0; }
+}
+
+/* ── FEATURE GRID ── */
+.pres-feature-grid { display: grid; gap: 16px; }
+.pres-feature-card {
+  display: flex; gap: 16px; padding: 20px; border-radius: 14px;
   background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 16px; padding: 24px; text-align: center; transition: all 0.4s;
-  opacity: 0; animation: wfFadeUp 0.5s forwards; animation-delay: var(--delay);
+  opacity: 0; transform: translateY(20px); transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.wf-milestone-card:hover { border-color: var(--ms-color); transform: translateY(-6px); box-shadow: 0 12px 40px color-mix(in srgb, var(--ms-color) 10%, transparent); }
-.wf-ms-icon { font-size: 2.5rem; margin-bottom: 12px; }
-.wf-ms-type { font-size: 0.85rem; font-weight: 800; color: var(--ms-color); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
-.wf-ms-seq { font-size: 0.7rem; color: #475569; margin-bottom: 12px; font-weight: 600; }
-.wf-ms-trigger { font-size: 0.75rem; color: #94a3b8; line-height: 1.5; }
-.wf-ms-trigger-label { font-weight: 700; color: #64748b; display: block; margin-bottom: 4px; text-transform: uppercase; font-size: 0.6rem; letter-spacing: 1px; }
+.pres-feature-card.pres-feature-visible { opacity: 1; transform: translateY(0); }
+.pres-feature-card:hover { border-color: var(--feat-color); transform: translateY(-3px); box-shadow: 0 8px 24px color-mix(in srgb, var(--feat-color) 8%, transparent); }
+.pres-feature-icon { font-size: 1.8rem; flex-shrink: 0; }
+.pres-feature-title { font-size: 0.9rem; font-weight: 800; color: #fff; margin-bottom: 6px; }
+.pres-feature-desc { font-size: 0.78rem; color: #94a3b8; line-height: 1.6; margin: 0; }
 
-/* ── NOTIFICATION TABLE ── */
-.wf-notif-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
-.wf-notif-filter {
-  padding: 8px 16px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08);
-  background: rgba(255,255,255,0.02); color: #94a3b8; font-size: 0.75rem; font-weight: 700;
-  cursor: pointer; transition: all 0.2s;
+/* ── CAPABILITIES ── */
+.pres-capabilities-section { margin-top: 8px; }
+.pres-cap-header { margin-bottom: 24px; }
+.pres-cap-badge {
+  display: inline-block; font-size: 0.78rem; font-weight: 800; padding: 8px 20px; border-radius: 10px;
+  margin-bottom: 8px;
 }
-.wf-notif-filter:hover { border-color: rgba(52,211,153,0.3); color: #fff; }
-.wf-notif-filter-active { background: rgba(52,211,153,0.1) !important; border-color: rgba(52,211,153,0.3) !important; color: #34d399 !important; }
+.pres-cap-desc { font-size: 0.85rem; color: #64748b; max-width: 600px; line-height: 1.6; }
 
-.wf-notif-table-wrap {
-  overflow-x: auto; border-radius: 16px; border: 1px solid rgba(255,255,255,0.06);
-  background: rgba(255,255,255,0.02);
+/* ── PUBLIC PORTAL ── */
+.pres-portal-vision { margin-top: 8px; }
+.pres-portal-vision-header { text-align: center; margin-bottom: 40px; }
+.pres-portal-vision-title { font-size: 1.4rem; font-weight: 900; color: #fff; margin-bottom: 12px; }
+.pres-portal-vision-desc { font-size: 0.92rem; color: #94a3b8; max-width: 600px; margin: 0 auto; line-height: 1.7; }
+
+.pres-portal-summary {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 40px;
 }
-.wf-notif-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
-.wf-notif-table thead { background: rgba(255,255,255,0.04); }
-.wf-notif-table th {
-  padding: 14px 16px; text-align: left; font-weight: 800; color: #64748b;
-  text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.65rem;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+.pres-portal-summary-card {
+  text-align: center; padding: 24px 16px; border-radius: 16px;
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+  transition: all 0.4s;
 }
-.wf-notif-row {
-  opacity: 0; animation: wfFadeIn 0.3s forwards; animation-delay: var(--row-delay);
-  transition: background 0.2s;
-}
-.wf-notif-row:hover { background: rgba(255,255,255,0.03); }
-.wf-notif-table td { padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.03); color: #cbd5e1; vertical-align: middle; }
-.wf-notif-trigger { font-weight: 600; }
-.wf-notif-badge {
-  font-size: 0.65rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; white-space: nowrap;
-}
-.wf-notif-from { background: rgba(139,92,246,0.12); color: #a78bfa; }
-.wf-notif-to { background: rgba(59,130,246,0.12); color: #60a5fa; }
-.wf-notif-title-cell { font-size: 0.75rem; }
-.wf-notif-type-badge {
-  font-size: 0.58rem; font-weight: 800; padding: 3px 8px; border-radius: 5px;
-  text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap;
-}
-.wf-type-pending { background: rgba(245,158,11,0.15); color: #fbbf24; }
-.wf-type-success { background: rgba(52,211,153,0.15); color: #34d399; }
-.wf-type-info { background: rgba(59,130,246,0.15); color: #60a5fa; }
-.wf-type-system { background: rgba(239,68,68,0.15); color: #f87171; }
-.wf-notif-tab-badge {
-  font-size: 0.65rem; font-weight: 700; color: #94a3b8;
-  background: rgba(255,255,255,0.06); padding: 3px 10px; border-radius: 6px;
-}
+.pres-portal-summary-card:hover { transform: translateY(-6px); border-color: rgba(52,211,153,0.3); }
+.pres-portal-summary-icon { font-size: 2rem; margin-bottom: 12px; }
+.pres-portal-summary-title { font-size: 0.82rem; font-weight: 800; color: #fff; margin-bottom: 8px; }
+.pres-portal-summary-text { font-size: 0.72rem; color: #94a3b8; line-height: 1.5; }
 
 /* ── FOOTER ── */
-.wf-footer {
+.pres-footer {
   text-align: center; padding: 60px 24px 40px; color: #334155;
   font-size: 0.8rem; font-weight: 600; position: relative; z-index: 1;
   border-top: 1px solid rgba(255,255,255,0.04);
 }
+.pres-footer-logo { font-size: 1.2rem; font-weight: 900; color: #34d399; margin-bottom: 8px; }
 
 /* ── RESPONSIVE ── */
-@media (max-width: 768px) {
-  .wf-phase-header { flex-wrap: wrap; gap: 10px; }
-  .wf-phase-status-badge { order: 5; }
-  .wf-steps-inner { padding-left: 20px; }
-  .wf-pipeline { gap: 4px; }
-  .wf-pipeline-node { min-width: 80px; }
-  .wf-parallel-grid { grid-template-columns: 1fr; }
-  .wf-hero-stats { gap: 12px; }
-  .wf-stat { padding: 14px 18px; }
-  .wf-role-tabs { gap: 4px; }
-  .wf-role-tab { padding: 8px 12px; font-size: 0.72rem; }
-  .wf-notif-table { min-width: 800px; }
+@media (max-width: 900px) {
+  .pres-mock-scene-split { flex-direction: column; }
+  .pres-mock-sidebar { width: 100%; flex-direction: row; flex-wrap: wrap; padding: 8px; gap: 4px; }
+  .pres-mock-nav-item { padding: 5px 8px; font-size: 0.6rem; }
+  .pres-feature-grid { grid-template-columns: 1fr !important; }
+  .pres-portal-summary { grid-template-columns: 1fr 1fr; }
+  .pres-nav-links { display: none; }
+  .pres-hero-stats { gap: 12px; }
+}
+@media (max-width: 600px) {
+  .pres-portal-summary { grid-template-columns: 1fr; }
+  .pres-scene-controls { flex-wrap: wrap; gap: 8px; }
+  .pres-act { padding: 60px 16px; }
 }
 `;
 
