@@ -309,6 +309,18 @@ const generateCertificate = async (req, res) => {
     const scholar = await User.findById(thesis.scholarId);
     const supervisor = await User.findById(thesis.supervisorId);
 
+    const fs = require('fs');
+    const path = require('path');
+    let logoBase64 = '';
+    let logoPath = path.join(__dirname, '..', 'uploads', 'hpu_logo.png');
+    if (!fs.existsSync(logoPath)) {
+      logoPath = path.join(__dirname, '..', '..', 'client', 'public', 'hpu_logo.png');
+    }
+    if (fs.existsSync(logoPath)) {
+      const logoBuffer = fs.readFileSync(logoPath);
+      logoBase64 = `data:image/png;base64,${logoBuffer.toString('base64')}`;
+    }
+
     let titleText = '';
     let bodyText = '';
     let extraTable = '';
@@ -428,7 +440,7 @@ const generateCertificate = async (req, res) => {
               top: 50%;
               left: 50%;
               transform: translate(-50%, -50%);
-              opacity: 0.022;
+              opacity: 0.05;
               pointer-events: none;
               width: 440px;
               height: 440px;
@@ -518,68 +530,11 @@ const generateCertificate = async (req, res) => {
         <body>
           <div class="certificate-container">
             <!-- Giant high-fidelity background watermark seal of HPU -->
-            <svg class="watermark" viewBox="0 0 200 200" fill="none" stroke="currentColor" stroke-width="0.8">
-              <circle cx="100" cy="100" r="94" stroke="#15803d" />
-              <circle cx="100" cy="100" r="88" stroke="#d97706" />
-              <circle cx="100" cy="100" r="62" stroke="#d97706" />
-              <path d="M 52,130 L 80,95 L 105,122 L 138,82 L 170,130 Z" stroke="#15803d" />
-              <circle cx="100" cy="80" r="18" stroke="#d97706" />
-              <path d="M 70,135 Q 100,128 100,138 Q 100,128 130,135 L 130,147 Q 100,140 100,150 Q 100,140 70,147 Z" stroke="#15803d" />
-            </svg>
+            <img class="watermark" src="${logoBase64}" alt="HPU Watermark Seal" />
 
             <div class="certificate-header">
-              <!-- Official HPU Logo Emblem (Vector render) -->
-              <svg width="105" height="105" viewBox="0 0 200 200" style="margin: 0 auto; display: block;">
-                <circle cx="100" cy="100" r="94" fill="white" stroke="#15803d" stroke-width="4.5" filter="drop-shadow(0px 3px 5px rgba(0,0,0,0.08))" />
-                <circle cx="100" cy="100" r="88" fill="none" stroke="#d97706" stroke-width="2" />
-                <circle cx="100" cy="100" r="62" fill="none" stroke="#d97706" stroke-width="1.5" />
-                
-                <path id="circleTextTop" d="M 18, 100 A 82,82 0 0,1 182,100" fill="none" />
-                <path id="circleTextBottom" d="M 182, 100 A 82,82 0 0,1 18,100" fill="none" />
-                
-                <text font-family="'Cinzel', serif" font-size="11.2px" fill="#15803d" font-weight="bold" letter-spacing="0.5">
-                  <textPath href="#circleTextTop" startOffset="50%" text-anchor="middle">HIMACHAL PRADESH UNIVERSITY</textPath>
-                </text>
-                <text font-family="'Cinzel', serif" font-size="9.5px" fill="#d97706" font-weight="bold" letter-spacing="2">
-                  <textPath href="#circleTextBottom" startOffset="50%" text-anchor="middle">SHIMLA • ESTD 1970 •</textPath>
-                </text>
-                
-                <path d="M 52,130 L 80,95 L 105,122 L 138,82 L 170,130 Z" fill="url(#crestMountainGrad)" stroke="#15803d" stroke-width="2.2" stroke-linejoin="round" />
-                <path d="M 80,95 L 96,114 L 112,106 L 138,82 L 148,102" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" />
-
-                <circle cx="100" cy="80" r="18" fill="url(#crestSunGrad)" />
-                <g stroke="#d97706" stroke-width="1.5" opacity="0.85">
-                  <line x1="100" y1="56" x2="100" y2="48" />
-                  <line x1="117" y1="63" x2="123" y2="57" />
-                  <line x1="124" y1="80" x2="132" y2="80" />
-                  <line x1="83" y1="63" x2="77" y2="57" />
-                  <line x1="76" y1="80" x2="68" y2="80" />
-                  <line x1="112" y1="92" x2="118" y2="98" />
-                  <line x1="88" y1="92" x2="82" y2="98" />
-                </g>
-                
-                <path d="M 70,135 Q 100,128 100,138 Q 100,128 130,135 L 130,147 Q 100,140 100,150 Q 100,140 70,147 Z" fill="#ffffff" stroke="#15803d" stroke-width="1.8" />
-                <line x1="100" y1="138" x2="100" y2="150" stroke="#15803d" stroke-width="1.8" />
-                
-                <rect x="55" y="156" width="90" height="15" rx="3.5" fill="#15803d" />
-                <text x="100" y="167" font-family="'Outfit', sans-serif" font-size="7.5px" fill="white" font-weight="bold" text-anchor="middle" letter-spacing="0.5">ज्ञानं वै बलम्</text>
-                
-                <defs>
-                  <linearGradient id="crestMountainGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stop-color="#a7f3d0" />
-                    <stop offset="100%" stop-color="#047857" />
-                  </linearGradient>
-                  <linearGradient id="crestSunGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stop-color="#f59e0b" />
-                    <stop offset="100%" stop-color="#ef4444" />
-                  </linearGradient>
-                  <linearGradient id="goldRosetteSeal" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stop-color="#fef08a" />
-                    <stop offset="50%" stop-color="#fbbf24" />
-                    <stop offset="100%" stop-color="#d97706" />
-                  </linearGradient>
-                </defs>
-              </svg>
+              <!-- Official HPU Logo Emblem -->
+              <img src="${logoBase64}" alt="HPU Logo" style="width: 105px; height: 105px; object-fit: contain; margin: 0 auto 12px; display: block;" />
 
               <h1 class="university-title">Himachal Pradesh University</h1>
               <p class="university-subtitle">Dean of Doctoral Studies & Research Office</p>
@@ -630,6 +585,7 @@ const generateCertificate = async (req, res) => {
       </html>
     `;
 
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.send(htmlContent);
   } catch (err) {
     res.status(500).send(err.message);
