@@ -336,6 +336,11 @@ const uploadDocument = async (req, res) => {
     } else if (docType === 'other') {
       if (!user.profile.qualifications.other) user.profile.qualifications.other = {};
       user.profile.qualifications.other.certificateUrl = fileUrl;
+    } else if (docType.startsWith('fellowship_')) {
+      const index = parseInt(docType.split('_')[1], 10);
+      if (!user.profile.qualifications.fellowships) user.profile.qualifications.fellowships = [];
+      if (!user.profile.qualifications.fellowships[index]) user.profile.qualifications.fellowships[index] = {};
+      user.profile.qualifications.fellowships[index].certificateUrl = fileUrl;
     }
 
     user.markModified('profile');

@@ -3856,7 +3856,7 @@ const ProfileTab = () => {
     graduation: false,
     postGraduation: false,
     netJrf: false,
-    other: false
+    fellowships: false
   });
   // Common ERP fields
   const [dob, setDob] = useState(user?.profile?.dob ? user.profile.dob.split('T')[0] : '');
@@ -3922,7 +3922,7 @@ const ProfileTab = () => {
   const [netJrfIssueDate, setNetJrfIssueDate] = useState(user?.profile?.qualifications?.netJrf?.issueDate ? user.profile.qualifications.netJrf.issueDate.split('T')[0] : '');
 
   // Other Exam
-  const [otherDetails, setOtherDetails] = useState(user?.profile?.qualifications?.other?.details || '');
+  const [fellowships, setFellowships] = useState(user?.profile?.qualifications?.fellowships || []);
 
   // Guide Selection
   const [preferredGuideId, setPreferredGuideId] = useState(user?.profile?.preferredGuideId || '');
@@ -3994,7 +3994,7 @@ const ProfileTab = () => {
       setNetJrfIssueDate(q?.netJrf?.issueDate ? q.netJrf.issueDate.split('T')[0] : '');
 
       // Other
-      setOtherDetails(q?.other?.details || '');
+      setFellowships(q?.fellowships || []);
 
       // Initialize editModes based on if database has values
       setEditModes(prev => ({
@@ -4004,7 +4004,7 @@ const ProfileTab = () => {
         graduation: prev.graduation || !q?.graduation?.rollNo,
         postGraduation: prev.postGraduation || !q?.postGraduation?.rollNo,
         netJrf: prev.netJrf || q?.netJrf?.qualified === undefined || (q?.netJrf?.qualified === true && !q?.netJrf?.rollNo),
-        other: prev.other || !q?.other
+        fellowships: prev.fellowships || !q?.fellowships
       }));
     } else {
       setEditModes({
@@ -4160,10 +4160,10 @@ const ProfileTab = () => {
           issueDate: netJrfIssueDate,
           certificateUrl: user?.profile?.qualifications?.netJrf?.certificateUrl
         },
-        other: {
-          details: otherDetails,
-          certificateUrl: user?.profile?.qualifications?.other?.certificateUrl
-        }
+        fellowships: fellowships.map((f, i) => ({
+          ...f,
+          certificateUrl: user?.profile?.qualifications?.fellowships?.[i]?.certificateUrl || f.certificateUrl || ''
+        }))
       }
     };
 
@@ -4268,11 +4268,11 @@ const ProfileTab = () => {
         issueDate: netJrfIssueDate,
         certificateUrl: user?.profile?.qualifications?.netJrf?.certificateUrl
       };
-    } else if (sectionKey === 'other') {
-      sectionData = {
-        details: otherDetails || '',
-        certificateUrl: user?.profile?.qualifications?.other?.certificateUrl || ''
-      };
+    } else if (sectionKey === 'fellowships') {
+      sectionData = fellowships.map((f, i) => ({
+        ...f,
+        certificateUrl: user?.profile?.qualifications?.fellowships?.[i]?.certificateUrl || f.certificateUrl || ''
+      }));
     }
 
     const payload = {
@@ -4326,6 +4326,9 @@ const ProfileTab = () => {
       );
     }
     if (docType === 'other') {
+      return <span style={{ fontSize: '0.75rem', padding: '4px 8px', borderRadius: '12px', background: '#F3F4F6', color: '#6B7280', fontWeight: 600 }}>Optional</span>;
+    }
+    if (docType.startsWith('fellowship_')) {
       return <span style={{ fontSize: '0.75rem', padding: '4px 8px', borderRadius: '12px', background: '#F3F4F6', color: '#6B7280', fontWeight: 600 }}>Optional</span>;
     }
     return <span style={{ fontSize: '0.75rem', padding: '4px 8px', borderRadius: '12px', background: '#F3F4F6', color: '#6B7280', fontWeight: 600 }}>Pending Upload</span>;
@@ -5358,63 +5361,114 @@ const ProfileTab = () => {
               )}
             </div>
 
-            {/* Other Achievements Card */}
+            {/* Fellowships Card */}
             <div style={{ border: '1px solid #E5E7EB', borderRadius: '12px', padding: '16px', background: '#F9FAFB', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1E293B', margin: 0 }}>Other Qualifications / Fellowships (DST INSPIRE, NFSC, RGNF, etc.)</h4>
-                {getDocBadge('other', user?.profile?.qualifications?.other?.certificateUrl)}
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1E293B', margin: 0 }}>National & International Fellowships (Optional)</h4>
               </div>
               
-              {!editModes.other ? (
+              {!editModes.fellowships ? (
                 <div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px', background: '#F8FAFC', border: '1px solid #F1F5F9', borderRadius: '8px', padding: '16px', fontSize: '0.85rem', marginBottom: '16px' }}>
-                    <div>
-                      <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Academic/Fellowship Details</span>
-                      <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{otherDetails || '—'}</strong>
+                  {fellowships.length > 0 ? fellowships.map((f, i) => (
+                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', background: '#F8FAFC', border: '1px solid #F1F5F9', borderRadius: '8px', padding: '16px', fontSize: '0.85rem', marginBottom: '16px' }}>
+                      <div><span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Fellowship Type</span><strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{f.type === 'Other' ? f.otherType : f.type || '—'}</strong></div>
+                      <div><span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Awarding Body</span><strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{f.awardingBody || '—'}</strong></div>
+                      <div><span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Award Date</span><strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{f.awardDate || '—'}</strong></div>
+                      <div><span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Reference No. / ID</span><strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{f.referenceNo || '—'}</strong></div>
+                      <div><span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Duration</span><strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{f.duration || '—'}</strong></div>
+                      <div><span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Amount</span><strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{f.amount || '—'}</strong></div>
+                      <div style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'flex-start', alignItems: 'center' }}>
+                        {getUploadButton(`fellowship_${i}`, user?.profile?.qualifications?.fellowships?.[i]?.certificateUrl)}
+                      </div>
                     </div>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #E5E7EB', paddingTop: '12px' }}>
-                    <div>
-                      {getUploadButton('other', user?.profile?.qualifications?.other?.certificateUrl)}
-                    </div>
+                  )) : (
+                    <div style={{ color: '#64748B', fontSize: '0.85rem', marginBottom: '16px' }}>No fellowships added.</div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid #E5E7EB', paddingTop: '12px' }}>
                     <button
                       type="button"
                       disabled={!!thesis}
-                      onClick={() => !thesis && setEditModes(prev => ({ ...prev, other: true }))}
-                      style={{ background: !!thesis ? '#9CA3AF' : '#3B82F6', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: !!thesis ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: !!thesis ? 'none' : '0 2px 4px rgba(59, 130, 246, 0.15)', transition: 'all 0.2s' }}
+                      onClick={() => !thesis && setEditModes(prev => ({ ...prev, fellowships: true }))}
+                      style={{ background: !!thesis ? '#9CA3AF' : '#3B82F6', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: !!thesis ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s' }}
                     >
-                      ✏️ Edit Other Details
+                      ✏️ Edit / Add Fellowships
                     </button>
                   </div>
                 </div>
               ) : (
                 <>
-                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '12px', alignItems: 'flex-end' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Academic/Fellowship Details</label>
-                      <input type="text" className="form-input" placeholder="Describe fellowship/awards or additional exams cleared" value={otherDetails} onChange={e => setOtherDetails(e.target.value)} />
+                  {fellowships.map((f, i) => (
+                    <div key={i} style={{ background: '#ffffff', border: '1px solid #E5E7EB', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                        <strong style={{ color: '#1E293B', fontSize: '0.9rem' }}>Fellowship #{i + 1}</strong>
+                        <button type="button" onClick={() => { const updated = [...fellowships]; updated.splice(i, 1); setFellowships(updated); }} style={{ background: '#EF4444', color: 'white', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '0.7rem', cursor: 'pointer' }}>Remove</button>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Fellowship Type</label>
+                          <select className="form-input" value={f.type || ''} onChange={e => { const updated = [...fellowships]; updated[i].type = e.target.value; setFellowships(updated); }}>
+                            <option value="">Select Fellowship...</option>
+                            <option value="DST INSPIRE">DST INSPIRE</option>
+                            <option value="CSIR NET JRF">CSIR NET JRF</option>
+                            <option value="UGC NET JRF">UGC NET JRF</option>
+                            <option value="NFSC">NFSC</option>
+                            <option value="RGNF">RGNF</option>
+                            <option value="PMRF">PMRF</option>
+                            <option value="Fulbright">Fulbright</option>
+                            <option value="DAAD">DAAD</option>
+                            <option value="Other">Other</option>
+                          </select>
+                        </div>
+                        {f.type === 'Other' && (
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Please Specify Fellowship</label>
+                            <input type="text" className="form-input" value={f.otherType || ''} onChange={e => { const updated = [...fellowships]; updated[i].otherType = e.target.value; setFellowships(updated); }} />
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Awarding Body</label>
+                          <input type="text" className="form-input" value={f.awardingBody || ''} onChange={e => { const updated = [...fellowships]; updated[i].awardingBody = e.target.value; setFellowships(updated); }} />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Award Date</label>
+                          <input type="date" className="form-input" value={f.awardDate || ''} onChange={e => { const updated = [...fellowships]; updated[i].awardDate = e.target.value; setFellowships(updated); }} />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Reference No. / ID</label>
+                          <input type="text" className="form-input" value={f.referenceNo || ''} onChange={e => { const updated = [...fellowships]; updated[i].referenceNo = e.target.value; setFellowships(updated); }} />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Duration</label>
+                          <input type="text" className="form-input" placeholder="e.g. 5 Years" value={f.duration || ''} onChange={e => { const updated = [...fellowships]; updated[i].duration = e.target.value; setFellowships(updated); }} />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Amount</label>
+                          <input type="text" className="form-input" placeholder="e.g. 31,000/month" value={f.amount || ''} onChange={e => { const updated = [...fellowships]; updated[i].amount = e.target.value; setFellowships(updated); }} />
+                        </div>
+                      </div>
+                      <div style={{ marginTop: '12px' }}>
+                        {getUploadButton(`fellowship_${i}`, user?.profile?.qualifications?.fellowships?.[i]?.certificateUrl)}
+                      </div>
                     </div>
-                    <div>
-                      {getUploadButton('other', user?.profile?.qualifications?.other?.certificateUrl)}
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E5E7EB' }}>
-                    {user?.profile?.qualifications?.other?.details && (
-                      <button
-                        type="button"
-                        onClick={() => setEditModes(prev => ({ ...prev, other: false }))}
-                        style={{ background: '#6B7280', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer' }}
-                      >
-                        Cancel
-                      </button>
-                    )}
+                  ))}
+                  <button type="button" onClick={() => setFellowships([...fellowships, { type: '', otherType: '', awardingBody: '', awardDate: '', referenceNo: '', amount: '', duration: '' }])} style={{ background: '#F1F5F9', color: '#334155', border: '1px dashed #CBD5E1', padding: '8px 16px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', width: '100%', marginBottom: '16px' }}>+ Add More Fellowships</button>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '12px', borderTop: '1px solid #E5E7EB' }}>
                     <button
                       type="button"
-                      onClick={() => saveSection('other')}
-                      disabled={loading}
-                      style={{ background: '#059669', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)', transition: 'all 0.2s' }}
+                      onClick={() => { setFellowships(user?.profile?.qualifications?.fellowships || []); setEditModes(prev => ({ ...prev, fellowships: false })); }}
+                      style={{ background: '#6B7280', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer' }}
                     >
-                      💾 Save Other Details
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => saveSection('fellowships')}
+                      disabled={loading}
+                      style={{ background: '#059669', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      💾 Save Fellowships
                     </button>
                   </div>
                 </>
