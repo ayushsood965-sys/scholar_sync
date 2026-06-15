@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import axios from 'axios';
 import { jsPDF } from 'jspdf';
+import { generatePremiumPDF } from '../utils/pdfReportGenerator';
 import { FileText, Download, Loader } from 'lucide-react';
 import { API_URL } from '../config';
 import { ThesisContext } from '../context/ThesisContext';
@@ -20,6 +21,33 @@ const DetailedReportsTab = ({ user }) => {
   // Determine subrole or HOD level
   const subRole = user?.role === 'HOD' ? 'HOD' : user?.subRole;
 
+  // Filter department theses locally
+  const deptTheses = allTheses.filter(t => t.department === user?.department);
+
+  // Helper: check if a thesis/scholar belongs to an academic session (e.g. "2024-2025" means July 2024 - June 2025)
+  const belongsToSession = (thesis, sessionStr) => {
+    if (!sessionStr) return true;
+    const [startYear, endYear] = sessionStr.split('-').map(Number);
+    const sessionStart = new Date(startYear, 6, 1); // July 1 of start year
+    const sessionEnd = new Date(endYear, 5, 30);     // June 30 of end year
+    // Check admissionDate from scholar profile first, then thesis startDate, then thesis createdAt
+    const dateStr = thesis.scholarId?.profile?.admissionDate || thesis.startDate || thesis.createdAt;
+    if (!dateStr) return false;
+    const d = new Date(dateStr);
+    return d >= sessionStart && d <= sessionEnd;
+  };
+
+  // Filter theses by selected session
+  const sessionFilteredTheses = useMemo(() => {
+    if (!session) return deptTheses;
+    return deptTheses.filter(t => belongsToSession(t, session));
+  }, [session, deptTheses]);
+
+  // Reset candidate selection when session changes
+  useEffect(() => {
+    setSelectedCandidateId('');
+  }, [session]);
+
   useEffect(() => {
     if (user?.role === 'ADMIN') {
       fetchAllTheses();
@@ -30,8 +58,7 @@ const DetailedReportsTab = ({ user }) => {
     }
   }, [user, subRole]);
 
-  // Filter department theses locally
-  const deptTheses = allTheses.filter(t => t.department === user?.department);
+
 
   const loadLogoAsBase64 = () => {
     return new Promise((resolve) => {
@@ -56,35 +83,43 @@ const DetailedReportsTab = ({ user }) => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
-    const radius = Math.min(centerX, centerY) - 20;
+    const radius = Math.min(centerX, centerY) - 25;
     const pct = total > 0 ? completed / total : 0;
 
-    // Gray circle
+    // Background track
     ctx.beginPath();
     ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-    ctx.strokeStyle = '#e2e8f0';
-    ctx.lineWidth = 14;
+    ctx.strokeStyle = '#E5E7EB';
+    ctx.lineWidth = 16;
+    ctx.lineCap = 'round';
     ctx.stroke();
 
-    // Progress circle
-    ctx.beginPath();
-    const startAngle = -Math.PI / 2;
-    const endAngle = startAngle + (pct * 2 * Math.PI);
-    ctx.arc(centerX, centerY, radius, startAngle, endAngle);
-    ctx.strokeStyle = '#10b981';
-    ctx.lineWidth = 14;
-    ctx.stroke();
+    // Progress arc — green gradient
+    if (pct > 0) {
+      ctx.beginPath();
+      const startAngle = -Math.PI / 2;
+      const endAngle = startAngle + (pct * 2 * Math.PI);
+      ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+      ctx.strokeStyle = '#1A5A3B';
+      ctx.lineWidth = 16;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+    }
 
-    // Text
-    ctx.font = 'bold 24px Helvetica';
-    ctx.fillStyle = '#0f172a';
+    // Percentage text
+    ctx.font = 'bold 28px Helvetica';
+    ctx.fillStyle = '#133A26';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`${Math.round(pct * 100)}%`, centerX, centerY - 5);
+    ctx.fillText(`${Math.round(pct * 100)}%`, centerX, centerY - 8);
 
-    ctx.font = '600 10px Helvetica';
-    ctx.fillStyle = '#64748b';
-    ctx.fillText('Milestones Completed', centerX, centerY + 18);
+    ctx.font = 'bold 10px Helvetica';
+    ctx.fillStyle = '#6B7280';
+    ctx.fillText(`${completed}/${total} Milestones`, centerX, centerY + 14);
+
+    ctx.font = '600 9px Helvetica';
+    ctx.fillStyle = '#9CA3AF';
+    ctx.fillText('COMPLETION RATE', centerX, centerY + 28);
   };
 
   const drawPublicationsBarChart = (canvas, journals, conferences) => {
@@ -124,7 +159,7 @@ const DetailedReportsTab = ({ user }) => {
 
     // Bars
     const barWidth = 40;
-    const colors = ['#3b82f6', '#8b5cf6'];
+    const colors = ['#1A5A3B', '#2E9E5B'];
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
 
@@ -156,25 +191,37 @@ const DetailedReportsTab = ({ user }) => {
   };
 
   const drawHeader = (doc, logoBase64) => {
+    // Green accent bar at very top
+    doc.setFillColor(19, 58, 38);
+    doc.rect(0, 0, 210, 3, 'F');
+
     if (logoBase64) {
-      doc.addImage(logoBase64, 'PNG', 15, 10, 25, 25);
+      doc.addImage(logoBase64, 'PNG', 15, 8, 22, 22);
     }
     doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.setTextColor(30, 58, 138);
-    doc.text('Himachal Pradesh University', 105, 17, { align: 'center' });
+    doc.setFontSize(13);
+    doc.setTextColor(19, 58, 38);
+    doc.text('Himachal Pradesh University', 105, 16, { align: 'center' });
 
     doc.setFont('Helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(71, 85, 105);
-    doc.text("(NAAC Accredited 'A' Grade University)", 105, 23, { align: 'center' });
-    doc.text('Summerhill, Shimla 171005', 105, 28, { align: 'center' });
+    doc.setFontSize(8.5);
+    doc.setTextColor(107, 114, 128);
+    doc.text("(NAAC Accredited 'A' Grade University)", 105, 22, { align: 'center' });
 
-    doc.setDrawColor(226, 232, 240);
-    doc.setLineWidth(0.5);
-    doc.line(15, 38, 195, 38);
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(156, 163, 175);
+    doc.text('Summerhill, Shimla — 171005, Himachal Pradesh', 105, 27, { align: 'center' });
 
-    return 45;
+    // Decorative double line
+    doc.setDrawColor(19, 58, 38);
+    doc.setLineWidth(0.8);
+    doc.line(15, 33, 195, 33);
+    doc.setDrawColor(165, 214, 167);
+    doc.setLineWidth(0.4);
+    doc.line(15, 35, 195, 35);
+
+    return 42;
   };
 
   const checkNewPage = (doc, neededHeight, currentY, logoBase64) => {
@@ -189,10 +236,23 @@ const DetailedReportsTab = ({ user }) => {
     const pageCount = doc.internal.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
+      // Footer line
+      doc.setDrawColor(165, 214, 167);
+      doc.setLineWidth(0.3);
+      doc.line(15, 283, 195, 283);
+      // Page number
       doc.setFont('Helvetica', 'normal');
-      doc.setFontSize(8);
-      doc.setTextColor(148, 163, 184);
-      doc.text(`Page ${i} of ${pageCount}`, 105, 287, { align: 'center' });
+      doc.setFontSize(7);
+      doc.setTextColor(156, 163, 175);
+      doc.text(`Page ${i} of ${pageCount}`, 105, 288, { align: 'center' });
+      // ScholarSync branding
+      doc.setFont('Helvetica', 'bold');
+      doc.setFontSize(6.5);
+      doc.setTextColor(19, 58, 38);
+      doc.text('ScholarSync', 15, 288);
+      doc.setFont('Helvetica', 'normal');
+      doc.setTextColor(156, 163, 175);
+      doc.text(`Generated: ${new Date().toLocaleDateString()}`, 195, 288, { align: 'right' });
     }
   };
 
@@ -202,10 +262,10 @@ const DetailedReportsTab = ({ user }) => {
       return toast.warning('Please select an Academic Session.');
     }
 
-    const sourceTheses = user?.role === 'ADMIN' ? allTheses : deptTheses;
+    const sourceTheses = user?.role === 'ADMIN' ? allTheses.filter(t => belongsToSession(t, session)) : sessionFilteredTheses;
 
     if (sourceTheses.length === 0) {
-      return toast.error('No scholar candidates found in this department.');
+      return toast.error('No scholar candidates found for the selected academic session.');
     }
 
     // Determine target theses
@@ -303,888 +363,267 @@ const DetailedReportsTab = ({ user }) => {
       setLoadingMsg('Loading official HPU crest logo...');
       const logoBase64 = await loadLogoAsBase64();
 
-      // 3. Create PDF
-      setLoadingMsg('Assembling PDF document...');
-      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-
-      // Create reusable off-screen canvas elements for charts
-      const donutCanvas = document.createElement('canvas');
-      donutCanvas.width = 300;
-      donutCanvas.height = 300;
-
-      const barCanvas = document.createElement('canvas');
-      barCanvas.width = 400;
-      barCanvas.height = 300;
+      // 3. Create PDF Dossier for each candidate
+      setLoadingMsg('Assembling Premium Executive Dossier...');
 
       for (let i = 0; i < compiledData.length; i++) {
-        if (i > 0) {
-          doc.addPage();
-        }
-
         const data = compiledData[i];
-        const { thesis, milestones, publications, drcMeetings, racSessions, additionalDocuments, meetings } = data;
-        const studentName = thesis.scholarId?.name || 'N/A';
-
-        // Draw page header
-        let currentY = drawHeader(doc, logoBase64);
-
-        // Subtitle
-        doc.setFont('Helvetica', 'bold');
-        doc.setFontSize(10);
-        doc.setTextColor(15, 23, 42);
-        doc.text(`DOCTORAL SCHOLAR PROGRESS RECORD — ACADEMIC SESSION ${session}`, 105, currentY, { align: 'center' });
-
-        doc.setFont('Helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.setTextColor(100, 116, 139);
-        doc.text(`Generated: ${new Date().toLocaleDateString()}`, 195, currentY, { align: 'right' });
-        currentY += 8;
-
-        // PROFILE CARD
-        doc.setFillColor(248, 250, 252);
-        doc.roundedRect(15, currentY, 180, 52, 3, 3, 'F');
-        doc.setDrawColor(226, 232, 240);
-        doc.setLineWidth(0.5);
-        doc.roundedRect(15, currentY, 180, 52, 3, 3, 'D');
-
-        doc.setFont('Helvetica', 'bold');
-        doc.setFontSize(9);
-        doc.setTextColor(15, 23, 42);
-        doc.text("SCHOLAR DETAILS", 20, currentY + 6);
-
-        doc.setFont('Helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.setTextColor(71, 85, 105);
-
-        // Column 1
-        doc.text("Name:", 20, currentY + 14);
-        doc.setFont('Helvetica', 'bold');
-        doc.setTextColor(15, 23, 42);
-        doc.text(studentName, 48, currentY + 14);
-
-        doc.setFont('Helvetica', 'normal');
-        doc.setTextColor(71, 85, 105);
-        doc.text("Enrollment No:", 20, currentY + 21);
-        doc.setFont('Helvetica', 'bold');
-        doc.setTextColor(15, 23, 42);
-        doc.text(thesis.enrollmentNumber || 'N/A', 48, currentY + 21);
-
-        doc.setFont('Helvetica', 'normal');
-        doc.setTextColor(71, 85, 105);
-        doc.text("Department:", 20, currentY + 28);
-        doc.setFont('Helvetica', 'bold');
-        doc.setTextColor(15, 23, 42);
-        doc.text(thesis.department || 'N/A', 48, currentY + 28);
-
-        doc.setFont('Helvetica', 'normal');
-        doc.setTextColor(71, 85, 105);
-        doc.text("Admission Date:", 20, currentY + 35);
-        doc.setFont('Helvetica', 'bold');
-        doc.setTextColor(15, 23, 42);
-        doc.text(thesis.scholarId?.profile?.admissionDate ? new Date(thesis.scholarId.profile.admissionDate).toLocaleDateString() : 'N/A', 48, currentY + 35);
-
-        // Column 2
-        doc.setFont('Helvetica', 'normal');
-        doc.setTextColor(71, 85, 105);
-        doc.text("Supervisor:", 110, currentY + 14);
-        doc.setFont('Helvetica', 'bold');
-        doc.setTextColor(15, 23, 42);
-        doc.text(thesis.supervisorId?.name || 'Not Allocated', 138, currentY + 14);
-
-        doc.setFont('Helvetica', 'normal');
-        doc.setTextColor(71, 85, 105);
-        doc.text("Ph.D. Mode:", 110, currentY + 21);
-        doc.setFont('Helvetica', 'bold');
-        doc.setTextColor(15, 23, 42);
-        doc.text(thesis.scholarId?.profile?.phdMode || 'N/A', 138, currentY + 21);
-
-        doc.setFont('Helvetica', 'normal');
-        doc.setTextColor(71, 85, 105);
-        doc.text("Specialization:", 110, currentY + 28);
-        doc.setFont('Helvetica', 'bold');
-        doc.setTextColor(15, 23, 42);
-        doc.text(thesis.scholarId?.profile?.specialization || 'N/A', 138, currentY + 28);
-
-        doc.setFont('Helvetica', 'normal');
-        doc.setTextColor(71, 85, 105);
-        doc.text("Current Phase:", 110, currentY + 35);
-        doc.setFont('Helvetica', 'bold');
-        doc.setTextColor(30, 58, 138);
-        doc.text(thesis.status?.replace(/_/g, ' ') || 'N/A', 138, currentY + 35);
-
-        // Title line at bottom of profile card
-        doc.setFont('Helvetica', 'normal');
-        doc.setTextColor(71, 85, 105);
-        doc.text("Thesis Title:", 20, currentY + 44);
-        doc.setFont('Helvetica', 'bold');
-        doc.setTextColor(15, 23, 42);
-        let tTitle = thesis.title || 'N/A';
-        if (tTitle.length > 85) tTitle = tTitle.substring(0, 82) + '...';
-        doc.text(tTitle, 48, currentY + 44);
-
-        currentY += 58;
-
-        // CHARTS SIDE-BY-SIDE
-        setLoadingMsg(`Rendering progress charts for ${studentName}...`);
-        const completedMilestones = milestones.filter(m => m.status === 'APPROVED' || m.status === 'VERIFIED').length;
-        const totalMilestones = milestones.length;
         
-        const journals = publications.filter(p => p.type === 'JOURNAL' && p.status === 'VERIFIED').length;
-        const conferences = publications.filter(p => p.type === 'CONFERENCE' && p.status === 'VERIFIED').length;
-
-        // Redraw on off-screen canvases
-        drawMilestoneDonut(donutCanvas, completedMilestones, totalMilestones);
-        drawPublicationsBarChart(barCanvas, journals, conferences);
-
-        const donutBase64 = donutCanvas.toDataURL('image/png');
-        const barBase64 = barCanvas.toDataURL('image/png');
-
-        currentY = checkNewPage(doc, 54, currentY, logoBase64);
-
-        // Draw card borders for graphs
-        doc.setFillColor(255, 255, 255);
-        doc.setDrawColor(241, 245, 249);
-        doc.setLineWidth(0.5);
-        doc.roundedRect(15, currentY, 85, 48, 3, 3, 'FD');
-        doc.roundedRect(110, currentY, 85, 48, 3, 3, 'FD');
-
-        // Add donut image
-        doc.addImage(donutBase64, 'PNG', 32, currentY + 4, 50, 40);
-
-        // Add bar image
-        doc.addImage(barBase64, 'PNG', 115, currentY + 4, 75, 40);
-
-        currentY += 54;
-
-        // MILESTONES TABLE
-        currentY = checkNewPage(doc, 25, currentY, logoBase64);
-        doc.setFont('Helvetica', 'bold');
-        doc.setFontSize(10);
-        doc.setTextColor(30, 58, 138);
-        doc.text("RESEARCH LIFECYCLE & MILESTONES", 15, currentY);
-        currentY += 4;
-
-        doc.setFillColor(241, 245, 249);
-        doc.rect(15, currentY, 180, 7, 'F');
-        doc.setFont('Helvetica', 'bold');
-        doc.setFontSize(8);
-        doc.setTextColor(71, 85, 105);
-        doc.text("Milestone Deliverable", 18, currentY + 5);
-        doc.text("Due Date", 85, currentY + 5);
-        doc.text("Status", 125, currentY + 5);
-        doc.text("Outcome Date", 160, currentY + 5);
-        currentY += 7;
-
-        if (milestones.length === 0) {
-          currentY = checkNewPage(doc, 10, currentY, logoBase64);
-          doc.setFont('Helvetica', 'italic');
-          doc.setFontSize(8);
-          doc.setTextColor(148, 163, 184);
-          doc.text("No milestones assigned to this candidate.", 18, currentY + 5);
-          currentY += 10;
-        } else {
-          milestones.forEach((m) => {
-            currentY = checkNewPage(doc, 8, currentY, logoBase64);
-            doc.setDrawColor(241, 245, 249);
-            doc.setLineWidth(0.5);
-            doc.line(15, currentY + 7, 195, currentY + 7);
-
-            doc.setFont('Helvetica', 'normal');
-            doc.setFontSize(8);
-            doc.setTextColor(15, 23, 42);
-
-            let mTitle = m.title || m.type || 'N/A';
-            if (mTitle.length > 38) mTitle = mTitle.substring(0, 36) + '...';
-            doc.text(mTitle, 18, currentY + 5);
-
-            const dDate = m.dueDate ? new Date(m.dueDate).toLocaleDateString() : '—';
-            doc.text(dDate, 85, currentY + 5);
-
-            let st = m.status || 'PENDING';
-            if (st === 'APPROVED' || st === 'VERIFIED') {
-              doc.setTextColor(5, 150, 105);
-            } else if (st === 'REVISION_REQUIRED' || st === 'REJECTED') {
-              doc.setTextColor(220, 38, 38);
-            } else if (st === 'SUBMITTED') {
-              doc.setTextColor(37, 99, 235);
-            } else {
-              doc.setTextColor(100, 116, 139);
-            }
-            doc.setFont('Helvetica', 'bold');
-            doc.text(st, 125, currentY + 5);
-
-            doc.setFont('Helvetica', 'normal');
-            doc.setTextColor(15, 23, 42);
-            const compDate = m.updatedAt && m.status !== 'PENDING' ? new Date(m.updatedAt).toLocaleDateString() : '—';
-            doc.text(compDate, 160, currentY + 5);
-
-            currentY += 8;
-          });
-        }
-        currentY += 4;
-
-        // PUBLICATIONS TABLE
-        currentY = checkNewPage(doc, 25, currentY, logoBase64);
-        doc.setFont('Helvetica', 'bold');
-        doc.setFontSize(10);
-        doc.setTextColor(30, 58, 138);
-        doc.text("RESEARCH PUBLICATIONS & CONFERENCES", 15, currentY);
-        currentY += 4;
-
-        doc.setFillColor(241, 245, 249);
-        doc.rect(15, currentY, 180, 7, 'F');
-        doc.setFont('Helvetica', 'bold');
-        doc.setFontSize(8);
-        doc.setTextColor(71, 85, 105);
-        doc.text("Publication Title", 18, currentY + 5);
-        doc.text("Type", 95, currentY + 5);
-        doc.text("Journal/Publisher", 115, currentY + 5);
-        doc.text("Status", 165, currentY + 5);
-        currentY += 7;
-
-        if (publications.length === 0) {
-          currentY = checkNewPage(doc, 10, currentY, logoBase64);
-          doc.setFont('Helvetica', 'italic');
-          doc.setFontSize(8);
-          doc.setTextColor(148, 163, 184);
-          doc.text("No publication logs recorded for this scholar.", 18, currentY + 5);
-          currentY += 10;
-        } else {
-          publications.forEach((p) => {
-            currentY = checkNewPage(doc, 8, currentY, logoBase64);
-            doc.setDrawColor(241, 245, 249);
-            doc.setLineWidth(0.5);
-            doc.line(15, currentY + 7, 195, currentY + 7);
-
-            doc.setFont('Helvetica', 'normal');
-            doc.setFontSize(8);
-            doc.setTextColor(15, 23, 42);
-
-            let pTitle = p.title || 'N/A';
-            if (pTitle.length > 45) pTitle = pTitle.substring(0, 42) + '...';
-            doc.text(pTitle, 18, currentY + 5);
-
-            doc.text(p.type || 'N/A', 95, currentY + 5);
-
-            let jName = p.journalName || p.conferenceName || 'N/A';
-            if (jName.length > 25) jName = jName.substring(0, 22) + '...';
-            doc.text(jName, 115, currentY + 5);
-
-            let pSt = p.status || 'PENDING';
-            if (pSt === 'VERIFIED') {
-              doc.setTextColor(5, 150, 105);
-            } else if (pSt === 'REJECTED') {
-              doc.setTextColor(220, 38, 38);
-            } else {
-              doc.setTextColor(100, 116, 139);
-            }
-            doc.setFont('Helvetica', 'bold');
-            doc.text(pSt, 165, currentY + 5);
-
-            currentY += 8;
-          });
-        }
-        currentY += 4;
-
-        // AUDIT LOGS TABLE
-        currentY = checkNewPage(doc, 25, currentY, logoBase64);
-        doc.setFont('Helvetica', 'bold');
-        doc.setFontSize(10);
-        doc.setTextColor(30, 58, 138);
-        doc.text("CANDIDATE LOG AUDIT TRAIL", 15, currentY);
-        currentY += 4;
-
-        doc.setFillColor(241, 245, 249);
-        doc.rect(15, currentY, 180, 7, 'F');
-        doc.setFont('Helvetica', 'bold');
-        doc.setFontSize(8);
-        doc.setTextColor(71, 85, 105);
-        doc.text("Timestamp", 18, currentY + 5);
-        doc.text("System Action", 50, currentY + 5);
-        doc.text("Verification Remark / Details", 95, currentY + 5);
-        currentY += 7;
-
-        const auditLog = thesis.auditLog || [];
-        if (auditLog.length === 0) {
-          currentY = checkNewPage(doc, 10, currentY, logoBase64);
-          doc.setFont('Helvetica', 'italic');
-          doc.setFontSize(8);
-          doc.setTextColor(148, 163, 184);
-          doc.text("No audit log events recorded for this candidate.", 18, currentY + 5);
-          currentY += 10;
-        } else {
-          const sortedAudit = [...auditLog].sort((a, b) => new Date(a.date) - new Date(b.date));
-          sortedAudit.forEach((log) => {
-            const noteText = log.note || '—';
-            const splitNote = doc.splitTextToSize(noteText, 95);
-            const textHeight = splitNote.length * 4;
-            const neededHeight = Math.max(10, textHeight + 6);
-
-            currentY = checkNewPage(doc, neededHeight, currentY, logoBase64);
-
-            doc.setDrawColor(241, 245, 249);
-            doc.setLineWidth(0.5);
-            doc.line(15, currentY + neededHeight - 1, 195, currentY + neededHeight - 1);
-
-            doc.setFont('Helvetica', 'normal');
-            doc.setFontSize(8);
-            doc.setTextColor(15, 23, 42);
-
-            const lDate = log.date ? new Date(log.date).toLocaleString() : 'N/A';
-            doc.text(lDate, 18, currentY + 5);
-
-            doc.setFont('Helvetica', 'bold');
-            doc.text(log.action || 'EVENT', 50, currentY + 5);
-
-            doc.setFont('Helvetica', 'normal');
-            doc.setTextColor(71, 85, 105);
-            doc.text(splitNote, 95, currentY + 5);
-
-            currentY += neededHeight;
-          });
-        }
-
-        // DETAILED EVALUATION, DOCUMENTS & CONSULTATION CHRONOLOGY
-        currentY = checkNewPage(doc, 25, currentY, logoBase64);
-        doc.setFont('Helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.setTextColor(30, 58, 138);
-        doc.text("DETAILED EVALUATION, DOCUMENTS & CONSULTATION CHRONOLOGY", 15, currentY);
-        currentY += 5;
-
-        // Draw Summary Statistics Matrix Card
-        currentY = checkNewPage(doc, 45, currentY, logoBase64);
-        doc.setFillColor(248, 250, 252);
-        doc.roundedRect(15, currentY, 180, 30, 2, 2, 'F');
-        doc.setDrawColor(30, 58, 138);
-        doc.setLineWidth(0.6);
-        doc.roundedRect(15, currentY, 180, 30, 2, 2, 'D');
-
-        doc.setFont('Helvetica', 'bold');
-        doc.setFontSize(8.5);
-        doc.setTextColor(30, 58, 138);
-        doc.text("SUMMARY EVALUATION & CONSULTATION MATRIX", 20, currentY + 6);
-
-        doc.setFont('Helvetica', 'normal');
-        doc.setFontSize(7.5);
-        doc.setTextColor(71, 85, 105);
-
-        // DRC Summary
-        doc.text(`DRC Evaluations: ${drcMeetings.length}`, 20, currentY + 14);
-        doc.setFont('Helvetica', 'bold');
-        doc.text(`(Approved: ${drcMeetings.filter(d => d.status === 'APPROVED').length} | Revision: ${drcMeetings.filter(d => d.status === 'REVISION_REQUIRED').length})`, 20, currentY + 20);
-
-        // RAC Summary
-        doc.setFont('Helvetica', 'normal');
-        doc.text(`RAC Panels: ${racSessions.length}`, 62, currentY + 14);
-        doc.setFont('Helvetica', 'bold');
-        doc.text(`(Satis.: ${racSessions.filter(r => r.status === 'SATISFACTORY').length} | Unsatis.: ${racSessions.filter(r => r.status === 'UNSATISFACTORY').length})`, 62, currentY + 20);
-
-        // Consultations Summary
-        doc.setFont('Helvetica', 'normal');
-        doc.text(`Consultations: ${meetings.length}`, 105, currentY + 14);
-        doc.setFont('Helvetica', 'bold');
-        doc.text(`(Appr: ${meetings.filter(m => m.status === 'APPROVED').length} | Rej: ${meetings.filter(m => m.status === 'REJECTED').length} | Pend: ${meetings.filter(m => m.status === 'PENDING').length})`, 105, currentY + 20);
-
-        // Uploads Summary
-        doc.setFont('Helvetica', 'normal');
-        doc.text(`Uploads/Documents: ${additionalDocuments.length}`, 148, currentY + 14);
-        doc.setFont('Helvetica', 'bold');
-        doc.text(`(Rev.: ${additionalDocuments.filter(ad => ad.status === 'REVIEWED').length} | Sub.: ${additionalDocuments.filter(ad => ad.status === 'SUBMITTED').length})`, 148, currentY + 20);
-
-        currentY += 36;
-
-        // 1. DRC Meetings Chronology
-        currentY = checkNewPage(doc, 20, currentY, logoBase64);
-        doc.setFont('Helvetica', 'bold');
-        doc.setFontSize(10);
-        doc.setTextColor(30, 58, 138);
-        doc.text("1. Departmental Research Committee (DRC) Evaluations", 15, currentY);
-        currentY += 6;
-
-        if (drcMeetings.length === 0) {
-          currentY = checkNewPage(doc, 10, currentY, logoBase64);
-          doc.setFont('Helvetica', 'italic');
-          doc.setFontSize(8);
-          doc.setTextColor(148, 163, 184);
-          doc.text("No DRC evaluation meetings recorded.", 18, currentY + 4);
-          currentY += 8;
-        } else {
-          drcMeetings.forEach((d, index) => {
-            const title = `${index + 1}. ${d.title || 'DRC Meeting'} ${d.isSynopsisApproval ? '(Synopsis Approval Evaluation)' : ''}`;
-            const schedDateStr = d.scheduledDate ? new Date(d.scheduledDate).toLocaleDateString() : '—';
-            const schedTimeStr = d.scheduledTime || '—';
-            const venue = d.venue || '—';
-            const members = d.committeeMembers || '—';
-            const agenda = d.agenda || '—';
-            const remarks = d.remarks || '—';
-            const status = d.status || 'SCHEDULED';
-
-            const splitMembers = doc.splitTextToSize(members, 125);
-            const splitAgenda = doc.splitTextToSize(agenda, 132);
-            const splitRemarks = doc.splitTextToSize(remarks, 120);
-
-            const textLinesCount = 3 + splitMembers.length + splitAgenda.length + splitRemarks.length;
-            const neededHeight = (textLinesCount * 4.5) + 14;
-
-            currentY = checkNewPage(doc, neededHeight, currentY, logoBase64);
-
-            doc.setFillColor(255, 255, 255);
-            doc.setDrawColor(226, 232, 240);
-            doc.setLineWidth(0.5);
-            doc.roundedRect(15, currentY, 180, neededHeight - 4, 2, 2, 'FD');
-
-            doc.setFont('Helvetica', 'bold');
-            doc.setFontSize(8.5);
-            doc.setTextColor(15, 23, 42);
-            doc.text(title, 18, currentY + 6);
-
-            let badgeColor = [100, 116, 139];
-            if (status === 'APPROVED') badgeColor = [5, 150, 105];
-            else if (status === 'REVISION_REQUIRED') badgeColor = [220, 38, 38];
-            else if (status === 'SCHEDULED') badgeColor = [37, 99, 235];
-
-            doc.setFont('Helvetica', 'bold');
-            doc.setTextColor(...badgeColor);
-            doc.text(`Status: ${status}`, 190, currentY + 6, { align: 'right' });
-
-            doc.setFont('Helvetica', 'normal');
-            doc.setFontSize(8);
-            doc.setTextColor(71, 85, 105);
-
-            let cardY = currentY + 12;
-            doc.text(`Scheduled Date/Time: ${schedDateStr} at ${schedTimeStr}  |  Venue: ${venue}`, 18, cardY);
-            cardY += 4.5;
-
-            doc.text(`Committee Members:`, 18, cardY);
-            doc.setTextColor(15, 23, 42);
-            doc.text(splitMembers, 48, cardY);
-            cardY += (splitMembers.length * 4.5);
-
-            doc.setTextColor(71, 85, 105);
-            doc.text(`Agenda / Focus:`, 18, cardY);
-            doc.setTextColor(15, 23, 42);
-            doc.text(splitAgenda, 42, cardY);
-            cardY += (splitAgenda.length * 4.5);
-
-            doc.setTextColor(71, 85, 105);
-            doc.text(`Committee Remarks / MoM:`, 18, cardY);
-            doc.setTextColor(15, 23, 42);
-            doc.text(splitRemarks, 55, cardY);
-
-            currentY += neededHeight;
-          });
-        }
-        currentY += 4;
-
-        // 2. RAC Reviews Chronology
-        currentY = checkNewPage(doc, 20, currentY, logoBase64);
-        doc.setFont('Helvetica', 'bold');
-        doc.setFontSize(10);
-        doc.setTextColor(30, 58, 138);
-        doc.text("2. Research Advisory Committee (RAC) Panels", 15, currentY);
-        currentY += 6;
-
-        if (racSessions.length === 0) {
-          currentY = checkNewPage(doc, 10, currentY, logoBase64);
-          doc.setFont('Helvetica', 'italic');
-          doc.setFontSize(8);
-          doc.setTextColor(148, 163, 184);
-          doc.text("No formal RAC review panel records found.", 18, currentY + 4);
-          currentY += 8;
-        } else {
-          racSessions.forEach((r, index) => {
-            const title = `RAC Session Review #${r.racNumber || index + 1}`;
-            const condDateStr = r.conductedDate ? new Date(r.conductedDate).toLocaleDateString() : '—';
-            const nextDateStr = r.nextMeetingDate ? new Date(r.nextMeetingDate).toLocaleDateString() : '—';
-            const chairedBy = r.committeeChairedBy || '—';
-            const members = r.committeeMembers || '—';
-            const progress = r.researchProgress || '—';
-            const targets = r.nextMilestones || '—';
-            const remarks = r.remarks || r.comments || '—';
-            const status = r.status || 'SCHEDULED';
-
-            const splitMembers = doc.splitTextToSize(members, 125);
-            const splitProgress = doc.splitTextToSize(progress, 125);
-            const splitTargets = doc.splitTextToSize(targets, 125);
-            const splitRemarks = doc.splitTextToSize(remarks, 125);
-
-            const textLinesCount = 4 + splitMembers.length + splitProgress.length + splitTargets.length + splitRemarks.length;
-            const neededHeight = (textLinesCount * 4.5) + 16;
-
-            currentY = checkNewPage(doc, neededHeight, currentY, logoBase64);
-
-            doc.setFillColor(255, 255, 255);
-            doc.setDrawColor(226, 232, 240);
-            doc.setLineWidth(0.5);
-            doc.roundedRect(15, currentY, 180, neededHeight - 4, 2, 2, 'FD');
-
-            doc.setFont('Helvetica', 'bold');
-            doc.setFontSize(8.5);
-            doc.setTextColor(15, 23, 42);
-            doc.text(title, 18, currentY + 6);
-
-            let badgeColor = [100, 116, 139];
-            if (status === 'SATISFACTORY') badgeColor = [5, 150, 105];
-            else if (status === 'UNSATISFACTORY') badgeColor = [220, 38, 38];
-
-            doc.setTextColor(...badgeColor);
-            doc.text(`Outcome: ${status}`, 190, currentY + 6, { align: 'right' });
-
-            doc.setFont('Helvetica', 'normal');
-            doc.setFontSize(8);
-            doc.setTextColor(71, 85, 105);
-
-            let cardY = currentY + 12;
-            doc.text(`Conducted Date: ${condDateStr}  |  Next Review Date: ${nextDateStr}`, 18, cardY);
-            cardY += 4.5;
-
-            doc.text(`Committee Chaired By: ${chairedBy}`, 18, cardY);
-            cardY += 4.5;
-
-            doc.text(`Committee Members:`, 18, cardY);
-            doc.setTextColor(15, 23, 42);
-            doc.text(splitMembers, 48, cardY);
-            cardY += (splitMembers.length * 4.5);
-
-            doc.setTextColor(71, 85, 105);
-            doc.text(`Research Progress:`, 18, cardY);
-            doc.setTextColor(15, 23, 42);
-            doc.text(splitProgress, 46, cardY);
-            cardY += (splitProgress.length * 4.5);
-
-            doc.setTextColor(71, 85, 105);
-            doc.text(`Next Targets Set:`, 18, cardY);
-            doc.setTextColor(15, 23, 42);
-            doc.text(splitTargets, 42, cardY);
-            cardY += (splitTargets.length * 4.5);
-
-            doc.setTextColor(71, 85, 105);
-            doc.text(`Committee Remarks:`, 18, cardY);
-            doc.setTextColor(15, 23, 42);
-            doc.text(splitRemarks, 46, cardY);
-
-            currentY += neededHeight;
-          });
-        }
-        currentY += 4;
-
-        // 3. Guidance Consultation Meetings
-        currentY = checkNewPage(doc, 20, currentY, logoBase64);
-        doc.setFont('Helvetica', 'bold');
-        doc.setFontSize(10);
-        doc.setTextColor(30, 58, 138);
-        doc.text("3. Guidance Consultation Meetings Log", 15, currentY);
-        currentY += 6;
-
-        if (meetings.length === 0) {
-          currentY = checkNewPage(doc, 10, currentY, logoBase64);
-          doc.setFont('Helvetica', 'italic');
-          doc.setFontSize(8);
-          doc.setTextColor(148, 163, 184);
-          doc.text("No guidance consultation meeting requests recorded.", 18, currentY + 4);
-          currentY += 8;
-        } else {
-          meetings.forEach((m, index) => {
-            const title = `Guidance Consultation Request #${index + 1}`;
-            const schedDateStr = m.date ? new Date(m.date).toLocaleDateString() : '—';
-            const schedTimeStr = m.time || '—';
-            const createdDateStr = m.createdAt ? new Date(m.createdAt).toLocaleDateString() : '—';
-            const reason = m.reason || '—';
-            const remarks = m.remarks || '—';
-            const status = m.status || 'PENDING';
-
-            const invited = m.invitedAttendees?.map(a => `${a.name} (${a.role === 'HOD' ? 'HOD' : (a.subRole || 'Faculty')})`).join(', ') || 'None';
-            const accepted = m.attendees?.map(a => a.name).join(', ') || 'None';
-            const rejected = m.rejectedAttendees?.map(r => r.name).join(', ') || 'None';
-
-            const splitReason = doc.splitTextToSize(reason, 125);
-            const splitInvited = doc.splitTextToSize(invited, 125);
-            const splitAccepted = doc.splitTextToSize(accepted, 125);
-            const splitRejected = doc.splitTextToSize(rejected, 125);
-            const splitRemarks = doc.splitTextToSize(remarks, 125);
-
-            const textLinesCount = 3 + splitReason.length + splitInvited.length + splitAccepted.length + splitRejected.length + splitRemarks.length;
-            const neededHeight = (textLinesCount * 4.5) + 16;
-
-            currentY = checkNewPage(doc, neededHeight, currentY, logoBase64);
-
-            doc.setFillColor(255, 255, 255);
-            doc.setDrawColor(226, 232, 240);
-            doc.setLineWidth(0.5);
-            doc.roundedRect(15, currentY, 180, neededHeight - 4, 2, 2, 'FD');
-
-            doc.setFont('Helvetica', 'bold');
-            doc.setFontSize(8.5);
-            doc.setTextColor(15, 23, 42);
-            doc.text(title, 18, currentY + 6);
-
-            let badgeColor = [217, 119, 6];
-            if (status === 'APPROVED') badgeColor = [5, 150, 105];
-            else if (status === 'REJECTED') badgeColor = [220, 38, 38];
-
-            doc.setTextColor(...badgeColor);
-            doc.text(`Status: ${status}`, 190, currentY + 6, { align: 'right' });
-
-            doc.setFont('Helvetica', 'normal');
-            doc.setFontSize(8);
-            doc.setTextColor(71, 85, 105);
-
-            let cardY = currentY + 12;
-            doc.text(`Meeting Date/Time: ${schedDateStr} at ${schedTimeStr}  |  Requested: ${createdDateStr}`, 18, cardY);
-            cardY += 4.5;
-
-            doc.text(`Consultation Reason:`, 18, cardY);
-            doc.setTextColor(15, 23, 42);
-            doc.text(splitReason, 48, cardY);
-            cardY += (splitReason.length * 4.5);
-
-            doc.setTextColor(71, 85, 105);
-            doc.text(`Invited Faculty:`, 18, cardY);
-            doc.setTextColor(15, 23, 42);
-            doc.text(splitInvited, 40, cardY);
-            cardY += (splitInvited.length * 4.5);
-
-            doc.setTextColor(71, 85, 105);
-            doc.text(`Accepted Attendees:`, 18, cardY);
-            doc.setTextColor(15, 23, 42);
-            doc.text(splitAccepted, 46, cardY);
-            cardY += (splitAccepted.length * 4.5);
-
-            doc.setTextColor(71, 85, 105);
-            doc.text(`Rejected Attendees:`, 18, cardY);
-            doc.setTextColor(15, 23, 42);
-            doc.text(splitRejected, 46, cardY);
-            cardY += (splitRejected.length * 4.5);
-
-            doc.setTextColor(71, 85, 105);
-            doc.text(`Consultation Remarks:`, 18, cardY);
-            doc.setTextColor(15, 23, 42);
-            doc.text(splitRemarks, 48, cardY);
-
-            currentY += neededHeight;
-          });
-        }
-        currentY += 4;
-
-        // 4. Uploaded Documents / Institutional Submissions
-        currentY = checkNewPage(doc, 20, currentY, logoBase64);
-        doc.setFont('Helvetica', 'bold');
-        doc.setFontSize(10);
-        doc.setTextColor(30, 58, 138);
-        doc.text("4. Institutional Uploads & Additional Documents", 15, currentY);
-        currentY += 6;
-
-        if (additionalDocuments.length === 0) {
-          currentY = checkNewPage(doc, 10, currentY, logoBase64);
-          doc.setFont('Helvetica', 'italic');
-          doc.setFontSize(8);
-          doc.setTextColor(148, 163, 184);
-          doc.text("No additional uploaded documents recorded.", 18, currentY + 4);
-          currentY += 8;
-        } else {
-          additionalDocuments.forEach((ad, index) => {
-            const title = `${index + 1}. Document: ${ad.title || 'Untitled'}`;
-            const docDateStr = ad.createdAt ? new Date(ad.createdAt).toLocaleDateString() : '—';
-            const description = ad.description || '—';
-            const recipient = ad.forwardedTo?.name ? `${ad.forwardedTo.name} (${ad.forwardedRole})` : '—';
-            const status = ad.status || 'SUBMITTED';
-            const remarks = ad.remarks || '—';
-            const docUrl = ad.documentUrl || '—';
-
-            const splitDesc = doc.splitTextToSize(description, 125);
-            const splitRemarks = doc.splitTextToSize(remarks, 125);
-            const splitUrl = doc.splitTextToSize(docUrl, 120);
-
-            const textLinesCount = 3 + splitDesc.length + splitRemarks.length + splitUrl.length;
-            const neededHeight = (textLinesCount * 4.5) + 16;
-
-            currentY = checkNewPage(doc, neededHeight, currentY, logoBase64);
-
-            doc.setFillColor(255, 255, 255);
-            doc.setDrawColor(226, 232, 240);
-            doc.setLineWidth(0.5);
-            doc.roundedRect(15, currentY, 180, neededHeight - 4, 2, 2, 'FD');
-
-            doc.setFont('Helvetica', 'bold');
-            doc.setFontSize(8.5);
-            doc.setTextColor(15, 23, 42);
-            doc.text(title, 18, currentY + 6);
-
-            let badgeColor = [100, 116, 139];
-            if (status === 'REVIEWED') badgeColor = [5, 150, 105];
-
-            doc.setTextColor(...badgeColor);
-            doc.text(`Status: ${status}`, 190, currentY + 6, { align: 'right' });
-
-            doc.setFont('Helvetica', 'normal');
-            doc.setFontSize(8);
-            doc.setTextColor(71, 85, 105);
-
-            let cardY = currentY + 12;
-            doc.text(`Uploaded Date: ${docDateStr}  |  Forwarded Recipient: ${recipient}`, 18, cardY);
-            cardY += 4.5;
-
-            doc.text(`Description:`, 18, cardY);
-            doc.setTextColor(15, 23, 42);
-            doc.text(splitDesc, 36, cardY);
-            cardY += (splitDesc.length * 4.5);
-
-            doc.text(`Document Reference/Link:`, 18, cardY);
-            doc.setTextColor(15, 23, 42);
-            doc.text(splitUrl, 52, cardY);
-            cardY += (splitUrl.length * 4.5);
-
-            doc.setTextColor(71, 85, 105);
-            doc.text(`Evaluation Remarks:`, 18, cardY);
-            doc.setTextColor(15, 23, 42);
-            doc.text(splitRemarks, 46, cardY);
-
-            currentY += neededHeight;
-          });
-        }
+        // Pass session info down
+        data.session = session;
+
+        // Initialize doc
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        
+        // Call external generator
+        await generatePremiumPDF(doc, data, logoBase64);
+        
+        // Download
+        const studentName = data.thesis?.scholarId?.name || 'Candidate';
+        const fileName = `Dossier_${studentName.replace(/\s+/g, '_')}_${session}.pdf`;
+        doc.save(fileName);
       }
 
-      // Add page numbers on all pages
-      setLoadingMsg('Finalizing formatting & page numbering...');
-      addPageNumbers(doc);
-
-      // Download
-      const fileName = `HPU_Detailed_Report_${session}_${(user?.department || 'Department').replace(/\s+/g, '_')}.pdf`;
-      doc.save(fileName);
       toast.success('Scholar Progress Record downloaded successfully!');
     } catch (err) {
       console.error(err);
-      toast.error('Failed to generate or compile PDF report.');
+      toast.error('PDF Error: ' + (err.message || String(err)));
     } finally {
       setDownloading(false);
       setLoadingMsg('');
     }
   };
 
+  // Count stats for session
+  const sessionStats = useMemo(() => {
+    const filtered = sessionFilteredTheses;
+    return {
+      total: filtered.length,
+      active: filtered.filter(t => t.status === 'ACTIVE_RESEARCH').length,
+      coursework: filtered.filter(t => t.status === 'COURSEWORK').length,
+      awarded: filtered.filter(t => t.status === 'AWARDED').length,
+      submitted: filtered.filter(t => t.status === 'SUBMITTED' || t.status === 'PRE_SUBMISSION').length,
+    };
+  }, [sessionFilteredTheses]);
+
   return (
-    <div className="card" style={{ padding: '24px 32px', maxWidth: '800px', margin: '0 auto', borderRadius: 16 }}>
+    <div style={{ maxWidth: '860px', margin: '0 auto' }}>
       <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes reportShimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+        @keyframes reportPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+        @keyframes reportFadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        .spin-icon { animation: spin 1s linear infinite; }
+        .report-card-animate { animation: reportFadeIn 0.5s ease-out both; }
+        .report-stat-card {
+          padding: 16px 20px; border-radius: 14px; text-align: center; flex: 1; min-width: 100px;
+          border: 1px solid var(--color-border, #E5E7EB); position: relative; overflow: hidden;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .spin-icon {
-          animation: spin 1s linear infinite;
+        .report-stat-card:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(0,0,0,0.08); }
+        .report-stat-card::before {
+          content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+          background: linear-gradient(90deg, var(--color-primary, #1A5A3B), var(--color-success, #2E9E5B));
+          border-radius: 14px 14px 0 0;
+        }
+        .report-select-enhanced {
+          width: 100%; padding: 12px 16px; border-radius: 12px; font-size: 0.88rem; font-weight: 500;
+          border: 1.5px solid var(--color-border, #E5E7EB); background: var(--color-surface, #FFFFFF);
+          color: var(--color-text-primary, #1F2937); cursor: pointer;
+          transition: all 0.25s ease; appearance: none;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%236B7280' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+          background-repeat: no-repeat; background-position: right 14px center;
+        }
+        .report-select-enhanced:hover { border-color: var(--color-primary, #1A5A3B); }
+        .report-select-enhanced:focus {
+          outline: none; border-color: var(--color-primary, #1A5A3B);
+          box-shadow: 0 0 0 3px rgba(26, 90, 59, 0.12);
+        }
+        .report-gen-btn {
+          width: 100%; padding: 14px 28px; border-radius: 14px; font-size: 0.95rem; font-weight: 700;
+          border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
+          background: linear-gradient(135deg, var(--color-sidebar, #133A26) 0%, var(--color-primary, #1A5A3B) 50%, var(--color-success, #2E9E5B) 100%);
+          background-size: 200% 200%; color: #FFFFFF; letter-spacing: 0.3px;
+          transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+          box-shadow: 0 4px 15px rgba(19, 58, 38, 0.25);
+        }
+        .report-gen-btn:hover {
+          background-position: 100% 100%; transform: translateY(-2px);
+          box-shadow: 0 8px 30px rgba(19, 58, 38, 0.35);
+        }
+        .report-gen-btn:active { transform: translateY(0); }
+        .report-loading-bar {
+          height: 4px; border-radius: 4px; overflow: hidden;
+          background: var(--color-border, #E5E7EB);
+        }
+        .report-loading-bar-fill {
+          height: 100%; border-radius: 4px;
+          background: linear-gradient(90deg, var(--color-primary, #1A5A3B), var(--color-success, #2E9E5B), var(--color-primary, #1A5A3B));
+          background-size: 200% 100%; animation: reportShimmer 1.5s ease infinite;
         }
       `}</style>
-      
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, borderBottom: '1px solid var(--color-border, #E2E8F0)', paddingBottom: 16, marginBottom: 24 }}>
-        <div style={{ background: '#EFF6FF', padding: 12, borderRadius: 12, color: '#1E40AF' }}>
-          <FileText size={24} />
-        </div>
-        <div>
-          <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: 'var(--color-text, #0F172A)' }}>Detailed Academic Reports</h3>
-          <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: 'var(--color-text-secondary, #64748B)' }}>
-            Compile and export verified Ph.D. progress records, milestones progress, publications records, and audit logs to print-ready PDF formats.
-          </p>
+
+      {/* Header Card */}
+      <div className="card report-card-animate" style={{
+        padding: '28px 32px', borderRadius: 18, marginBottom: 20,
+        background: `linear-gradient(135deg, var(--color-sidebar, #133A26) 0%, var(--color-primary, #1A5A3B) 100%)`,
+        position: 'relative', overflow: 'hidden', border: 'none'
+      }}>
+        <div style={{ position: 'absolute', top: -40, right: -40, width: 160, height: 160, borderRadius: '50%', background: 'rgba(255,255,255,0.05)' }} />
+        <div style={{ position: 'absolute', bottom: -60, left: -30, width: 200, height: 200, borderRadius: '50%', background: 'rgba(255,255,255,0.03)' }} />
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{
+            background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(10px)',
+            padding: 14, borderRadius: 14, color: '#FFFFFF', border: '1px solid rgba(255,255,255,0.1)'
+          }}>
+            <FileText size={26} />
+          </div>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.3px' }}>
+              Doctoral Progress Reports
+            </h3>
+            <p style={{ margin: '5px 0 0', fontSize: '0.85rem', color: 'rgba(255,255,255,0.75)', lineHeight: 1.5 }}>
+              Compile verified Ph.D. progress records, milestones, publications, and audit trails into print-ready PDF reports.
+            </p>
+          </div>
         </div>
       </div>
 
-      <form onSubmit={handleGenerateReport} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-          {/* Academic Session */}
-          <div>
-            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 6 }}>
-              Academic Session <span style={{ color: '#EF4444' }}>*</span>
-            </label>
-            <select
-              className="form-input"
-              value={session}
-              onChange={(e) => setSession(e.target.value)}
-              required
-              disabled={downloading}
-              style={{ width: '100%', padding: '10px' }}
-            >
-              <option value="">-- Select Session --</option>
-              <option value="2025-2026">2025-2026</option>
-              <option value="2024-2025">2024-2025</option>
-              <option value="2023-2024">2023-2024</option>
-              <option value="2022-2023">2022-2023</option>
-              <option value="2021-2022">2021-2022</option>
-            </select>
-          </div>
+      {/* Form Card */}
+      <div className="card report-card-animate" style={{ padding: '28px 32px', borderRadius: 18, animationDelay: '0.1s' }}>
+        <form onSubmit={handleGenerateReport} style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
-          {/* Department - Pre-selected and Disabled */}
-          <div>
-            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 6 }}>
-              Department
-            </label>
-            <select
-              className="form-input"
-              value={user?.department || ''}
-              disabled
-              style={{ width: '100%', padding: '10px', background: '#F1F5F9', cursor: 'not-allowed' }}
-            >
-              <option value={user?.department || ''}>{user?.department || 'N/A'}</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Scholar Selector */}
-        <div>
-          <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 6 }}>
-            Scholar / Candidate <span style={{ fontSize: '0.75rem', fontWeight: 500, color: '#94A3B8' }}>(Optional)</span>
-          </label>
-          <select
-            className="form-input"
-            value={selectedCandidateId}
-            onChange={(e) => setSelectedCandidateId(e.target.value)}
-            disabled={downloading}
-            style={{ width: '100%', padding: '10px' }}
-          >
-            <option value="">-- All Department Candidates (Bulk Report) --</option>
-            {deptTheses.map(t => (
-              <option key={t._id} value={t._id}>
-                {t.scholarId?.name} ({t.enrollmentNumber || 'No Enrollment'})
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Generate Button / Progress */}
-        <div style={{ borderTop: '1px solid var(--color-border, #E2E8F0)', paddingTop: 20, marginTop: 10 }}>
-          {downloading ? (
-            <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: '16px 20px', borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <Loader className="spin-icon" size={20} color="#3B82F6" />
-                <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#1E293B' }}>Processing Request...</span>
-              </div>
-              <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748B', fontStyle: 'italic' }}>
-                {loadingMsg}
-              </p>
+          {/* Row 1: Session + Department */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+            <div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 8 }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-primary, #1A5A3B)' }} />
+                Academic Session <span style={{ color: '#EF4444', marginLeft: 2 }}>*</span>
+              </label>
+              <select
+                className="report-select-enhanced"
+                value={session}
+                onChange={(e) => setSession(e.target.value)}
+                required
+                disabled={downloading}
+              >
+                <option value="">— Select Session —</option>
+                <option value="2025-2026">2025-2026</option>
+                <option value="2024-2025">2024-2025</option>
+                <option value="2023-2024">2023-2024</option>
+                <option value="2022-2023">2022-2023</option>
+                <option value="2021-2022">2021-2022</option>
+              </select>
             </div>
-          ) : (
-            <button
-              type="submit"
-              className="btn-primary"
-              style={{
-                background: 'linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%)',
-                border: 'none',
-                color: 'white',
-                padding: '12px 24px',
-                fontSize: '0.9rem',
-                fontWeight: 700,
-                borderRadius: 8,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                width: '100%',
-                boxShadow: '0 4px 6px -1px rgba(59, 130, 246, 0.2)'
-              }}
-            >
-              <Download size={18} /> Compile & Download PDF Report
-            </button>
+            <div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 8 }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-border, #E5E7EB)' }} />
+                Department
+              </label>
+              <select
+                className="report-select-enhanced"
+                value={user?.department || ''}
+                disabled
+                style={{ opacity: 0.7, cursor: 'not-allowed' }}
+              >
+                <option value={user?.department || ''}>{user?.department || 'N/A'}</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Session Stats Cards */}
+          {session && (
+            <div className="report-card-animate" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              {[
+                { label: 'Total Scholars', val: sessionStats.total, color: 'var(--color-primary, #1A5A3B)', bg: 'rgba(26, 90, 59, 0.08)' },
+                { label: 'Active Research', val: sessionStats.active, color: '#2563EB', bg: 'rgba(37, 99, 235, 0.08)' },
+                { label: 'Coursework', val: sessionStats.coursework, color: '#D97706', bg: 'rgba(217, 119, 6, 0.08)' },
+                { label: 'Submitted', val: sessionStats.submitted, color: '#7C3AED', bg: 'rgba(124, 58, 237, 0.08)' },
+                { label: 'Awarded', val: sessionStats.awarded, color: '#059669', bg: 'rgba(5, 150, 105, 0.08)' },
+              ].map((s, i) => (
+                <div key={i} className="report-stat-card" style={{ background: s.bg }}>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.val}</div>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--color-text-muted, #6B7280)', marginTop: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{s.label}</div>
+                </div>
+              ))}
+            </div>
           )}
-        </div>
-      </form>
+
+          {/* Scholar Selector */}
+          <div>
+            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 8 }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-success, #2E9E5B)' }} />
+                Scholar / Candidate
+                <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--color-text-muted, #94A3B8)' }}>(Optional — leave blank for bulk report)</span>
+              </span>
+              {session && (
+                <span style={{
+                  fontSize: '0.72rem', fontWeight: 700, padding: '3px 10px', borderRadius: 20,
+                  background: sessionFilteredTheses.length > 0 ? 'rgba(26, 90, 59, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                  color: sessionFilteredTheses.length > 0 ? 'var(--color-primary, #1A5A3B)' : '#EF4444'
+                }}>
+                  {sessionFilteredTheses.length} candidate{sessionFilteredTheses.length !== 1 ? 's' : ''} found
+                </span>
+              )}
+            </label>
+            <select
+              className="report-select-enhanced"
+              value={selectedCandidateId}
+              onChange={(e) => setSelectedCandidateId(e.target.value)}
+              disabled={downloading || (!session)}
+              style={!session ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+            >
+              <option value="">— All Session Candidates (Bulk Report) —</option>
+              {sessionFilteredTheses.map(t => (
+                <option key={t._id} value={t._id}>
+                  {t.scholarId?.name} — {t.enrollmentNumber || 'No Enrollment'} — {(t.status || '').replace(/_/g, ' ')}
+                </option>
+              ))}
+            </select>
+            {!session && (
+              <p style={{ margin: '6px 0 0', fontSize: '0.75rem', color: 'var(--color-text-muted, #94A3B8)', fontStyle: 'italic' }}>
+                Please select an academic session first to view eligible candidates.
+              </p>
+            )}
+          </div>
+
+          {/* Action Area */}
+          <div style={{ borderTop: '1px solid var(--color-border, #E2E8F0)', paddingTop: 24, marginTop: 4 }}>
+            {downloading ? (
+              <div className="report-card-animate" style={{
+                background: 'var(--color-bg, #F8FAFC)', border: '1px solid var(--color-border, #E2E8F0)',
+                padding: '20px 24px', borderRadius: 16, display: 'flex', flexDirection: 'column', gap: 14
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'rgba(26, 90, 59, 0.1)'
+                  }}>
+                    <Loader className="spin-icon" size={18} color="var(--color-primary, #1A5A3B)" />
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--color-text-primary, #1E293B)' }}>
+                      Compiling Report...
+                    </span>
+                    <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: 'var(--color-text-muted, #64748B)' }}>
+                      {loadingMsg}
+                    </p>
+                  </div>
+                </div>
+                <div className="report-loading-bar">
+                  <div className="report-loading-bar-fill" style={{ width: '70%' }} />
+                </div>
+              </div>
+            ) : (
+              <button type="submit" className="report-gen-btn" disabled={!session}>
+                <Download size={19} />
+                Compile & Download PDF Report
+              </button>
+            )}
+          </div>
+        </form>
+      </div>
     </div>
   );
 };
