@@ -2862,16 +2862,17 @@ const HODDocumentManager = ({ theses }) => {
                           <div>{p.journalName}</div>
                           <span style={{ 
                             fontSize: '0.72rem', 
-                            background: p.type === 'PATENT' ? '#ECFDF5' : p.type === 'CONFERENCE' ? '#F5F3FF' : '#EFF6FF', 
-                            color: p.type === 'PATENT' ? '#047857' : p.type === 'CONFERENCE' ? '#6D28D9' : '#1D4ED8', 
+                            background: p.type === 'PATENT' || p.type === 'IPR' ? '#ECFDF5' : p.type === 'CONFERENCE' ? '#F5F3FF' : '#EFF6FF', 
+                            color: p.type === 'PATENT' || p.type === 'IPR' ? '#047857' : p.type === 'CONFERENCE' ? '#6D28D9' : '#1D4ED8', 
                             padding: '2px 6px', 
                             borderRadius: 4, 
                             fontWeight: 700 
-                          }}>{p.type || 'JOURNAL'}</span>
+                          }}>{p.type === 'IPR' && p.iprType ? `IPR: ${p.iprType}` : p.type === 'PATENT' ? 'IPR: Patent' : p.type || 'JOURNAL'}</span>
+                          {p.itemStatus && <div style={{ fontSize: '0.7rem', color: '#64748B', marginTop: 4, fontWeight: 600 }}>{p.itemStatus}</div>}
                         </td>
                         <td style={{ padding: '14px 16px', color: '#475569' }}>
-                          <div><strong>{p.type === 'PATENT' ? 'Patent No:' : 'ISSN:'}</strong> {p.issn || 'N/A'}</div>
-                          {p.doiUrl && <div style={{ fontSize: '0.75rem', marginTop: 4 }}><strong>{p.type === 'PATENT' ? 'App Number:' : 'DOI:'}</strong> <a href={p.paperLink || `https://doi.org/${p.doiUrl}`} target="_blank" rel="noreferrer" style={{ color: '#2563EB', textDecoration: 'underline' }}>{p.doiUrl}</a></div>}
+                          <div><strong>{p.type === 'PATENT' || p.type === 'IPR' ? 'IPR No:' : 'ISSN:'}</strong> {p.issn || 'N/A'}</div>
+                          {p.doiUrl && <div style={{ fontSize: '0.75rem', marginTop: 4 }}><strong>{p.type === 'PATENT' || p.type === 'IPR' ? 'App Number:' : 'DOI:'}</strong> <a href={p.paperLink || `https://doi.org/${p.doiUrl}`} target="_blank" rel="noreferrer" style={{ color: '#2563EB', textDecoration: 'underline' }}>{p.doiUrl}</a></div>}
                         </td>
                         <td style={{ padding: '14px 16px' }}>
                           <span style={{ 
@@ -2884,8 +2885,8 @@ const HODDocumentManager = ({ theses }) => {
                         </td>
                         <td style={{ padding: '14px 16px' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            {p.paperLink && <a href={p.paperLink} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: '#2563EB', fontWeight: 600 }}>🔗 {p.type === 'PATENT' ? 'View Patent URL' : 'View Article'}</a>}
-                            {p.documentUrl && <a href={`${API_BASE_URL}${p.documentUrl}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: '#059669', fontWeight: 600 }}>📄 {p.type === 'PATENT' ? 'View Patent Proof' : 'View Uploaded Proof'}</a>}
+                            {p.paperLink && <a href={p.paperLink} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: '#2563EB', fontWeight: 600 }}>🔗 {p.type === 'PATENT' || p.type === 'IPR' ? 'View IPR URL' : 'View Article'}</a>}
+                            {p.documentUrl && <a href={`${API_BASE_URL}${p.documentUrl}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: '#059669', fontWeight: 600 }}>📄 {p.type === 'PATENT' || p.type === 'IPR' ? 'View IPR Proof' : 'View Uploaded Proof'}</a>}
                           </div>
                         </td>
                         <td style={{ padding: '14px 16px', textAlign: 'center' }}>

@@ -67,7 +67,7 @@ const STUDENT_SCENES = [
   {
     id: 's8', phase: 'Active Research',
     title: 'Step 8 — Active Research & RAC Reviews',
-    narrative: 'The core research phase lasting 3+ years. Every 6 months, a progress report milestone is auto-generated. The student uploads reports, the supervisor reviews. Students also submit research publications (journals, conferences, patents). The HOD conducts periodic RAC (Research Advisory Committee) reviews.',
+    narrative: 'The core research phase lasting 3+ years. Every 6 months, a progress report milestone is auto-generated. The student uploads reports, the supervisor reviews. Students also submit research publications (journals, conferences, Intellectual Property Rights (IPRs)). The HOD conducts periodic RAC (Research Advisory Committee) reviews.',
     mockUI: 'active_research',
     highlight: 'Tabs unlocked: RAC Progress, 6-Month Reports, Research Outputs, Meetings, Documents, Changes.',
     icon: '🔬', color: '#10b981',
@@ -143,7 +143,7 @@ const PUBLIC_PORTAL_POINTS = [
   { icon: '🤝', title: 'Cross-Department Collaboration', desc: 'Researchers from different departments can discover overlapping research areas, find potential collaborators, and initiate joint projects.', color: '#8b5cf6' },
   { icon: '📈', title: 'University Research Dashboard', desc: 'Real-time analytics of the university\'s overall research output — total scholars, active researchers, publications count, department-wise distribution, completion rates.', color: '#10b981' },
   { icon: '🏛️', title: 'Departmental Research Labs', desc: 'Each department\'s research labs, areas of expertise, and ongoing projects are showcased publicly. Attracts external funding and partnerships.', color: '#06b6d4' },
-  { icon: '📄', title: 'Publication Archive', desc: 'A searchable repository of all verified publications — journals, conferences, patents — linked to scholars and supervisors. Builds the university\'s academic reputation.', color: '#f97316' },
+  { icon: '📄', title: 'Publication Archive', desc: 'A searchable repository of all verified publications — journals, conferences, Intellectual Property Rights (IPRs) — linked to scholars and supervisors. Builds the university\'s academic reputation.', color: '#f97316' },
   { icon: '🔔', title: 'Research Events & Seminars', desc: 'Upcoming DRC meetings, RAC sessions, pre-submission seminars, and viva defenses can be listed publicly for transparency and institutional accountability.', color: '#ef4444' },
   { icon: '💰', title: 'Funding & Grants Portal', desc: 'Centralized hub for research funding opportunities, grant applications, and sponsored project management.', color: '#eab308' },
   { icon: '🔒', title: 'Proper Monitoring & Compliance', desc: 'Authorities can monitor all ongoing research in real-time — track defaulters, ensure timely progress, enforce publication requirements, and maintain UGC/regulatory compliance.', color: '#a855f7' },

@@ -452,12 +452,12 @@ export const generatePremiumPDF = async (doc, data, logoBase64) => {
   header('06', 'RESEARCH & PUBLICATION PORTFOLIO');
   
   const bChaps = publications.filter(p=>p.type==='BOOK_CHAPTER').length;
-  const pats = publications.filter(p=>p.type==='PATENT').length;
+  const pats = publications.filter(p=>p.type==='PATENT' || p.type==='IPR').length;
   
   drawKPICard(15, 35, 40, 25, 'Journal Pubs', (pubCount - confCount - bChaps - pats).toString(), '', c.greenLight);
   drawKPICard(60, 35, 40, 25, 'Conference Pubs', confCount.toString(), '', c.greenLight);
   drawKPICard(105, 35, 40, 25, 'Book Chapters', bChaps.toString(), '', c.greenLight);
-  drawKPICard(150, 35, 40, 25, 'Patents Filed', pats.toString(), '', c.greenLight);
+  drawKPICard(150, 35, 40, 25, 'IPRs Filed', pats.toString(), '', c.greenLight);
 
   drawCard(15, 65, 85, 90);
   doc.setFont('Helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...c.textMain);

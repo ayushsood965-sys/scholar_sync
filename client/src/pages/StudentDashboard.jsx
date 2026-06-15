@@ -2014,7 +2014,9 @@ const ResearchOutputsTab = ({ thesis }) => {
     publicationDate: '', 
     paperLink: '', 
     type: 'JOURNAL',
-    doiUrl: ''
+    doiUrl: '',
+    iprType: '',
+    itemStatus: ''
   });
 
   const fetchPubs = async () => {
@@ -2030,7 +2032,7 @@ const ResearchOutputsTab = ({ thesis }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.title.trim() || !form.journalName.trim()) {
-      return toast.warning(form.type === 'PATENT' ? 'Please enter patent title and office details.' : 'Please enter paper title and publisher details.');
+      return toast.warning(form.type === 'IPR' ? 'Please enter IPR title and office details.' : 'Please enter paper title and publisher details.');
     }
     if (!file) return toast.warning('Please upload a PDF proof document.');
     
@@ -2044,6 +2046,8 @@ const ResearchOutputsTab = ({ thesis }) => {
       formData.append('publicationDate', form.publicationDate);
       formData.append('paperLink', form.paperLink || form.doiUrl || '');
       formData.append('type', form.type);
+      if (form.type === 'IPR') formData.append('iprType', form.iprType);
+      formData.append('itemStatus', form.itemStatus);
       formData.append('doiUrl', form.doiUrl);
       formData.append('document', file);
 
@@ -2054,9 +2058,9 @@ const ResearchOutputsTab = ({ thesis }) => {
         }
       });
 
-      toast.success(`${form.type === 'PATENT' ? 'Patent' : 'Scientific Publication'} logged successfully & pending verification!`);
+      toast.success(`${form.type === 'IPR' ? 'IPR' : 'Scientific Publication'} logged successfully & pending verification!`);
       setShowForm(false);
-      setForm({ title: '', journalName: '', issn: '', publicationDate: '', paperLink: '', type: 'JOURNAL', doiUrl: '' });
+      setForm({ title: '', journalName: '', issn: '', publicationDate: '', paperLink: '', type: 'JOURNAL', doiUrl: '', iprType: '', itemStatus: '' });
       setFile(null);
       fetchPubs();
     } catch (err) {
@@ -2068,22 +2072,24 @@ const ResearchOutputsTab = ({ thesis }) => {
 
   const verifiedJournals = pubs.filter(p => p.type === 'JOURNAL' && p.status === 'VERIFIED').length;
   const verifiedConferences = pubs.filter(p => p.type === 'CONFERENCE' && p.status === 'VERIFIED').length;
-  const loggedPatents = pubs.filter(p => p.type === 'PATENT').length;
+  const loggedPatents = pubs.filter(p => p.type === 'PATENT' || p.type === 'IPR').length;
 
-  const isPatent = form.type === 'PATENT';
-  const titleLabel = isPatent ? 'Patent Title *' : 'Paper Title *';
-  const titlePlaceholder = isPatent ? 'e.g. System and Method for Adaptive Threat Detection' : 'e.g. A Deep Learning Approach to Cybersecurity';
-  const journalLabel = isPatent ? 'Patent Office / Issuing Organization *' : 'Journal / Publisher / Conference Name *';
-  const journalPlaceholder = isPatent ? 'e.g. Indian Patent Office (IPO) / USPTO' : 'e.g. IEEE Transactions on Forensics';
-  const issnLabel = isPatent ? 'Patent / Application Number' : 'ISSN / ISBN';
-  const issnPlaceholder = isPatent ? 'e.g. 202611012345' : 'e.g. 1549-3652';
-  const dateLabel = isPatent ? 'Date of Filing / Award *' : 'Date of Acceptance/Print *';
-  const linkLabel = isPatent ? 'Patent URL / Link' : 'Paper/Publisher Link';
-  const linkPlaceholder = isPatent ? 'e.g. https://ipindiaservices.gov.in/...' : 'e.g. https://ieeexplore.ieee.org/document/...';
-  const doiLabel = isPatent ? 'Patent ID / App Ref Number' : 'DOI URL / Number';
-  const doiPlaceholder = isPatent ? 'e.g. PAT/2026/7890' : 'e.g. 10.1109/TIFS.2026.12345';
-  const proofLabel = isPatent ? 'Upload Patent Proof / Certificate (PDF format) *' : 'Upload Proof of Acceptance (PDF format) *';
-  const typeLabel = isPatent ? 'Research Output Type *' : 'Publication / Presentation Type *';
+  const isIPR = form.type === 'PATENT' || form.type === 'IPR';
+  const isConf = form.type === 'CONFERENCE';
+  
+  const titleLabel = isIPR ? 'IPR / Patent Title *' : isConf ? 'Presentation/Paper Title *' : 'Paper Title *';
+  const titlePlaceholder = isIPR ? 'e.g. System and Method for Adaptive Threat Detection' : 'e.g. A Deep Learning Approach to Cybersecurity';
+  const journalLabel = isIPR ? 'IPR Office / Issuing Organization *' : isConf ? 'Conference Name & Location *' : 'Journal / Publisher *';
+  const journalPlaceholder = isIPR ? 'e.g. Indian Patent Office (IPO) / Copyright Office' : isConf ? 'e.g. IEEE ICC 2026, Paris' : 'e.g. IEEE Transactions on Forensics';
+  const issnLabel = isIPR ? 'IPR / Application Number' : 'ISSN / ISBN';
+  const issnPlaceholder = isIPR ? 'e.g. 202611012345' : 'e.g. 1549-3652';
+  const dateLabel = isIPR ? 'Date of Filing / Award *' : isConf ? 'Date of Presentation *' : 'Date of Acceptance/Print *';
+  const linkLabel = isIPR ? 'IPR URL / Link' : 'Paper/Publisher Link';
+  const linkPlaceholder = isIPR ? 'e.g. https://ipindiaservices.gov.in/...' : 'e.g. https://ieeexplore.ieee.org/document/...';
+  const doiLabel = isIPR ? 'IPR ID / App Ref Number' : 'DOI URL / Number';
+  const doiPlaceholder = isIPR ? 'e.g. PAT/2026/7890' : 'e.g. 10.1109/TIFS.2026.12345';
+  const proofLabel = isIPR ? 'Upload IPR Proof / Certificate (PDF format) *' : isConf ? 'Upload Proof of Presentation (PDF format) *' : 'Upload Proof of Acceptance (PDF format) *';
+  const typeLabel = isIPR ? 'Research Output Type *' : 'Publication / Presentation Type *';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -2098,7 +2104,7 @@ const ResearchOutputsTab = ({ thesis }) => {
           🏆 Pre-Submission Research Output Prerequisites
         </h4>
         <p style={{ color: 'var(--color-text-secondary, #475569)', fontSize: '0.82rem', lineHeight: 1.4, margin: '0 0 16px 0' }}>
-          To unlock the Pre-Submission Seminar phase, you are required to have published at least 2 papers in verified peer-reviewed journals (UGC-CARE listed) and presented at least 2 papers at scientific conferences. Patents can be logged optionally to build your doctoral research outputs portfolio.
+          To unlock the Pre-Submission Seminar phase, you are required to have published at least 2 papers in verified peer-reviewed journals (UGC-CARE listed) and presented at least 2 papers at scientific conferences. Intellectual Property Rights (IPRs) can be logged optionally to build your doctoral research outputs portfolio.
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
           <div style={{ 
@@ -2173,7 +2179,7 @@ const ResearchOutputsTab = ({ thesis }) => {
             gap: 6
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #64748B)' }}>Logged Patents</span>
+              <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #64748B)' }}>Intellectual Property Rights (IPRs)</span>
               <span style={{ 
                 fontSize: '0.72rem', 
                 fontWeight: 700, 
@@ -2201,7 +2207,7 @@ const ResearchOutputsTab = ({ thesis }) => {
           <div>
             <h3 className="card-title" style={{ margin: 0 }}>Research Outputs Log</h3>
             <p style={{ color: 'var(--color-text-secondary, #64748B)', fontSize: '0.85rem', marginTop: 4 }}>
-              Log and track peer-reviewed journal papers, scientific conference presentations, and patents completed during your active Ph.D. tenure.
+              Log and track peer-reviewed journal papers, scientific conference presentations, and Intellectual Property Rights (IPRs) completed during your active Ph.D. tenure.
             </p>
           </div>
           <button onClick={() => setShowForm(!showForm)} className="btn-primary" style={{ background: 'var(--color-primary, #059669)', display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -2218,9 +2224,47 @@ const ResearchOutputsTab = ({ thesis }) => {
               <select className="form-input" required value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} style={{ maxWidth: '400px' }}>
                 <option value="JOURNAL">Journal Publication</option>
                 <option value="CONFERENCE">Conference Presentation</option>
-                <option value="PATENT">Patent</option>
+                <option value="IPR">Intellectual Property Rights (IPR)</option>
               </select>
             </div>
+
+            {form.type === 'IPR' && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>IPR Type *</label>
+                  <select className="form-input" required value={form.iprType || ''} onChange={e => setForm({ ...form, iprType: e.target.value })} style={{ width: '100%' }}>
+                    <option value="">-- Select IPR Type --</option>
+                    <option value="Patent">Patent</option>
+                    <option value="Copyright">Copyright</option>
+                    <option value="Trademark">Trademark</option>
+                    <option value="Design Registration">Design Registration</option>
+                    <option value="Geographical Indication">Geographical Indication</option>
+                    <option value="Trade Secret">Trade Secret</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>IPR Status *</label>
+                  <select className="form-input" required value={form.itemStatus || ''} onChange={e => setForm({ ...form, itemStatus: e.target.value })} style={{ width: '100%' }}>
+                    <option value="">-- Select Status --</option>
+                    <option value="Filed">Filed</option>
+                    <option value="Published">Published</option>
+                    <option value="Granted/Issued">Granted / Issued / Awarded</option>
+                  </select>
+                </div>
+              </div>
+            )}
+            
+            {form.type !== 'IPR' && (
+              <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary, #475569)', marginBottom: 4 }}>Publication Status *</label>
+                  <select className="form-input" required value={form.itemStatus || ''} onChange={e => setForm({ ...form, itemStatus: e.target.value })} style={{ maxWidth: '400px' }}>
+                    <option value="">-- Select Status --</option>
+                    <option value="Under Review">Under Review</option>
+                    <option value="Accepted">Accepted</option>
+                    <option value="Published/Presented">Published / Presented</option>
+                  </select>
+              </div>
+            )}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>
@@ -2299,8 +2343,9 @@ const ResearchOutputsTab = ({ thesis }) => {
                       background: p.type === 'JOURNAL' ? 'rgba(59, 130, 246, 0.1)' : p.type === 'CONFERENCE' ? 'rgba(139, 92, 246, 0.1)' : 'rgba(16, 185, 129, 0.1)',
                       color: p.type === 'JOURNAL' ? '#2563EB' : p.type === 'CONFERENCE' ? '#7C3AED' : '#059669'
                     }}>
-                      {p.type}
+                      {p.type === 'IPR' && p.iprType ? `IPR: ${p.iprType}` : p.type === 'PATENT' ? 'IPR: Patent' : p.type}
                     </span>
+                    {p.itemStatus && <div style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary, #64748B)', marginTop: 4, fontWeight: 600 }}>{p.itemStatus}</div>}
                   </div>
                   <div style={{ flex: 1, fontSize: '0.85rem' }}>{new Date(p.publicationDate).toLocaleDateString()}</div>
                   <div style={{ flex: 1 }}>
@@ -2313,7 +2358,7 @@ const ResearchOutputsTab = ({ thesis }) => {
                     </span>
                   </div>
                   <div style={{ flex: 1.8, display: 'flex', gap: 12, justifyContent: 'center' }}>
-                    {p.paperLink && <a href={p.paperLink} target="_blank" rel="noreferrer" title={p.type === 'PATENT' ? 'View Patent URL' : 'View Publisher Page'} style={{ fontSize: '0.82rem', color: '#2563EB', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}><File size={16} /> Link</a>}
+                    {p.paperLink && <a href={p.paperLink} target="_blank" rel="noreferrer" title={p.type === 'PATENT' || p.type === 'IPR' ? 'View IPR URL' : 'View Publisher Page'} style={{ fontSize: '0.82rem', color: '#2563EB', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}><File size={16} /> Link</a>}
                     {p.documentUrl && <a href={`${API_BASE_URL}${p.documentUrl}`} target="_blank" rel="noreferrer" title="View Proof PDF" style={{ fontSize: '0.82rem', color: '#059669', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}><Upload size={16} /> PDF</a>}
                   </div>
                 </div>

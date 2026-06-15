@@ -4,7 +4,7 @@ const Thesis = require('../models/Thesis');
 // POST /api/publications — Submit a publication log with PDF proof file
 const submitPublication = async (req, res) => {
   try {
-    const { thesisId, title, journalName, issn, publicationDate, paperLink, type, doiUrl } = req.body;
+    const { thesisId, title, journalName, issn, publicationDate, paperLink, type, doiUrl, iprType, itemStatus } = req.body;
     const thesis = await Thesis.findById(thesisId);
     if (!thesis) return res.status(404).json({ message: 'Thesis not found' });
 
@@ -27,6 +27,8 @@ const submitPublication = async (req, res) => {
       attachmentUrl: documentUrl, // legacy compatibility
       documentUrl, // new Phase 5 field
       type: type || 'JOURNAL',
+      iprType: iprType || '',
+      itemStatus: itemStatus || '',
       status: 'PENDING'
     });
 

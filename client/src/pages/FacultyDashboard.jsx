@@ -1748,15 +1748,15 @@ const ThesisReviewPanel = ({ thesis, milestones, onReview, onDRC, onSeminar, onF
                         <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: '0.72rem', fontWeight: 700, background: p.status === 'VERIFIED' ? '#D1FAE5' : p.status === 'REJECTED' ? '#FEE2E2' : '#FEF3C7', color: p.status === 'VERIFIED' ? '#065F46' : p.status === 'REJECTED' ? '#991B1B' : p.status === 'QA_APPROVED' ? '#92400E' : '#92400E' }}>{p.status}</span>
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 10px', fontSize: '0.78rem', color: 'var(--color-text-secondary, #64748B)', margin: '6px 0' }}>
-                        <div><strong>{p.type === 'PATENT' ? 'Patent Office/Org:' : 'Journal/Publisher:'}</strong> {p.journalName}</div>
-                        <div><strong>Type:</strong> {p.type}</div>
-                        <div><strong>{p.type === 'PATENT' ? 'Patent Number:' : 'ISSN:'}</strong> {p.issn || 'N/A'}</div>
-                        <div><strong>{p.type === 'PATENT' ? 'Filing/Award Date:' : 'Date:'}</strong> {p.publicationDate ? new Date(p.publicationDate).toLocaleDateString() : 'N/A'}</div>
-                        {p.doiUrl && <div style={{ gridColumn: 'span 2' }}><strong>{p.type === 'PATENT' ? 'Patent ID/Ref:' : 'DOI:'}</strong> <a href={p.paperLink || `https://doi.org/${p.doiUrl}`} target="_blank" rel="noreferrer" style={{ color: '#2563EB', textDecoration: 'underline' }}>{p.doiUrl}</a></div>}
+                        <div><strong>{p.type === 'PATENT' || p.type === 'IPR' ? 'IPR Office/Org:' : 'Journal/Publisher:'}</strong> {p.journalName}</div>
+                        <div><strong>Type:</strong> {p.type === 'IPR' && p.iprType ? `IPR: ${p.iprType}` : p.type === 'PATENT' ? 'IPR: Patent' : p.type} {p.itemStatus && <span style={{ color: '#64748B', fontWeight: 600, fontSize: '0.72rem', marginLeft: 4 }}>({p.itemStatus})</span>}</div>
+                        <div><strong>{p.type === 'PATENT' || p.type === 'IPR' ? 'IPR Number:' : 'ISSN:'}</strong> {p.issn || 'N/A'}</div>
+                        <div><strong>{p.type === 'PATENT' || p.type === 'IPR' ? 'Filing/Award Date:' : 'Date:'}</strong> {p.publicationDate ? new Date(p.publicationDate).toLocaleDateString() : 'N/A'}</div>
+                        {p.doiUrl && <div style={{ gridColumn: 'span 2' }}><strong>{p.type === 'PATENT' || p.type === 'IPR' ? 'IPR ID/Ref:' : 'DOI:'}</strong> <a href={p.paperLink || `https://doi.org/${p.doiUrl}`} target="_blank" rel="noreferrer" style={{ color: '#2563EB', textDecoration: 'underline' }}>{p.doiUrl}</a></div>}
                       </div>
                       {p.documentUrl && (
                         <a href={`${API_BASE_URL}${p.documentUrl}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.82rem', color: '#3B82F6', fontWeight: 600, display: 'inline-block', marginBottom: 8 }}>
-                          {p.type === 'PATENT' ? '📄 View Patent Proof' : '📄 View Publication Proof'}
+                          {p.type === 'PATENT' || p.type === 'IPR' ? '📄 View IPR Proof' : '📄 View Publication Proof'}
                         </a>
                       )}
                       {p.remarks && (

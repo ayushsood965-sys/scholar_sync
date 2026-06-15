@@ -1060,7 +1060,7 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole: propSubRole, onClose
         <div style={{ width: 1, background: '#E2E8F0' }} />
         <div><div style={{ fontSize: '1.2rem', fontWeight: 900, color: verifiedConferences >= 2 ? '#059669' : '#EF4444' }}>{verifiedConferences}/2</div><div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748B' }}>Conferences {verifiedConferences >= 2 ? '✅' : '⚠️'}</div></div>
         <div style={{ width: 1, background: '#E2E8F0' }} />
-        <div><div style={{ fontSize: '1.2rem', fontWeight: 900, color: '#2563EB' }}>{publications.filter(p => p.type === 'PATENT').length}</div><div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748B' }}>Patents (Optional)</div></div>
+        <div><div style={{ fontSize: '1.2rem', fontWeight: 900, color: '#2563EB' }}>{publications.filter(p => p.type === 'PATENT' || p.type === 'IPR').length}</div><div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748B' }}>IPRs (Optional)</div></div>
         <div style={{ width: 1, background: '#E2E8F0' }} />
         <div><div style={{ fontSize: '1.2rem', fontWeight: 900, color: '#3B82F6' }}>{publications.length}</div><div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748B' }}>Total Logged</div></div>
       </div>
@@ -1078,14 +1078,14 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole: propSubRole, onClose
             <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: '0.72rem', fontWeight: 700, background: p.status === 'VERIFIED' ? '#D1FAE5' : p.status === 'REJECTED' ? '#FEE2E2' : '#FEF3C7', color: p.status === 'VERIFIED' ? '#065F46' : p.status === 'REJECTED' ? '#991B1B' : '#92400E' }}>{p.status}</span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 10px', fontSize: '0.78rem', color: '#64748B', margin: '6px 0' }}>
-            <div><strong>{p.type === 'PATENT' ? 'Patent Office/Org:' : 'Journal/Publisher:'}</strong> {p.journalName}</div>
-            <div><strong>Type:</strong> {p.type}</div>
-            <div><strong>{p.type === 'PATENT' ? 'Patent Number:' : 'ISSN:'}</strong> {p.issn || 'N/A'}</div>
-            <div><strong>{p.type === 'PATENT' ? 'Filing/Award Date:' : 'Date:'}</strong> {p.publicationDate ? new Date(p.publicationDate).toLocaleDateString() : 'N/A'}</div>
+            <div><strong>{p.type === 'PATENT' || p.type === 'IPR' ? 'IPR Office/Org:' : 'Journal/Publisher:'}</strong> {p.journalName}</div>
+            <div><strong>Type:</strong> {p.type === 'IPR' && p.iprType ? `IPR: ${p.iprType}` : p.type === 'PATENT' ? 'IPR: Patent' : p.type} {p.itemStatus && <span style={{ color: '#64748B', fontWeight: 600, fontSize: '0.72rem', marginLeft: 4 }}>({p.itemStatus})</span>}</div>
+            <div><strong>{p.type === 'PATENT' || p.type === 'IPR' ? 'IPR Number:' : 'ISSN:'}</strong> {p.issn || 'N/A'}</div>
+            <div><strong>{p.type === 'PATENT' || p.type === 'IPR' ? 'Filing/Award Date:' : 'Date:'}</strong> {p.publicationDate ? new Date(p.publicationDate).toLocaleDateString() : 'N/A'}</div>
           </div>
           {(p.documentUrl || p.attachmentUrl) && (
             <a href={`${API_BASE_URL}${p.documentUrl || p.attachmentUrl}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.82rem', color: '#3B82F6', fontWeight: 600, display: 'inline-block', marginBottom: 8 }}>
-              {p.type === 'PATENT' ? '📄 View Patent Proof' : '📄 View Proof'}
+              {p.type === 'PATENT' || p.type === 'IPR' ? '📄 View IPR Proof' : '📄 View Proof'}
             </a>
           )}
           {p.remarks && <div style={{ background: '#FFFBEB', borderLeft: '3px solid #F59E0B', padding: '6px 10px', borderRadius: 6, fontSize: '0.8rem', color: '#92400E', margin: '8px 0' }}><strong>Remarks:</strong> {p.remarks}</div>}
