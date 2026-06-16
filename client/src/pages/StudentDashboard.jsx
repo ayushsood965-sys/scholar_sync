@@ -1600,12 +1600,14 @@ const OverviewPage = ({ thesis, milestones, setActiveTab, user }) => {
               const admDate = user?.profile?.admissionDate ? new Date(user.profile.admissionDate) : null;
               const refDate = admDate && !isNaN(admDate.getTime()) ? admDate : (thesis.startDate ? new Date(thesis.startDate) : null);
               const diffMs = refDate ? (new Date() - refDate) : 0;
-              const diffYears = Math.min(3, +(diffMs / (1000 * 60 * 60 * 24 * 365.25)).toFixed(2));
-              const isTimeMet = diffYears >= 3;
+              const hasMphil = user?.profile?.qualifications?.mphil?.done === true;
+              const requiredYears = hasMphil ? 1.5 : 3;
+              const diffYears = Math.min(requiredYears, +(diffMs / (1000 * 60 * 60 * 24 * 365.25)).toFixed(2));
+              const isTimeMet = diffYears >= requiredYears;
               return (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--color-surface, #ffffff)', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--color-border, #E2E8F0)' }}>
                   <div style={{ fontSize: '0.82rem' }}>
-                    <strong>⏳ Minimum Research Duration:</strong> {diffYears} / 3 Years
+                    <strong>⏳ Minimum Research Duration:</strong> {diffYears} / {requiredYears} Years {hasMphil ? '(M.Phil Holder)' : ''}
                   </div>
                   <span style={{ fontSize: '0.8rem', fontWeight: 700, color: isTimeMet ? '#065F46' : '#D97706' }}>
                     {isTimeMet ? '✅ Eligible' : '⏳ Time Remaining'}
@@ -1664,6 +1666,7 @@ const OverviewPage = ({ thesis, milestones, setActiveTab, user }) => {
             
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
               {[
+                ['SS No.', user?.profile?.ssNo || '—'],
                 ['Enrollment Number', thesis.enrollmentNumber],
                 ['Research Department', thesis.department],
                 ['Research Advisor', thesis.supervisorId?.name || 'Awaiting Allocation'],
@@ -3855,6 +3858,7 @@ const ProfileTab = () => {
     class12: false,
     graduation: false,
     postGraduation: false,
+    mphil: false,
     netJrf: false,
     fellowships: false
   });
@@ -3911,6 +3915,16 @@ const ProfileTab = () => {
   const [pgPercentage, setPgPercentage] = useState(user?.profile?.qualifications?.postGraduation?.percentage || '');
 
   // NET JRF
+  const [mphilDone, setMphilDone] = useState(
+    user?.profile?.qualifications?.mphil?.done === true ? 'YES' : 
+    user?.profile?.qualifications?.mphil?.done === false ? 'NO' : ''
+  );
+  const [mphilUniversity, setMphilUniversity] = useState(user?.profile?.qualifications?.mphil?.university || '');
+  const [mphilPassingYear, setMphilPassingYear] = useState(user?.profile?.qualifications?.mphil?.passingYear || '');
+  const [mphilTotalMarks, setMphilTotalMarks] = useState(user?.profile?.qualifications?.mphil?.totalMarks || '');
+  const [mphilMarksObtained, setMphilMarksObtained] = useState(user?.profile?.qualifications?.mphil?.marksObtained || '');
+  const [mphilPercentage, setMphilPercentage] = useState(user?.profile?.qualifications?.mphil?.percentage || '');
+
   const [netJrfQualified, setNetJrfQualified] = useState(
     user?.profile?.qualifications?.netJrf?.qualified === true ? 'YES' : 
     user?.profile?.qualifications?.netJrf?.qualified === false ? 'NO' : ''
@@ -3983,6 +3997,16 @@ const ProfileTab = () => {
       setPgPercentage(q?.postGraduation?.percentage || '');
 
       // NET JRF
+      setMphilDone(
+        q?.mphil?.done === true ? 'YES' : 
+        q?.mphil?.done === false ? 'NO' : ''
+      );
+      setMphilUniversity(q?.mphil?.university || '');
+      setMphilPassingYear(q?.mphil?.passingYear || '');
+      setMphilTotalMarks(q?.mphil?.totalMarks || '');
+      setMphilMarksObtained(q?.mphil?.marksObtained || '');
+      setMphilPercentage(q?.mphil?.percentage || '');
+
       setNetJrfQualified(
         q?.netJrf?.qualified === true ? 'YES' : 
         q?.netJrf?.qualified === false ? 'NO' : ''
@@ -4067,6 +4091,12 @@ const ProfileTab = () => {
     if (!q?.graduation?.rollNo || !q?.graduation?.certificateUrl) missing.push('Graduation Details & Certificate');
     if (!q?.postGraduation?.rollNo || !q?.postGraduation?.certificateUrl) missing.push('Post Graduation Details & Certificate');
     
+    if (mphilDone === 'YES') {
+      if (!q?.mphil?.university || !q?.mphil?.certificateUrl) {
+        missing.push('M.Phil Details & Certificate');
+      }
+    }
+    
     if (netJrfQualified === 'YES') {
       if (!q?.netJrf?.rollNo || !q?.netJrf?.certificateUrl) {
         missing.push('NET JRF Details & Certificate');
@@ -4150,6 +4180,14 @@ const ProfileTab = () => {
           totalMarks: pgTotal,
           percentage: pgPercentage,
           certificateUrl: user?.profile?.qualifications?.postGraduation?.certificateUrl
+        },
+        mphil: {
+          done: mphilDone === 'YES',
+          university: mphilUniversity,
+          passingYear: mphilPassingYear,
+          totalMarks: mphilTotalMarks,
+          marksObtained: mphilMarksObtained,
+          percentage: mphilPercentage
         },
         netJrf: {
           qualified: netJrfQualified === 'YES',
@@ -4250,6 +4288,23 @@ const ProfileTab = () => {
         totalMarks: pgTotal,
         percentage: pgPercentage,
         certificateUrl: user?.profile?.qualifications?.postGraduation?.certificateUrl
+      };
+    } else if (sectionKey === 'mphil') {
+      if (mphilDone === 'YES') {
+        if (!mphilUniversity.trim() || !mphilPassingYear.trim() || !mphilTotalMarks.trim() || !mphilMarksObtained.trim() || !mphilPercentage.trim()) {
+          toast.error('Please fill in all M.Phil details before saving.');
+          setLoading(false);
+          return;
+        }
+      }
+      sectionData = {
+        done: mphilDone === 'YES',
+        university: mphilUniversity,
+        passingYear: mphilPassingYear,
+        totalMarks: mphilTotalMarks,
+        marksObtained: mphilMarksObtained,
+        percentage: mphilPercentage,
+        certificateUrl: user?.profile?.qualifications?.mphil?.certificateUrl
       };
     } else if (sectionKey === 'netJrf') {
       if (netJrfQualified === 'YES') {
@@ -4401,6 +4456,13 @@ const ProfileTab = () => {
     }
 
     // 3. NET JRF details & certificate check if qualified
+    if (mphilDone === 'YES') {
+      if (!mphilUniversity || !mphilPassingYear || !mphilTotalMarks || !mphilMarksObtained || !mphilPercentage || !q?.mphil?.certificateUrl) {
+        toast.error('please fill in all the details before submitting the form.');
+        return;
+      }
+    }
+
     if (netJrfQualified === 'YES') {
       if (!netJrfCertNumber || !netJrfRoll || !netJrfRank || !netJrfScore || !netJrfIssueDate || !q?.netJrf?.certificateUrl) {
         toast.error('please fill in all the details before submitting the form.');
@@ -4637,6 +4699,10 @@ const ProfileTab = () => {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '12px', padding: '20px', fontSize: '0.85rem' }}>
                   <div style={{ gridColumn: 'span 2', borderBottom: '1px solid #BBF7D0', paddingBottom: '8px', marginBottom: '4px' }}>
                     <h4 style={{ margin: 0, color: '#133A26', fontSize: '0.95rem', fontWeight: 700 }}>Thesis & Research Details</h4>
+                  </div>
+                  <div>
+                    <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>SS No. (Scholar Sync Number)</span>
+                    <strong style={{ color: '#059669', fontSize: '0.9rem', fontWeight: 700 }}>{user?.profile?.ssNo || '—'}</strong>
                   </div>
                   <div>
                     <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Enrollment Number</span>
@@ -5236,6 +5302,135 @@ const ProfileTab = () => {
                       style={{ background: '#059669', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)', transition: 'all 0.2s' }}
                     >
                       💾 Save Post-Graduation Details
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* M.Phil Qualifications */}
+            <div style={{ border: '1px solid #E5E7EB', borderRadius: '12px', padding: '16px', background: '#F9FAFB', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1E293B', margin: 0 }}>M.Phil Details</h4>
+                {getDocBadge('mphil', user?.profile?.qualifications?.mphil?.certificateUrl)}
+              </div>
+              
+              {!editModes.mphil ? (
+                <div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', background: '#F8FAFC', border: '1px solid #F1F5F9', borderRadius: '8px', padding: '16px', fontSize: '0.85rem', marginBottom: '16px' }}>
+                    <div>
+                      <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Completed M.Phil?</span>
+                      <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{mphilDone || 'NO'}</strong>
+                    </div>
+                    {mphilDone === 'YES' && (
+                      <>
+                        <div>
+                          <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>University/Institution</span>
+                          <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{mphilUniversity || '—'}</strong>
+                        </div>
+                        <div>
+                          <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Passing Year</span>
+                          <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{mphilPassingYear || '—'}</strong>
+                        </div>
+                        <div>
+                          <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Marks Obtained</span>
+                          <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{mphilMarksObtained || '—'}</strong>
+                        </div>
+                        <div>
+                          <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Total Marks</span>
+                          <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{mphilTotalMarks || '—'}</strong>
+                        </div>
+                        <div>
+                          <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px' }}>Percentage</span>
+                          <strong style={{ color: '#0F172A', fontSize: '0.9rem' }}>{mphilPercentage || '—'}%</strong>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #E5E7EB', paddingTop: '12px' }}>
+                    <div>
+                      {mphilDone === 'YES' && getUploadButton('mphil', user?.profile?.qualifications?.mphil?.certificateUrl)}
+                    </div>
+                    <button
+                      type="button"
+                      disabled={!!thesis}
+                      onClick={() => !thesis && setEditModes(prev => ({ ...prev, mphil: true }))}
+                      style={{ background: !!thesis ? '#9CA3AF' : '#3B82F6', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: !!thesis ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: !!thesis ? 'none' : '0 2px 4px rgba(59, 130, 246, 0.15)', transition: 'all 0.2s' }}
+                    >
+                      ✏️ Edit M.Phil Details
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Have you completed M.Phil?</label>
+                      <select className="form-input" value={mphilDone} onChange={e => setMphilDone(e.target.value)}>
+                        <option value="">Select option...</option>
+                        <option value="NO">No</option>
+                        <option value="YES">Yes</option>
+                      </select>
+                    </div>
+                    {mphilDone === 'YES' && (
+                      <>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>University / Institution</label>
+                          <input type="text" className="form-input" placeholder="e.g. Delhi University" value={mphilUniversity} onChange={e => setMphilUniversity(e.target.value)} />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Passing Year</label>
+                          <input type="text" className="form-input" placeholder="e.g. 2022" value={mphilPassingYear} onChange={e => setMphilPassingYear(e.target.value)} />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  {mphilDone === 'YES' && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', alignItems: 'flex-end' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Marks Obtained</label>
+                        <input type="number" className="form-input" placeholder="Marks Obtained" value={mphilMarksObtained} onChange={e => {
+                          setMphilMarksObtained(e.target.value);
+                          if (mphilTotalMarks) {
+                            setMphilPercentage(((parseFloat(e.target.value) / parseFloat(mphilTotalMarks)) * 100).toFixed(2));
+                          }
+                        }} />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Total Marks</label>
+                        <input type="number" className="form-input" placeholder="Total Marks" value={mphilTotalMarks} onChange={e => {
+                          setMphilTotalMarks(e.target.value);
+                          if (mphilMarksObtained) {
+                            setMphilPercentage(((parseFloat(mphilMarksObtained) / parseFloat(e.target.value)) * 100).toFixed(2));
+                          }
+                        }} />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Percentage (%)</label>
+                        <input type="text" className="form-input" placeholder="Percentage" value={mphilPercentage} readOnly />
+                      </div>
+                      <div>
+                        {getUploadButton('mphil', user?.profile?.qualifications?.mphil?.certificateUrl)}
+                      </div>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E5E7EB' }}>
+                    {user?.profile?.qualifications?.mphil?.university && (
+                      <button
+                        type="button"
+                        onClick={() => setEditModes(prev => ({ ...prev, mphil: false }))}
+                        style={{ background: '#6B7280', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer' }}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => saveSection('mphil')}
+                      disabled={loading}
+                      style={{ background: '#059669', color: 'white', border: 'none', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)', transition: 'all 0.2s' }}
+                    >
+                      💾 Save M.Phil Details
                     </button>
                   </div>
                 </>

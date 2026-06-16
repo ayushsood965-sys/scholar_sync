@@ -48,6 +48,7 @@ const userSchema = new mongoose.Schema(
       default: '',
     },
     profile: {
+      ssNo: { type: String, default: '' },
       phoneNumber: { type: String, default: '' },
       email: { type: String, default: '' },
       address: { type: String, default: '' },
@@ -79,14 +80,28 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-// Encrypt password before saving
+// Encrypt password and auto-generate SS No before saving
 userSchema.pre('save', async function () {
-  if (!this.isModified('password')) {
-    return;
+  // 1. Password hashing
+  if (this.isModified('password')) {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
   }
 
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
+  // 2. Auto-generate SS No. for student if missing
+  if (this.role === 'STUDENT' && (!this.profile || !this.profile.ssNo)) {
+    if (!this.profile) this.profile = {};
+    let isUnique = false;
+    let ssNo = '';
+    while (!isUnique) {
+      ssNo = Math.floor(100000000 + Math.random() * 900000000).toString();
+      const existing = await this.constructor.findOne({ 'profile.ssNo': ssNo });
+      if (!existing) {
+        isUnique = true;
+      }
+    }
+    this.profile.ssNo = ssNo;
+  }
 });
 
 // Match user entered password to hashed password in database

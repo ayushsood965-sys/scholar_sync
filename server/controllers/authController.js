@@ -333,6 +333,9 @@ const uploadDocument = async (req, res) => {
     } else if (docType === 'netJrf') {
       if (!user.profile.qualifications.netJrf) user.profile.qualifications.netJrf = {};
       user.profile.qualifications.netJrf.certificateUrl = fileUrl;
+    } else if (docType === 'mphil') {
+      if (!user.profile.qualifications.mphil) user.profile.qualifications.mphil = {};
+      user.profile.qualifications.mphil.certificateUrl = fileUrl;
     } else if (docType === 'other') {
       if (!user.profile.qualifications.other) user.profile.qualifications.other = {};
       user.profile.qualifications.other.certificateUrl = fileUrl;

@@ -970,6 +970,10 @@ const ScholarDetail = ({ thesisId, onClose, onAction }) => {
                 {/* Specialization & PhD Mode & Enrollment No */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
                   <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 12, borderRadius: 10 }}>
+                    <div style={{ fontSize: '0.72rem', color: '#64748B', fontWeight: 600, marginBottom: 2 }}>SS No. (Scholar Sync Number)</div>
+                    <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#059669' }}>{profile.ssNo || 'N/A'}</div>
+                  </div>
+                  <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 12, borderRadius: 10 }}>
                     <div style={{ fontSize: '0.72rem', color: '#64748B', fontWeight: 600, marginBottom: 2 }}>University Enrollment No</div>
                     <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#1F2937' }}>{profile.enrollmentNumber || thesis.enrollmentNumber || 'N/A'}</div>
                   </div>
@@ -2446,8 +2450,38 @@ const HODDocumentEvaluationModal = ({ doc, onClose, onRefresh }) => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, background: 'var(--color-bg, #F8FAFC)', padding: 16, borderRadius: 12, border: '1px solid var(--color-border, #E2E8F0)', fontSize: '0.82rem' }}>
                 <div><strong>Scholar:</strong> {doc.scholarName} ({doc.enrollmentNumber})</div>
                 <div><strong>Deliverable:</strong> {doc.title}</div>
-                <div><strong>Type:</strong> {doc.type || doc.docType}</div>
+                <div><strong>Type:</strong> {doc.type === 'IPR' && doc.iprType ? `IPR: ${doc.iprType}` : doc.type === 'PATENT' ? 'IPR: Patent' : doc.type || doc.docType}</div>
                 {doc.thesisTitle && <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><strong>Thesis:</strong> {doc.thesisTitle}</div>}
+                
+                {doc.docType === 'PUBLICATION' && (
+                  <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid var(--color-border, #E2E8F0)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div><strong>{doc.type === 'PATENT' || doc.type === 'IPR' ? 'IPR Office/Org:' : doc.type === 'CONFERENCE' ? 'Conference Name:' : 'Journal/Publisher:'}</strong> {doc.journalName}</div>
+                    <div><strong>{doc.type === 'PATENT' || doc.type === 'IPR' ? 'IPR Number:' : doc.type === 'CONFERENCE' ? 'Location/Venue:' : 'ISSN:'}</strong> {doc.issn || 'N/A'}</div>
+                    <div><strong>{doc.type === 'PATENT' || doc.type === 'IPR' ? 'Filing/Award Date:' : 'Date:'}</strong> {doc.publicationDate ? new Date(doc.publicationDate).toLocaleDateString() : 'N/A'}</div>
+                    {(doc.type === 'PATENT' || doc.type === 'IPR') && (
+                      <>
+                        <div><strong>Inventors/Applicants:</strong> {doc.volume || 'N/A'}</div>
+                        <div><strong>App/Grant No:</strong> {doc.issue || 'N/A'}</div>
+                        <div><strong>Country/Region:</strong> {doc.pages || 'N/A'}</div>
+                      </>
+                    )}
+                    {doc.type === 'JOURNAL' && (
+                      <>
+                        <div><strong>Indexing:</strong> {doc.indexing || 'N/A'}</div>
+                        <div><strong>Volume:</strong> {doc.volume || 'N/A'}</div>
+                        <div><strong>Issue:</strong> {doc.issue || 'N/A'}</div>
+                        <div><strong>Pages:</strong> {doc.pages || 'N/A'}</div>
+                      </>
+                    )}
+                    {doc.type === 'CONFERENCE' && (
+                      <>
+                        <div><strong>Indexing:</strong> {doc.indexing || 'N/A'}</div>
+                        <div><strong>Organizer:</strong> {doc.volume || 'N/A'}</div>
+                      </>
+                    )}
+                    {doc.doiUrl && <div style={{ wordBreak: 'break-all' }}><strong>{doc.type === 'PATENT' || doc.type === 'IPR' ? 'IPR ID/Ref:' : doc.type === 'CONFERENCE' ? 'Proceedings Link:' : 'DOI:'}</strong> <a href={doc.paperLink || `https://doi.org/${doc.doiUrl}`} target="_blank" rel="noreferrer" style={{ color: '#2563EB', textDecoration: 'underline' }}>{doc.doiUrl}</a></div>}
+                  </div>
+                )}
               </div>
 
               <div>
@@ -4164,7 +4198,7 @@ const GlobalTransfersTab = ({ theses, onRefresh }) => {
                 <tr key={t._id} style={{ borderBottom: '1px solid #F1F5F9', transition: 'background-color 0.2s' }} onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#F8FAFC'} onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
                   <td style={{ padding: '14px 16px' }}>
                     <div style={{ fontWeight: 700, color: '#1E293B' }}>{t.scholarId?.name || 'N/A'}</div>
-                    <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: 2 }}>{t.enrollmentNumber}</div>
+                    <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: 2 }}>SS No: {t.scholarId?.profile?.ssNo || '—'} | Roll: {t.enrollmentNumber}</div>
                   </td>
                   <td style={{ padding: '14px 16px' }}>
                     <span style={{ display: 'inline-block', fontSize: '0.72rem', background: '#EFF6FF', color: '#1E40AF', padding: '3px 8px', borderRadius: 6, fontWeight: 700 }}>
@@ -4217,7 +4251,7 @@ const GlobalTransfersTab = ({ theses, onRefresh }) => {
               <div style={{ marginBottom: 16, background: '#F8FAFC', padding: 12, borderRadius: 8, border: '1px solid #E2E8F0' }}>
                 <div style={{ fontSize: '0.8rem', color: '#64748B', fontWeight: 600 }}>CANDIDATE</div>
                 <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0F172A', marginTop: 2 }}>{selectedThesis.scholarId?.name}</div>
-                <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: 1 }}>Roll: {selectedThesis.enrollmentNumber} | Dept: {selectedThesis.department}</div>
+                <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: 1 }}>SS No: {selectedThesis.scholarId?.profile?.ssNo || '—'} | Roll: {selectedThesis.enrollmentNumber} | Dept: {selectedThesis.department}</div>
               </div>
 
               {/* Target Dept Selection */}

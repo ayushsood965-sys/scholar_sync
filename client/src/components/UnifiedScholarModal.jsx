@@ -233,9 +233,40 @@ const DocEvalModal = ({ doc, onClose, onRefresh }) => {
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '4px 0', overflowY: 'auto' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, background: 'var(--color-bg, #F8FAFC)', padding: 16, borderRadius: 12, border: '1px solid var(--color-border, #E2E8F0)', fontSize: '0.82rem' }}>
-                <div><strong>Scholar:</strong> {doc.scholarName}</div>
+                <div><strong>Scholar:</strong> {doc.scholarName} {doc.enrollmentNumber ? `(${doc.enrollmentNumber})` : ''}</div>
                 <div><strong>Deliverable:</strong> {doc.title}</div>
-                <div><strong>Type:</strong> {doc.type || doc.docType}</div>
+                <div><strong>Type:</strong> {doc.type === 'IPR' && doc.iprType ? `IPR: ${doc.iprType}` : doc.type === 'PATENT' ? 'IPR: Patent' : doc.type || doc.docType}</div>
+                {doc.thesisTitle && <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><strong>Thesis:</strong> {doc.thesisTitle}</div>}
+                
+                {doc.docType === 'PUBLICATION' && (
+                  <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid var(--color-border, #E2E8F0)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div><strong>{doc.type === 'PATENT' || doc.type === 'IPR' ? 'IPR Office/Org:' : doc.type === 'CONFERENCE' ? 'Conference Name:' : 'Journal/Publisher:'}</strong> {doc.journalName}</div>
+                    <div><strong>{doc.type === 'PATENT' || doc.type === 'IPR' ? 'IPR Number:' : doc.type === 'CONFERENCE' ? 'Location/Venue:' : 'ISSN:'}</strong> {doc.issn || 'N/A'}</div>
+                    <div><strong>{doc.type === 'PATENT' || doc.type === 'IPR' ? 'Filing/Award Date:' : 'Date:'}</strong> {doc.publicationDate ? new Date(doc.publicationDate).toLocaleDateString() : 'N/A'}</div>
+                    {(doc.type === 'PATENT' || doc.type === 'IPR') && (
+                      <>
+                        <div><strong>Inventors/Applicants:</strong> {doc.volume || 'N/A'}</div>
+                        <div><strong>App/Grant No:</strong> {doc.issue || 'N/A'}</div>
+                        <div><strong>Country/Region:</strong> {doc.pages || 'N/A'}</div>
+                      </>
+                    )}
+                    {doc.type === 'JOURNAL' && (
+                      <>
+                        <div><strong>Indexing:</strong> {doc.indexing || 'N/A'}</div>
+                        <div><strong>Volume:</strong> {doc.volume || 'N/A'}</div>
+                        <div><strong>Issue:</strong> {doc.issue || 'N/A'}</div>
+                        <div><strong>Pages:</strong> {doc.pages || 'N/A'}</div>
+                      </>
+                    )}
+                    {doc.type === 'CONFERENCE' && (
+                      <>
+                        <div><strong>Indexing:</strong> {doc.indexing || 'N/A'}</div>
+                        <div><strong>Organizer:</strong> {doc.volume || 'N/A'}</div>
+                      </>
+                    )}
+                    {doc.doiUrl && <div style={{ wordBreak: 'break-all' }}><strong>{doc.type === 'PATENT' || doc.type === 'IPR' ? 'IPR ID/Ref:' : doc.type === 'CONFERENCE' ? 'Proceedings Link:' : 'DOI:'}</strong> <a href={doc.paperLink || `https://doi.org/${doc.doiUrl}`} target="_blank" rel="noreferrer" style={{ color: '#2563EB', textDecoration: 'underline' }}>{doc.doiUrl}</a></div>}
+                  </div>
+                )}
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-secondary, #475569)', marginBottom: 6 }}>Review Remarks</label>
@@ -732,6 +763,7 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole: propSubRole, onClose
       <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: '12px' }}>
         <div className="usm-section-title" style={{ marginBottom: '10px' }}>📝 Thesis & Research Details</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 20px', fontSize: '0.82rem' }}>
+          <div><strong>SS No:</strong> <span style={{ color: '#059669', fontWeight: 700 }}>{thesis.scholarId?.profile?.ssNo || 'N/A'}</span></div>
           <div><strong>Enrollment No:</strong> <span style={{ color: '#475569', fontWeight: 600 }}>{thesis.scholarId?.profile?.enrollmentNumber || thesis.enrollmentNumber || 'N/A'}</span></div>
           <div><strong>Department:</strong> <span style={{ color: '#475569' }}>{thesis.department || 'N/A'}</span></div>
           <div><strong>Admission Date:</strong> <span style={{ color: '#475569' }}>{thesis.scholarId?.profile?.admissionDate ? new Date(thesis.scholarId.profile.admissionDate).toLocaleDateString() : 'N/A'}</span></div>
@@ -766,6 +798,23 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole: propSubRole, onClose
               </div>
             );
           })}
+          {thesis.scholarId?.profile?.qualifications?.mphil && thesis.scholarId.profile.qualifications.mphil.done === true && (
+            <div className="usm-card" style={{ padding: 10, fontSize: '0.78rem', background: '#F8FAF5', borderColor: '#D7F3A0', marginBottom: 8 }}>
+              <div style={{ fontWeight: 700, color: '#4D7C0F', marginBottom: 4, display: 'flex', justifyContent: 'space-between' }}>
+                <span>M.Phil Qualification</span>
+                {thesis.scholarId.profile.qualifications.mphil.certificateUrl ? (
+                  <a href={`${API_BASE_URL}${thesis.scholarId.profile.qualifications.mphil.certificateUrl}`} target="_blank" rel="noreferrer" style={{ color: '#65A30D', fontWeight: 600 }}>📄 M.Phil Certificate</a>
+                ) : (
+                  <span style={{ color: '#94A3B8' }}>Pending Proof</span>
+                )}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
+                <div><strong>University:</strong> {thesis.scholarId.profile.qualifications.mphil.university || 'N/A'}</div>
+                <div><strong>Passing Year:</strong> {thesis.scholarId.profile.qualifications.mphil.passingYear || 'N/A'}</div>
+                <div><strong>Marks:</strong> {thesis.scholarId.profile.qualifications.mphil.marksObtained}/{thesis.scholarId.profile.qualifications.mphil.totalMarks || 'N/A'} ({thesis.scholarId.profile.qualifications.mphil.percentage}%)</div>
+              </div>
+            </div>
+          )}
           {thesis.scholarId?.profile?.qualifications?.netJrf && thesis.scholarId.profile.qualifications.netJrf.qualified !== 'No' && (
             <div className="usm-card" style={{ padding: 10, fontSize: '0.78rem', background: '#ECFDF5', borderColor: '#A7F3D0' }}>
               <div style={{ fontWeight: 700, color: '#065F46', marginBottom: 4 }}>NET / JRF Qualified</div>
@@ -774,6 +823,26 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole: propSubRole, onClose
                 <div><strong>Cert No:</strong> {thesis.scholarId.profile.qualifications.netJrf.certificateNo || 'N/A'}</div>
                 <div><strong>Score:</strong> {thesis.scholarId.profile.qualifications.netJrf.score || 'N/A'}</div>
               </div>
+            </div>
+          )}
+          {thesis.scholarId?.profile?.qualifications?.fellowships?.length > 0 && (
+            <div className="usm-card" style={{ padding: 10, fontSize: '0.78rem', background: '#F0F9FF', borderColor: '#BAE6FD' }}>
+              <div style={{ fontWeight: 700, color: '#0369A1', marginBottom: 4 }}>National & International Fellowships</div>
+              {thesis.scholarId.profile.qualifications.fellowships.map((f, i) => (
+                <div key={i} style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4, paddingBottom: 6, marginBottom: 6, borderBottom: i !== thesis.scholarId.profile.qualifications.fellowships.length - 1 ? '1px solid #E0F2FE' : 'none' }}>
+                  <div><strong>Type:</strong> {f.type === 'Other' ? f.otherType : f.type || 'N/A'}</div>
+                  <div><strong>Awarding Body:</strong> {f.awardingBody || 'N/A'}</div>
+                  <div><strong>Award Date:</strong> {f.awardDate || 'N/A'}</div>
+                  <div><strong>Ref/ID:</strong> {f.referenceNo || 'N/A'}</div>
+                  <div><strong>Duration:</strong> {f.duration || 'N/A'}</div>
+                  <div><strong>Amount:</strong> {f.amount || 'N/A'}</div>
+                  {f.certificateUrl && (
+                    <div style={{ gridColumn: 'span 3' }}>
+                      <a href={`${API_BASE_URL}${f.certificateUrl}`} target="_blank" rel="noreferrer" style={{ color: '#0284C7', fontWeight: 600 }}>📄 View Fellowship Proof</a>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -1078,10 +1147,36 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole: propSubRole, onClose
             <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: '0.72rem', fontWeight: 700, background: p.status === 'VERIFIED' ? '#D1FAE5' : p.status === 'REJECTED' ? '#FEE2E2' : '#FEF3C7', color: p.status === 'VERIFIED' ? '#065F46' : p.status === 'REJECTED' ? '#991B1B' : '#92400E' }}>{p.status}</span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 10px', fontSize: '0.78rem', color: '#64748B', margin: '6px 0' }}>
-            <div><strong>{p.type === 'PATENT' || p.type === 'IPR' ? 'IPR Office/Org:' : 'Journal/Publisher:'}</strong> {p.journalName}</div>
+            <div><strong>{p.type === 'PATENT' || p.type === 'IPR' ? 'IPR Office/Org:' : p.type === 'CONFERENCE' ? 'Conference Name:' : 'Journal/Publisher:'}</strong> {p.journalName}</div>
             <div><strong>Type:</strong> {p.type === 'IPR' && p.iprType ? `IPR: ${p.iprType}` : p.type === 'PATENT' ? 'IPR: Patent' : p.type} {p.itemStatus && <span style={{ color: '#64748B', fontWeight: 600, fontSize: '0.72rem', marginLeft: 4 }}>({p.itemStatus})</span>}</div>
-            <div><strong>{p.type === 'PATENT' || p.type === 'IPR' ? 'IPR Number:' : 'ISSN:'}</strong> {p.issn || 'N/A'}</div>
+            <div><strong>{p.type === 'PATENT' || p.type === 'IPR' ? 'IPR Number:' : p.type === 'CONFERENCE' ? 'Location/Venue:' : 'ISSN:'}</strong> {p.issn || 'N/A'}</div>
             <div><strong>{p.type === 'PATENT' || p.type === 'IPR' ? 'Filing/Award Date:' : 'Date:'}</strong> {p.publicationDate ? new Date(p.publicationDate).toLocaleDateString() : 'N/A'}</div>
+            
+            {(p.type === 'PATENT' || p.type === 'IPR') && (
+              <>
+                <div><strong>Inventors/Applicants:</strong> {p.volume || 'N/A'}</div>
+                <div><strong>App/Grant No:</strong> {p.issue || 'N/A'}</div>
+                <div><strong>Country/Region:</strong> {p.pages || 'N/A'}</div>
+              </>
+            )}
+            
+            {p.type === 'JOURNAL' && (
+              <>
+                <div><strong>Indexing:</strong> {p.indexing || 'N/A'}</div>
+                <div><strong>Volume:</strong> {p.volume || 'N/A'}</div>
+                <div><strong>Issue:</strong> {p.issue || 'N/A'}</div>
+                <div><strong>Pages:</strong> {p.pages || 'N/A'}</div>
+              </>
+            )}
+
+            {p.type === 'CONFERENCE' && (
+              <>
+                <div><strong>Indexing:</strong> {p.indexing || 'N/A'}</div>
+                <div><strong>Organizer:</strong> {p.volume || 'N/A'}</div>
+              </>
+            )}
+            
+            {p.doiUrl && <div style={{ gridColumn: 'span 2' }}><strong>{p.type === 'PATENT' || p.type === 'IPR' ? 'IPR ID/Ref:' : p.type === 'CONFERENCE' ? 'Proceedings Link:' : 'DOI:'}</strong> <a href={p.paperLink || `https://doi.org/${p.doiUrl}`} target="_blank" rel="noreferrer" style={{ color: '#2563EB', textDecoration: 'underline' }}>{p.doiUrl}</a></div>}
           </div>
           {(p.documentUrl || p.attachmentUrl) && (
             <a href={`${API_BASE_URL}${p.documentUrl || p.attachmentUrl}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.82rem', color: '#3B82F6', fontWeight: 600, display: 'inline-block', marginBottom: 8 }}>

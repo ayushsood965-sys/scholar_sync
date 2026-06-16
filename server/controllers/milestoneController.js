@@ -52,8 +52,10 @@ const getMilestones = async (req, res) => {
       }
 
       // Check Phase 5 Pre-Submission prerequisites:
-      // 1. Minimum 3 years (36 months) passed since admission/start
-      const hasThreeYearsPassed = diffMonths >= 36;
+      // 1. Minimum 3 years (36 months) passed since admission/start (or 18 months if M.Phil is completed and verified)
+      const hasMphil = scholar?.profile?.qualifications?.mphil?.done === true && scholar?.isVerified === true;
+      const requiredMonths = hasMphil ? 18 : 36;
+      const hasThreeYearsPassed = diffMonths >= requiredMonths;
 
       // 2. All 6-month progress reports are approved
       const reports = await Milestone.find({ thesisId: thesis._id, type: '6_MONTH_REPORT' });
