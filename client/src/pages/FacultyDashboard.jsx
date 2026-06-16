@@ -1,7 +1,7 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Home, FileText, Users, Calendar, User, LogOut, Bell, CheckCircle2, XCircle, Layers, Award, Upload, ShieldCheck, Edit, AlertTriangle, Plus, Settings, Search } from 'lucide-react';
+import { Home, FileText, Users, Calendar, User, LogOut, Bell, CheckCircle2, XCircle, Layers, Award, Upload, ShieldCheck, Edit, AlertTriangle, Plus, Settings, Search, BookOpen } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE_URL, API_URL } from '../config';
 
@@ -26,6 +26,7 @@ const Sidebar = ({ activeTab, setActiveTab, subRole, isVerified }) => {
     { key: 'overview', label: 'Dashboard', Icon: Home },
     { key: 'profile', label: 'Profile', Icon: User },
     { key: 'scholars', label: 'My Scholars', Icon: Users },
+    { key: 'coursework_approvals', label: 'Coursework Approvals', Icon: BookOpen },
     { key: 'meetings', label: 'Guidance Meetings', Icon: Calendar },
     { key: 'reviews', label: 'Pending Reviews', Icon: FileText },
     { key: 'defaulters', label: 'Defaulter Scholars', Icon: AlertTriangle },
@@ -37,6 +38,7 @@ const Sidebar = ({ activeTab, setActiveTab, subRole, isVerified }) => {
     { key: 'overview', label: 'Dashboard', Icon: Home },
     { key: 'profile', label: 'Profile', Icon: User },
     { key: 'registrations', label: 'Registration Requests', Icon: ShieldCheck },
+    { key: 'coursework_approvals', label: 'Coursework Approvals', Icon: BookOpen },
     { key: 'dept', label: 'Department Scholars', Icon: Users },
     { key: 'meetings', label: 'Guidance Meetings', Icon: Calendar },
     { key: 'requests', label: 'Change Requests', Icon: Edit },
@@ -4114,7 +4116,7 @@ const FacultyDashboard = () => {
     if (subRole === 'HOD') fetchDeptTheses(); else fetchAssignedTheses();
   };
 
-  const titles = { overview: 'Faculty Dashboard', registrations: 'Registration Requests', scholars: 'My Scholars', reviews: 'Pending Reviews', dept: 'Department Scholars', meetings: 'Guidance Consultations & Meetings', requests: 'Student Change Requests Desk', profile: 'My Profile', defaulters: 'Progress Report Defaulters', scholar_search: 'Search Scholar Details', detailed_reports: 'Detailed Academic Reports', public_config: 'Public Portal Config' };
+  const titles = { overview: 'Faculty Dashboard', registrations: 'Registration Requests', coursework_approvals: 'Coursework Approvals', scholars: 'My Scholars', reviews: 'Pending Reviews', dept: 'Department Scholars', meetings: 'Guidance Consultations & Meetings', requests: 'Student Change Requests Desk', profile: 'My Profile', defaulters: 'Progress Report Defaulters', scholar_search: 'Search Scholar Details', detailed_reports: 'Detailed Academic Reports', public_config: 'Public Portal Config' };
 
   const renderContent = () => {
     if (!user?.isVerified) {
@@ -4151,6 +4153,12 @@ const FacultyDashboard = () => {
     switch (activeTab) {
       case 'overview': return <OverviewPage theses={allTheses} user={user} onSelect={handleSelectThesis} setActiveTab={handleTabChange} />;
       case 'registrations': return <ScholarList theses={allTheses.filter(t => t.status === 'REGISTRATION_PENDING')} onSelect={handleSelectThesis} title="Scholars Awaiting Registration Approval" />;
+      case 'coursework_approvals': {
+        const pendingTheses = subRole === 'HOD'
+          ? allTheses.filter(t => t.status === 'COURSEWORK' && t.courseworkStatus === 'PENDING_HOD')
+          : allTheses.filter(t => t.status === 'COURSEWORK' && t.courseworkStatus === 'PENDING_FACULTY');
+        return <ScholarList theses={pendingTheses} onSelect={handleSelectThesis} title="Scholars Awaiting Coursework Approval" />;
+      }
       case 'scholars': return <ScholarList theses={allTheses} onSelect={handleSelectThesis} title="My Assigned Scholars" />;
       case 'dept': return <ScholarList theses={allTheses} onSelect={handleSelectThesis} title="All Department Scholars" />;
       case 'meetings': return <MeetingsTab user={user} />;

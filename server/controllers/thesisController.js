@@ -933,10 +933,267 @@ const searchGlobalTheses = async (req, res) => {
   }
 };
 
+// PUT /api/thesis/me/coursework/submit - Student submits coursework details
+const submitCourseworkDetails = async (req, res) => {
+  try {
+    const thesis = await Thesis.findOne({ scholarId: req.user._id });
+    if (!thesis) return res.status(404).json({ message: 'No research profile found.' });
+
+    if (thesis.status !== 'COURSEWORK') {
+      return res.status(400).json({ message: 'Coursework submission is only allowed in the Coursework phase.' });
+    }
+
+    const { researchMethodology, researchAnalysis, elective } = req.body;
+    
+    // Validate that we have at least some rows in each section
+    if (!researchMethodology || !Array.isArray(researchMethodology) || researchMethodology.length === 0) {
+      return res.status(400).json({ message: 'Please add at least one subject in Research Methodology.' });
+    }
+    if (!researchAnalysis || !Array.isArray(researchAnalysis) || researchAnalysis.length === 0) {
+      return res.status(400).json({ message: 'Please add at least one subject in Research Analysis.' });
+    }
+    if (!elective || !Array.isArray(elective) || elective.length === 0) {
+      return res.status(400).json({ message: 'Please add at least one subject in Elective.' });
+    }
+
+    // Validate rows
+    const validateSection = (section, name) => {
+      for (const row of section) {
+        if (!row.subjectName?.trim()) {
+          throw new Error(`Subject Name is required in all rows of ${name}.`);
+        }
+        const obtained = Number(row.marksObtained);
+        const max = Number(row.maxMarks);
+        if (isNaN(obtained) || obtained < 0) {
+          throw new Error(`Valid Marks Obtained is required in ${name}.`);
+        }
+        if (isNaN(max) || max <= 0) {
+          throw new Error(`Valid Maximum Marks (greater than 0) is required in ${name}.`);
+        }
+        if (obtained > max) {
+          throw new Error(`Marks Obtained cannot be greater than Maximum Marks in ${name}.`);
+        }
+      }
+    };
+
+    try {
+      validateSection(researchMethodology, 'Research Methodology');
+      validateSection(researchAnalysis, 'Research Analysis');
+      validateSection(elective, 'Electives');
+    } catch (e) {
+      return res.status(400).json({ message: e.message });
+    }
+
+    thesis.courseworkDetails = {
+      researchMethodology,
+      researchAnalysis,
+      elective
+    };
+    thesis.courseworkStatus = 'PENDING_FACULTY';
+    thesis.courseworkApprovals = {
+      facultyApproved: false,
+      facultyApproverId: null,
+      facultyApprovedAt: null,
+      hodApproved: false,
+      hodApproverId: null,
+      hodApprovedAt: null
+    };
+
+    thesis.auditLog.push({
+      action: 'COURSEWORK_SUBMITTED',
+      note: 'Coursework details submitted by student for supervisor approval.'
+    });
+
+    await thesis.save();
+
+    // Notify Supervisor
+    if (thesis.supervisorId) {
+      await createNotification({
+        recipient: thesis.supervisorId,
+        title: '⏳ Coursework Approval Pending',
+        message: `Scholar ${req.user.name} has submitted their coursework details for your verification.`,
+        type: 'PENDING_ACTION',
+        link: 'scholars'
+      });
+    }
+
+    res.json(thesis);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// PUT /api/thesis/:id/coursework/approve-faculty - Faculty approves coursework details
+const approveCourseworkFaculty = async (req, res) => {
+  try {
+    const thesis = await Thesis.findById(req.params.id);
+    if (!thesis) return res.status(404).json({ message: 'Thesis not found.' });
+
+    // Verify req.user is supervisor
+    if (!thesis.supervisorId || thesis.supervisorId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized. Only the assigned supervisor can verify this coursework.' });
+    }
+
+    if (thesis.courseworkStatus !== 'PENDING_FACULTY') {
+      return res.status(400).json({ message: 'This coursework is not awaiting supervisor approval.' });
+    }
+
+    thesis.courseworkStatus = 'PENDING_HOD';
+    thesis.courseworkApprovals.facultyApproved = true;
+    thesis.courseworkApprovals.facultyApproverId = req.user._id;
+    thesis.courseworkApprovals.facultyApprovedAt = new Date();
+
+    thesis.auditLog.push({
+      action: 'COURSEWORK_FACULTY_APPROVED',
+      note: `Verified by supervisor ${req.user.name}. Forwarded to HOD for final approval.`
+    });
+
+    await thesis.save();
+
+    // Notify HOD
+    await createNotification({
+      roleScope: 'HOD',
+      department: thesis.department,
+      title: '⏳ Coursework HOD Approval Pending',
+      message: `Coursework details of Scholar "${thesis.title}" have been approved by supervisor ${req.user.name} and await your final HOD approval.`,
+      type: 'PENDING_ACTION',
+      link: 'registrations'
+    });
+
+    res.json(thesis);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// PUT /api/thesis/:id/coursework/reject-faculty - Faculty rejects coursework details
+const rejectCourseworkFaculty = async (req, res) => {
+  try {
+    const thesis = await Thesis.findById(req.params.id);
+    if (!thesis) return res.status(404).json({ message: 'Thesis not found.' });
+
+    if (!thesis.supervisorId || thesis.supervisorId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized. Only the assigned supervisor can reject this coursework.' });
+    }
+
+    thesis.courseworkStatus = 'REJECTED';
+    thesis.auditLog.push({
+      action: 'COURSEWORK_FACULTY_REJECTED',
+      note: `Rejected by supervisor ${req.user.name}. Remarks: ${req.body.remarks || 'None'}`
+    });
+
+    await thesis.save();
+
+    // Notify Student
+    await createNotification({
+      recipient: thesis.scholarId,
+      title: '❌ Coursework Rejected by Supervisor',
+      message: `Your supervisor has rejected your coursework submission: "${req.body.remarks || 'Please review and resubmit.'}"`,
+      type: 'PENDING_ACTION',
+      link: 'overview'
+    });
+
+    res.json(thesis);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// PUT /api/thesis/:id/coursework/approve-hod - HOD approves coursework details (final approval)
+const approveCourseworkHOD = async (req, res) => {
+  try {
+    const thesis = await Thesis.findById(req.params.id);
+    if (!thesis) return res.status(404).json({ message: 'Thesis not found.' });
+
+    if (req.user.role !== 'HOD' || thesis.department !== req.user.department) {
+      return res.status(403).json({ message: 'Not authorized. Only the department HOD can provide final coursework clearance.' });
+    }
+
+    if (thesis.courseworkStatus !== 'PENDING_HOD') {
+      return res.status(400).json({ message: 'This coursework is not awaiting HOD approval.' });
+    }
+
+    thesis.courseworkStatus = 'APPROVED';
+    thesis.courseworkCompleted = true;
+    thesis.status = 'SYNOPSIS_PENDING';
+    
+    thesis.courseworkApprovals.hodApproved = true;
+    thesis.courseworkApprovals.hodApproverId = req.user._id;
+    thesis.courseworkApprovals.hodApprovedAt = new Date();
+
+    thesis.auditLog.push({
+      action: 'COURSEWORK_HOD_APPROVED',
+      note: `Final clearance granted by HOD ${req.user.name}.`
+    });
+
+    await thesis.save();
+
+    // Auto-create synopsis milestone if not exists
+    const existingSynopsis = await Milestone.findOne({ thesisId: thesis._id, type: 'SYNOPSIS' });
+    if (!existingSynopsis) {
+      await Milestone.create({
+        thesisId: thesis._id,
+        type: 'SYNOPSIS',
+        title: 'Research Synopsis',
+        status: 'PENDING',
+        sequence: 1,
+      });
+    }
+
+    // Notify Student
+    await createNotification({
+      recipient: thesis.scholarId,
+      title: '🎉 Coursework Completed!',
+      message: `Your coursework has been approved by the HOD. You are now officially cleared to proceed to the SYNOPSIS phase.`,
+      type: 'SUCCESSFUL_ACTION',
+      link: 'overview'
+    });
+
+    res.json(thesis);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// PUT /api/thesis/:id/coursework/reject-hod - HOD rejects coursework details
+const rejectCourseworkHOD = async (req, res) => {
+  try {
+    const thesis = await Thesis.findById(req.params.id);
+    if (!thesis) return res.status(404).json({ message: 'Thesis not found.' });
+
+    if (req.user.role !== 'HOD' || thesis.department !== req.user.department) {
+      return res.status(403).json({ message: 'Not authorized. Only the department HOD can reject this coursework.' });
+    }
+
+    thesis.courseworkStatus = 'REJECTED';
+    thesis.auditLog.push({
+      action: 'COURSEWORK_HOD_REJECTED',
+      note: `Rejected by HOD ${req.user.name}. Remarks: ${req.body.remarks || 'None'}`
+    });
+
+    await thesis.save();
+
+    // Notify Student
+    await createNotification({
+      recipient: thesis.scholarId,
+      title: '❌ Coursework Rejected by HOD',
+      message: `HOD has rejected your coursework submission: "${req.body.remarks || 'Please revise marks details.'}"`,
+      type: 'PENDING_ACTION',
+      link: 'overview'
+    });
+
+    res.json(thesis);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 module.exports = {
   createThesis, getMyThesis, getAllTheses, getThesisById,
   verifyEnrollment, assignSupervisor, clearCoursework, awardDegree, updateAuditLog,
   getAssignedTheses, getDeptTheses, drcApprove, scheduleSeminar, seminarClear, finalApprove,
   dispatchThesis, scheduleViva, recordViva, transferThesis, forcePreSubmission,
-  searchGlobalTheses
+  searchGlobalTheses,
+  submitCourseworkDetails, approveCourseworkFaculty, rejectCourseworkFaculty,
+  approveCourseworkHOD, rejectCourseworkHOD
 };

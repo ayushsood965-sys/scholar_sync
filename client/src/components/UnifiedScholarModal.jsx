@@ -298,11 +298,12 @@ const DocEvalModal = ({ doc, onClose, onRefresh }) => {
 const UnifiedScholarModal = ({ thesis, milestones, subRole: propSubRole, onClose, onRefresh, onReview, onDRC, onSeminar, onFinalApprove, onClearCoursework, onVerify, onAssign, onForcePreSubmission, isReadOnly = false }) => {
   const toast = useToast();
   const { user: contextUser } = useContext(AuthContext);
-  const { transferScholar } = useContext(ThesisContext);
+  const { transferScholar, approveCourseworkFaculty, rejectCourseworkFaculty, approveCourseworkHOD, rejectCourseworkHOD } = useContext(ThesisContext);
 
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(false);
   const [remarks, setRemarks] = useState({});
+  const [cwRemarks, setCwRemarks] = useState('');
 
   const user = isReadOnly ? { ...contextUser, role: '', _id: '' } : contextUser;
   const subRole = isReadOnly ? '' : propSubRole;
@@ -634,10 +635,218 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole: propSubRole, onClose
     }
   };
 
+  const handleCourseworkAction = async (action, remarksText) => {
+    setLoading(true);
+    try {
+      if (action === 'APPROVE_FACULTY') {
+        await approveCourseworkFaculty(thesis._id);
+        toast.success('Coursework details approved by Supervisor!');
+      } else if (action === 'REJECT_FACULTY') {
+        await rejectCourseworkFaculty(thesis._id, remarksText);
+        toast.success('Coursework details rejected and sent back to student.');
+      } else if (action === 'APPROVE_HOD') {
+        await approveCourseworkHOD(thesis._id);
+        toast.success('Coursework successfully cleared and marked as completed!');
+      } else if (action === 'REJECT_HOD') {
+        await rejectCourseworkHOD(thesis._id, remarksText);
+        toast.success('Coursework details rejected and sent back to student.');
+      }
+      if (onRefresh) await onRefresh();
+      setCwRemarks('');
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to update coursework status');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderCourseworkSection = (title, items) => {
+    if (!items || items.length === 0) {
+      return (
+        <div style={{ color: '#64748B', fontSize: '0.85rem', fontStyle: 'italic', padding: '10px 0' }}>
+          No subjects added in this section.
+        </div>
+      );
+    }
+    return (
+      <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 8, fontSize: '0.85rem' }}>
+        <thead>
+          <tr style={{ background: '#F8FAFC', borderBottom: '2px solid #E2E8F0' }}>
+            <th style={{ textAlign: 'left', padding: '8px 12px', fontWeight: 700, color: '#475569' }}>Subject Name</th>
+            <th style={{ textAlign: 'center', padding: '8px 12px', fontWeight: 700, color: '#475569', width: '150px' }}>Marks Obtained</th>
+            <th style={{ textAlign: 'center', padding: '8px 12px', fontWeight: 700, color: '#475569', width: '150px' }}>Maximum Marks</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item, idx) => (
+            <tr key={idx} style={{ borderBottom: '1px solid #F1F5F9' }}>
+              <td style={{ padding: '10px 12px', fontWeight: 600, color: '#1E293B' }}>{item.subject}</td>
+              <td style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 700, color: '#0F172A' }}>{item.marksObtained}</td>
+              <td style={{ padding: '10px 12px', textAlign: 'center', color: '#475569' }}>{item.maxMarks}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  };
+
+  const renderCoursework = () => {
+    const details = thesis.courseworkDetails || {};
+    const hasDetails = (details.methodology && details.methodology.length > 0) ||
+                       (details.analysis && details.analysis.length > 0) ||
+                       (details.electives && details.electives.length > 0);
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div>
+          <h3 className="usm-section-title" style={{ margin: 0 }}>📚 Coursework Marks & Verification</h3>
+          <p style={{ color: '#64748B', fontSize: '0.85rem', marginTop: 4 }}>
+            Verify the subject-wise coursework examinations and marks details submitted by the scholar.
+          </p>
+        </div>
+
+        {/* Current coursework verification status */}
+        <div style={{ 
+          background: 'var(--color-bg, #F8FAFC)', 
+          border: '1px solid var(--color-border, #E2E8F0)', 
+          padding: '12px 16px', 
+          borderRadius: 10,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <div>
+            <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-text-muted, #64748B)' }}>Coursework Progress Status</div>
+            <div style={{ fontSize: '0.95rem', fontWeight: 800, marginTop: 4, color: thesis.courseworkCompleted ? '#059669' : '#D97706' }}>
+              {thesis.courseworkCompleted ? 'APPROVED & COMPLETED ✅' : 
+               thesis.courseworkStatus === 'PENDING_FACULTY' ? 'Awaiting Supervisor Approval ⏳' :
+               thesis.courseworkStatus === 'PENDING_HOD' ? 'Awaiting HOD Approval ⏳' :
+               thesis.courseworkStatus === 'REJECTED' ? 'Rejected & Sent Back to Student ❌' :
+               'Awaiting Submission from Student ⏳'}
+            </div>
+          </div>
+          {thesis.courseworkApprovals?.remarks && (
+            <div style={{ maxWidth: '60%', fontSize: '0.82rem', background: '#FEF2F2', borderLeft: '3px solid #EF4444', padding: '6px 10px', borderRadius: 6, color: '#991B1B' }}>
+              <strong>Remarks:</strong> "{thesis.courseworkApprovals.remarks}"
+            </div>
+          )}
+        </div>
+
+        {!hasDetails ? (
+          <div className="usm-card" style={{ textAlign: 'center', color: '#64748B', fontSize: '0.85rem', padding: '30px 20px' }}>
+            📭 The scholar has not submitted any coursework marks yet.
+          </div>
+        ) : (
+          <>
+            <div className="usm-card" style={{ padding: 16 }}>
+              <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#1E3A8A', borderBottom: '2px solid #DBEAFE', paddingBottom: 6 }}>1. Research Methodology</div>
+              {renderCourseworkSection('Research Methodology', details.methodology)}
+            </div>
+
+            <div className="usm-card" style={{ padding: 16 }}>
+              <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#065F46', borderBottom: '2px solid #D1FAE5', paddingBottom: 6 }}>2. Research Analysis</div>
+              {renderCourseworkSection('Research Analysis', details.analysis)}
+            </div>
+
+            <div className="usm-card" style={{ padding: 16 }}>
+              <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#B45309', borderBottom: '2px solid #FEF3C7', paddingBottom: 6 }}>3. Elective Courses</div>
+              {renderCourseworkSection('Elective Courses', details.electives)}
+            </div>
+
+            {/* Approval / Rejection box for Supervisor */}
+            {!isReadOnly && subRole !== 'HOD' && thesis.supervisorId?._id === user._id && thesis.courseworkStatus === 'PENDING_FACULTY' && (
+              <div className="usm-card" style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', padding: 20 }}>
+                <h4 style={{ margin: '0 0 10px', color: '#166534', fontSize: '0.9rem', fontWeight: 800 }}>🤝 Supervisor Coursework Review Action</h4>
+                <p style={{ fontSize: '0.8rem', color: '#166534', marginBottom: 12 }}>
+                  Verify that the marks entered above exactly match the candidate's exam grade sheets. Approving will forward the file to HOD for final clearance.
+                </p>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#166534', marginBottom: 4 }}>Rejection Remarks (Required only if rejecting)</label>
+                  <textarea
+                    className="form-input"
+                    rows="2"
+                    placeholder="Enter reason for sending back..."
+                    value={cwRemarks}
+                    onChange={e => setCwRemarks(e.target.value)}
+                    style={{ background: '#FFFFFF', borderColor: '#BBF7D0', width: '100%' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button 
+                    onClick={() => handleCourseworkAction('APPROVE_FACULTY')} 
+                    disabled={loading} 
+                    className="btn-primary" 
+                    style={{ background: '#166534', flex: 1, padding: '10px' }}
+                  >
+                    ✓ Approve & Forward to HOD
+                  </button>
+                  <button 
+                    onClick={() => {
+                      if (!cwRemarks.trim()) return toast.warning('Please enter rejection remarks first.');
+                      handleCourseworkAction('REJECT_FACULTY', cwRemarks);
+                    }} 
+                    disabled={loading} 
+                    className="btn-outline" 
+                    style={{ borderColor: '#DC2626', color: '#DC2626', flex: 1, padding: '10px' }}
+                  >
+                    ✗ Send Back for Correction
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Approval / Rejection box for HOD */}
+            {!isReadOnly && subRole === 'HOD' && thesis.courseworkStatus === 'PENDING_HOD' && (
+              <div className="usm-card" style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', padding: 20 }}>
+                <h4 style={{ margin: '0 0 10px', color: '#1E40AF', fontSize: '0.9rem', fontWeight: 800 }}>🏛️ HOD Coursework Final Clearance</h4>
+                <p style={{ fontSize: '0.8rem', color: '#1E40AF', marginBottom: 12 }}>
+                  Supervisor has verified and approved the coursework marks. Clear this candidate's coursework phase to transition them to Synopsis status.
+                </p>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#1E40AF', marginBottom: 4 }}>Rejection Remarks (Required only if rejecting)</label>
+                  <textarea
+                    className="form-input"
+                    rows="2"
+                    placeholder="Enter reason for sending back..."
+                    value={cwRemarks}
+                    onChange={e => setCwRemarks(e.target.value)}
+                    style={{ background: '#FFFFFF', borderColor: '#BFDBFE', width: '100%' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button 
+                    onClick={() => handleCourseworkAction('APPROVE_HOD')} 
+                    disabled={loading} 
+                    className="btn-primary" 
+                    style={{ background: '#1E40AF', flex: 1, padding: '10px' }}
+                  >
+                    ✓ Verify & Complete Coursework Phase
+                  </button>
+                  <button 
+                    onClick={() => {
+                      if (!cwRemarks.trim()) return toast.warning('Please enter rejection remarks first.');
+                      handleCourseworkAction('REJECT_HOD', cwRemarks);
+                    }} 
+                    disabled={loading} 
+                    className="btn-outline" 
+                    style={{ borderColor: '#DC2626', color: '#DC2626', flex: 1, padding: '10px' }}
+                  >
+                    ✗ Send Back for Correction
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    );
+  };
+
   // ── Tab definitions ──
   const tabs = [
     { key: 'overview', label: 'Overview', icon: '📊' },
     { key: 'profile', label: 'Profile', icon: '👤' },
+    { key: 'coursework', label: 'Coursework', icon: '📚', show: thesis.status === 'COURSEWORK' || thesis.courseworkCompleted || (thesis.courseworkDetails && ((thesis.courseworkDetails.methodology && thesis.courseworkDetails.methodology.length > 0) || (thesis.courseworkDetails.analysis && thesis.courseworkDetails.analysis.length > 0) || (thesis.courseworkDetails.electives && thesis.courseworkDetails.electives.length > 0))) },
     { key: 'drc', label: 'DRC', icon: '🏛️', show: ['SYNOPSIS_PENDING', 'ACTIVE_RESEARCH', 'PRE_SUBMISSION', 'SUBMITTED', 'AWARDED'].includes(thesis.status) },
     { key: 'rac', label: 'RAC', icon: '📋', badge: scheduledRacs || null, show: ['ACTIVE_RESEARCH', 'PRE_SUBMISSION', 'SUBMITTED', 'AWARDED'].includes(thesis.status) },
     { key: 'reports', label: 'Reports', icon: '📑', show: ['ACTIVE_RESEARCH', 'PRE_SUBMISSION', 'SUBMITTED', 'AWARDED'].includes(thesis.status) },
@@ -1859,6 +2068,7 @@ const UnifiedScholarModal = ({ thesis, milestones, subRole: propSubRole, onClose
     switch (activeTab) {
       case 'overview': return renderOverview();
       case 'profile': return renderProfile();
+      case 'coursework': return renderCoursework();
       case 'drc': return renderDRC();
       case 'rac': return renderRAC();
       case 'reports': return renderReportsOrChapters('reports');

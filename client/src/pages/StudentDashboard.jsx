@@ -1,6 +1,6 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Home, Book, Flag, FileText, Calendar, User, LogOut, Bell, ClipboardList, CheckCircle2, Clock, Upload, Lock, Award, Edit, File, Layers, Plus } from 'lucide-react';
+import { Home, Book, Flag, FileText, Calendar, User, LogOut, Bell, ClipboardList, CheckCircle2, Clock, Upload, Lock, Award, Edit, File, Layers, Plus, AlertCircle, BookOpen } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import { NotificationContext } from '../context/NotificationContext';
 import { ThesisContext } from '../context/ThesisContext';
@@ -758,22 +758,281 @@ const WaitingRoom = ({ thesis }) => (
 );
 
 // ── Coursework Phase ──
-const CourseworkPhase = ({ thesis }) => (
-  <div className="card" style={{ maxWidth: 600, margin: '0 auto', textAlign: 'center', padding: 48 }}>
-    <Book size={64} color="#3B82F6" style={{ margin: '0 auto 16px' }} />
-    <h3 style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#111827', marginBottom: 8 }}>Coursework Phase</h3>
-    <p style={{ color: '#6b7280', marginBottom: 24 }}>Enrollment verified! ✅ You are currently in the coursework phase. Attend offline classes and exams. Your supervisor will unlock the synopsis upload once coursework is cleared.</p>
-    <div style={{ background: '#DBEAFE', borderRadius: 12, padding: 16, textAlign: 'left' }}>
-      <div style={{ fontWeight: 600, marginBottom: 8, color: '#1D4ED8' }}>Your Supervisor:</div>
-      <div style={{ fontSize: '0.9rem', color: '#1E40AF' }}>
-        {thesis.supervisorId ? `👨‍🏫 ${thesis.supervisorId.name}` : '⏳ Supervisor assignment pending'}
+const CourseworkPhase = ({ thesis }) => {
+  const { submitCourseworkDetails, fetchMyThesis } = useContext(ThesisContext);
+  const toast = useToast();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // Row state helper
+  const createEmptyRow = () => ({ subjectName: '', marksObtained: '', maxMarks: '' });
+
+  const [methodology, setMethodology] = useState(
+    thesis.courseworkDetails?.researchMethodology?.length > 0
+      ? thesis.courseworkDetails.researchMethodology
+      : [createEmptyRow()]
+  );
+  const [analysis, setAnalysis] = useState(
+    thesis.courseworkDetails?.researchAnalysis?.length > 0
+      ? thesis.courseworkDetails.researchAnalysis
+      : [createEmptyRow()]
+  );
+  const [elective, setElective] = useState(
+    thesis.courseworkDetails?.elective?.length > 0
+      ? thesis.courseworkDetails.elective
+      : [createEmptyRow()]
+  );
+
+  const handleRowChange = (section, index, field, value) => {
+    const setter = section === 'methodology' ? setMethodology : section === 'analysis' ? setAnalysis : setElective;
+    const getter = section === 'methodology' ? methodology : section === 'analysis' ? analysis : elective;
+    const updated = [...getter];
+    updated[index] = { ...updated[index], [field]: value };
+    setter(updated);
+  };
+
+  const addRow = (section) => {
+    const setter = section === 'methodology' ? setMethodology : section === 'analysis' ? setAnalysis : setElective;
+    const getter = section === 'methodology' ? methodology : section === 'analysis' ? analysis : elective;
+    setter([...getter, createEmptyRow()]);
+  };
+
+  const removeRow = (section, index) => {
+    const setter = section === 'methodology' ? setMethodology : section === 'analysis' ? setAnalysis : setElective;
+    const getter = section === 'methodology' ? methodology : section === 'analysis' ? analysis : elective;
+    if (getter.length > 1) {
+      setter(getter.filter((_, i) => i !== index));
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    // Pre-validation
+    const checkSection = (sectionRows, name) => {
+      for (const row of sectionRows) {
+        if (!row.subjectName.trim()) {
+          throw new Error(`Subject Name is required in all rows of ${name}.`);
+        }
+        const obtained = Number(row.marksObtained);
+        const max = Number(row.maxMarks);
+        if (isNaN(obtained) || obtained < 0) {
+          throw new Error(`Valid Marks Obtained is required in ${name}.`);
+        }
+        if (isNaN(max) || max <= 0) {
+          throw new Error(`Valid Maximum Marks (greater than 0) is required in ${name}.`);
+        }
+        if (obtained > max) {
+          throw new Error(`Marks Obtained (${obtained}) cannot exceed Maximum Marks (${max}) in ${name}.`);
+        }
+      }
+    };
+
+    try {
+      checkSection(methodology, 'Research Methodology');
+      checkSection(analysis, 'Research Analysis');
+      checkSection(elective, 'Electives');
+
+      await submitCourseworkDetails({
+        researchMethodology: methodology,
+        researchAnalysis: analysis,
+        elective: elective
+      });
+      toast.success('Coursework details submitted successfully!');
+      fetchMyThesis();
+    } catch (err) {
+      setError(err.message || err.response?.data?.message || 'Failed to submit coursework details.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Helper to resolve HOD/supervisor status styles
+  const getStatusBanner = () => {
+    if (thesis.courseworkStatus === 'PENDING_FACULTY') {
+      return (
+        <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', color: '#1E40AF', padding: 16, borderRadius: 12, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Clock size={24} />
+          <div>
+            <div style={{ fontWeight: 600 }}>Submitted & Awaiting Supervisor Approval</div>
+            <div style={{ fontSize: '0.85rem', opacity: 0.9 }}>Your coursework details have been forwarded to your supervisor ({thesis.supervisorId?.name || 'Assigned Guide'}) for review.</div>
+          </div>
+        </div>
+      );
+    }
+    if (thesis.courseworkStatus === 'PENDING_HOD') {
+      return (
+        <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', color: '#92400E', padding: 16, borderRadius: 12, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Clock size={24} />
+          <div>
+            <div style={{ fontWeight: 600 }}>Supervisor Approved & Awaiting HOD Clearance</div>
+            <div style={{ fontSize: '0.85rem', opacity: 0.9 }}>Approved by supervisor! Currently pending final verification by the Head of Department.</div>
+          </div>
+        </div>
+      );
+    }
+    if (thesis.courseworkStatus === 'REJECTED') {
+      return (
+        <div style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#991B1B', padding: 16, borderRadius: 12, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <AlertCircle size={24} />
+          <div>
+            <div style={{ fontWeight: 600 }}>Coursework Revision Required</div>
+            <div style={{ fontSize: '0.85rem', opacity: 0.9 }}>Your supervisor or HOD returned your submission for correction. Please review details, modify if necessary, and resubmit.</div>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', color: '#166534', padding: 16, borderRadius: 12, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <CheckCircle2 size={24} />
+        <div>
+          <div style={{ fontWeight: 600 }}>Coursework Phase Active</div>
+          <div style={{ fontSize: '0.85rem', opacity: 0.9 }}>Your supervisor ({thesis.supervisorId?.name || 'Assigned Guide'}) is assigned. Please enter your marks below.</div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderReadOnlySection = (title, items) => (
+    <div style={{ marginBottom: 20 }}>
+      <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: '#374151', marginBottom: 8, borderBottom: '1px solid #E5E7EB', paddingBottom: 4 }}>{title}</h4>
+      <div style={{ background: '#F9FAFB', borderRadius: 8, overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+          <thead>
+            <tr style={{ background: '#F3F4F6', color: '#4B5563', textAlign: 'left' }}>
+              <th style={{ padding: '8px 12px' }}>Subject Name</th>
+              <th style={{ padding: '8px 12px', textAlign: 'center' }}>Marks Obtained</th>
+              <th style={{ padding: '8px 12px', textAlign: 'center' }}>Max Marks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((row, idx) => (
+              <tr key={idx} style={{ borderBottom: '1px solid #E5E7EB' }}>
+                <td style={{ padding: '8px 12px', color: '#1F2937' }}>{row.subjectName}</td>
+                <td style={{ padding: '8px 12px', textAlign: 'center', color: '#1F2937' }}>{row.marksObtained}</td>
+                <td style={{ padding: '8px 12px', textAlign: 'center', color: '#1F2937' }}>{row.maxMarks}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
-    <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: '#6b7280', fontSize: '0.85rem' }}>
-      <Lock size={16} /> Synopsis upload unlocks after coursework clearance
+  );
+
+  const renderEditableSection = (title, section, items) => (
+    <div style={{ marginBottom: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, borderBottom: '1px solid #E5E7EB', paddingBottom: 6 }}>
+        <h4 style={{ fontSize: '1rem', fontWeight: 600, color: '#374151', margin: 0 }}>{title}</h4>
+        <button type="button" className="btn-secondary" onClick={() => addRow(section)} style={{ padding: '4px 10px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: 4 }}>
+          + Add Row
+        </button>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {items.map((row, idx) => (
+          <div key={idx} style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <div style={{ flex: 2 }}>
+              <input
+                className="form-input"
+                style={{ padding: '6px 12px', fontSize: '0.88rem' }}
+                placeholder="Subject Name"
+                value={row.subjectName}
+                onChange={(e) => handleRowChange(section, idx, 'subjectName', e.target.value)}
+                required
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <input
+                type="number"
+                className="form-input"
+                style={{ padding: '6px 12px', fontSize: '0.88rem', textAlign: 'center' }}
+                placeholder="Obtained"
+                value={row.marksObtained}
+                onChange={(e) => handleRowChange(section, idx, 'marksObtained', e.target.value)}
+                min="0"
+                required
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <input
+                type="number"
+                className="form-input"
+                style={{ padding: '6px 12px', fontSize: '0.88rem', textAlign: 'center' }}
+                placeholder="Max Marks"
+                value={row.maxMarks}
+                onChange={(e) => handleRowChange(section, idx, 'maxMarks', e.target.value)}
+                min="1"
+                required
+              />
+            </div>
+            {items.length > 1 && (
+              <button
+                type="button"
+                style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', padding: 4 }}
+                onClick={() => removeRow(section, idx)}
+                title="Remove Row"
+              >
+                🗑️
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
-  </div>
-);
+  );
+
+  const isPending = thesis.courseworkStatus === 'PENDING_FACULTY' || thesis.courseworkStatus === 'PENDING_HOD';
+
+  return (
+    <div className="card" style={{ maxWidth: 700, margin: '0 auto', padding: 32 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24, borderBottom: '2px solid #F3F4F6', paddingBottom: 16 }}>
+        <BookOpen size={36} color="#3B82F6" />
+        <div>
+          <h3 style={{ fontSize: '1.3rem', fontWeight: 'bold', color: '#111827', margin: 0 }}>Doctoral Coursework Clearance</h3>
+          <p style={{ color: '#6b7280', fontSize: '0.88rem', margin: '4px 0 0' }}>Enter exam results for Research Methodology, Research Analysis, and Electives for verification.</p>
+        </div>
+      </div>
+
+      {getStatusBanner()}
+
+      {error && (
+        <div style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#B91C1C', padding: '12px 16px', borderRadius: 8, fontSize: '0.88rem', marginBottom: 20 }}>
+          {error}
+        </div>
+      )}
+
+      {isPending ? (
+        <div>
+          {renderReadOnlySection('Research Methodology', thesis.courseworkDetails?.researchMethodology || [])}
+          {renderReadOnlySection('Research Analysis', thesis.courseworkDetails?.researchAnalysis || [])}
+          {renderReadOnlySection('Elective Courses', thesis.courseworkDetails?.elective || [])}
+          
+          <div style={{ marginTop: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: '#6B7280', fontSize: '0.85rem', background: '#F9FAFB', padding: 12, borderRadius: 8 }}>
+            <Lock size={16} /> Coursework details are locked while approval is pending.
+          </div>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit}>
+          {renderEditableSection('Research Methodology', 'methodology', methodology)}
+          {renderEditableSection('Research Analysis', 'analysis', analysis)}
+          {renderEditableSection('Elective Courses', 'elective', elective)}
+
+          <div style={{ marginTop: 32, display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={loading}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 24px', fontSize: '0.95rem' }}
+            >
+              {loading ? 'Submitting...' : '✓ Submit Coursework Details'}
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+};
 
 // ── Synopsis Phase ──
 const SynopsisPhase = ({ thesis, milestones, onSubmit }) => {
@@ -5743,9 +6002,506 @@ const ProfileTab = () => {
   );
 };
 
+// ── All Milestone Records Component ──
+const AllMilestonesRecords = ({ thesis, milestones = [], user }) => {
+  const [drcMeetings, setDrcMeetings] = useState([]);
+  const [racSessions, setRacSessions] = useState([]);
+  const [expandedPhase, setExpandedPhase] = useState(null);
+
+  useEffect(() => {
+    if (thesis?._id) {
+      axios.get(`${API}/lifecycle/drc/thesis/${thesis._id}`, getAuthHeader())
+        .then(res => {
+          if (Array.isArray(res.data)) setDrcMeetings(res.data);
+        })
+        .catch(() => {});
+
+      axios.get(`${API}/lifecycle/rac/thesis/${thesis._id}`, getAuthHeader())
+        .then(res => {
+          if (Array.isArray(res.data)) setRacSessions(res.data);
+        })
+        .catch(() => {});
+    }
+  }, [thesis?._id]);
+
+  const currentStatus = thesis?.status || 'REGISTRATION_PENDING';
+
+  const PHASES = [
+    { key: 'REGISTRATION_PENDING', label: 'Registration & Enrollment', desc: 'Admission details, tentative topic and guide preference verification.' },
+    { key: 'COURSEWORK', label: 'Doctoral Coursework Clearance', desc: 'Mandatory exams in Research Methodology, Research Analysis, and Electives.' },
+    { key: 'SYNOPSIS_PENDING', label: 'Research Synopsis & DRC Approval', desc: 'Presentation and approval of synopsis before the Departmental Research Committee.' },
+    { key: 'ACTIVE_RESEARCH', label: 'Active Research & Progress Reviews', desc: 'Periodic progress reports and RAC evaluation panels.' },
+    { key: 'PRE_SUBMISSION', label: 'Pre-Submission Colloquium', desc: 'Expert panel defense, plagiarism similarity clearance and rough draft review.' },
+    { key: 'SUBMITTED', label: 'Thesis Evaluation & Viva-Voce', desc: 'External examiner review process and final oral defense.' },
+    { key: 'AWARDED', label: 'Degree Conferral', desc: 'Final audit clearance and official Ph.D. degree award resolution.' }
+  ];
+
+  const currentStepIdx = PHASES.findIndex(p => p.key === currentStatus);
+  const activeStepIdx = currentStepIdx === -1 ? 0 : currentStepIdx;
+
+  const toggleExpand = (idx) => {
+    setExpandedPhase(expandedPhase === idx ? null : idx);
+  };
+
+  const getStatusColor = (idx) => {
+    if (idx < activeStepIdx) return { border: '#10B981', bg: 'rgba(16, 185, 129, 0.15)', text: '#10B981', badge: 'COMPLETED' };
+    if (idx === activeStepIdx) return { border: '#3B82F6', bg: 'rgba(59, 130, 246, 0.15)', text: '#3B82F6', badge: 'IN PROGRESS' };
+    return { border: '#6B7280', bg: 'rgba(107, 114, 128, 0.1)', text: '#6B7280', badge: 'LOCKED' };
+  };
+
+  const renderReadOnlySection = (title, items) => (
+    <div style={{ marginBottom: 20 }}>
+      <h4 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text-primary, #374151)', marginBottom: 8, borderBottom: '1px solid var(--color-border, #E5E7EB)', paddingBottom: 4 }}>{title}</h4>
+      <div style={{ background: 'var(--color-bg, #F9FAFB)', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--color-border, #E5E7EB)' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+          <thead>
+            <tr style={{ background: 'var(--color-sidebar, #F3F4F6)', color: 'var(--color-text-secondary, #4B5563)', textAlign: 'left' }}>
+              <th style={{ padding: '8px 12px' }}>Subject Name</th>
+              <th style={{ padding: '8px 12px', textAlign: 'center' }}>Marks Obtained</th>
+              <th style={{ padding: '8px 12px', textAlign: 'center' }}>Max Marks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((row, idx) => (
+              <tr key={idx} style={{ borderBottom: '1px solid var(--color-border, #E5E7EB)' }}>
+                <td style={{ padding: '8px 12px', color: 'var(--color-text-primary, #1F2937)' }}>{row.subjectName}</td>
+                <td style={{ padding: '8px 12px', textAlign: 'center', color: 'var(--color-text-primary, #1F2937)' }}>{row.marksObtained}</td>
+                <td style={{ padding: '8px 12px', textAlign: 'center', color: 'var(--color-text-primary, #1F2937)' }}>{row.maxMarks}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <style>{`
+        .milestone-record-header:hover {
+          background: rgba(59, 130, 246, 0.04) !important;
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+      {/* Subpage Header card */}
+      <div className="card" style={{ 
+        padding: 24, 
+        borderRadius: 16, 
+        background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(59, 130, 246, 0.05) 100%)', 
+        border: '1px solid rgba(59, 130, 246, 0.15)' 
+      }}>
+        <h3 style={{ margin: '0 0 8px 0', fontSize: '1.1rem', fontWeight: 800, color: 'var(--color-text-primary, #0F172A)' }}>
+          📜 Ph.D. Milestone Progression Records
+        </h3>
+        <p style={{ color: 'var(--color-text-secondary, #475569)', fontSize: '0.85rem', lineHeight: 1.5, margin: 0 }}>
+          Here is a detailed, audited historical ledger of all your academic milestones. Click on any milestone phase card to view grades, supervisor reviews, scheduled committee meetings, file attachments, and feedback.
+        </p>
+      </div>
+
+      {/* Accordion / Cards List */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {PHASES.map((phase, idx) => {
+          const { border, bg, text, badge } = getStatusColor(idx);
+          const isExpanded = expandedPhase === idx;
+          const isLocked = badge === 'LOCKED';
+
+          return (
+            <div 
+              key={phase.key}
+              style={{
+                background: 'var(--color-surface, #FFFFFF)',
+                border: `1px solid ${isExpanded ? '#3B82F6' : 'var(--color-border, #E2E8F0)'}`,
+                borderLeft: `6px solid ${border}`,
+                borderRadius: '16px',
+                boxShadow: isExpanded ? '0 10px 25px -5px rgba(0,0,0,0.06)' : '0 2px 8px rgba(0,0,0,0.02)',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                overflow: 'hidden'
+              }}
+            >
+              {/* Card Header clickable bar */}
+              <div 
+                onClick={() => !isLocked && toggleExpand(idx)}
+                style={{
+                  padding: '20px 24px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  cursor: isLocked ? 'not-allowed' : 'pointer',
+                  background: isExpanded ? 'rgba(59, 130, 246, 0.02)' : 'transparent',
+                  userSelect: 'none'
+                }}
+                className="milestone-record-header"
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, width: '80%' }}>
+                  <div style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: border,
+                    color: '#FFFFFF',
+                    fontWeight: 700,
+                    fontSize: '0.85rem',
+                    flexShrink: 0
+                  }}>
+                    {idx + 1}
+                  </div>
+                  <div>
+                    <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: 'var(--color-text-primary, #0F172A)' }}>
+                      {phase.label}
+                    </h4>
+                    <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: 'var(--color-text-secondary, #64748B)' }}>
+                      {phase.desc}
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span style={{
+                    padding: '4px 10px',
+                    borderRadius: '12px',
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    letterSpacing: '0.03em',
+                    background: bg,
+                    color: text
+                  }}>
+                    {badge}
+                  </span>
+                  {!isLocked && (
+                    <span style={{ 
+                      color: 'var(--color-text-muted, #94A3B8)',
+                      transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                      transition: 'transform 0.2s',
+                      fontSize: '10px',
+                      display: 'inline-block'
+                    }}>
+                      ▼
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Collapsible Panel Content */}
+              {isExpanded && !isLocked && (
+                <div style={{
+                  padding: '20px 24px 24px 72px',
+                  borderTop: '1px solid var(--color-border, #F1F5F9)',
+                  background: 'var(--color-bg, rgba(248, 250, 252, 0.3))',
+                  animation: 'fadeIn 0.25s ease-out'
+                }}>
+                  <div>
+                    {phase.key === 'REGISTRATION_PENDING' && (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px 30px', fontSize: '0.85rem' }}>
+                        <div>
+                          <div style={{ color: 'var(--color-text-secondary, #64748B)', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: 4 }}>Enrollment Number</div>
+                          <strong style={{ color: 'var(--color-text-primary, #0F172A)' }}>{thesis.enrollmentNumber || 'N/A'}</strong>
+                        </div>
+                        <div>
+                          <div style={{ color: 'var(--color-text-secondary, #64748B)', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: 4 }}>Registration Date</div>
+                          <strong style={{ color: 'var(--color-text-primary, #0F172A)' }}>{thesis.startDate ? new Date(thesis.startDate).toLocaleDateString() : new Date(thesis.createdAt).toLocaleDateString()}</strong>
+                        </div>
+                        <div>
+                          <div style={{ color: 'var(--color-text-secondary, #64748B)', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: 4 }}>Department</div>
+                          <strong style={{ color: 'var(--color-text-primary, #0F172A)' }}>{thesis.department}</strong>
+                        </div>
+                        <div>
+                          <div style={{ color: 'var(--color-text-secondary, #64748B)', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: 4 }}>Assigned Guide</div>
+                          <strong style={{ color: 'var(--color-text-primary, #0F172A)' }}>{thesis.supervisorId?.name || 'Pending Supervisor Assignment'}</strong>
+                        </div>
+                        <div style={{ gridColumn: 'span 2' }}>
+                          <div style={{ color: 'var(--color-text-secondary, #64748B)', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: 4 }}>Tentative Research Topic</div>
+                          <strong style={{ color: 'var(--color-text-primary, #0F172A)', lineHeight: 1.4 }}>{thesis.title || 'N/A'}</strong>
+                        </div>
+                        <div style={{ gridColumn: 'span 2' }}>
+                          <div style={{ color: 'var(--color-text-secondary, #64748B)', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: 4 }}>Research Abstract Outline</div>
+                          <p style={{ color: 'var(--color-text-primary, #334155)', margin: '4px 0 0', lineHeight: 1.5 }}>{thesis.abstract || 'N/A'}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {phase.key === 'COURSEWORK' && (
+                      <div>
+                        {thesis.courseworkDetails ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                            {thesis.courseworkDetails.researchMethodology?.length > 0 && 
+                              renderReadOnlySection('Research Methodology', thesis.courseworkDetails.researchMethodology)}
+                            {thesis.courseworkDetails.researchAnalysis?.length > 0 && 
+                              renderReadOnlySection('Research Analysis', thesis.courseworkDetails.researchAnalysis)}
+                            {thesis.courseworkDetails.elective?.length > 0 && 
+                              renderReadOnlySection('Elective Courses', thesis.courseworkDetails.elective)}
+                            
+                            <div style={{ 
+                              background: 'rgba(16, 185, 129, 0.15)', 
+                              border: '1px solid rgba(16, 185, 129, 0.3)', 
+                              borderRadius: '8px', 
+                              padding: '12px 16px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 8,
+                              fontSize: '0.82rem',
+                              color: '#10B981',
+                              alignSelf: 'flex-start'
+                            }}>
+                              <span>✓</span> 
+                              <span>Coursework results successfully verified and locked on HOD Clearance.</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ color: 'var(--color-text-secondary, #64748B)', fontSize: '0.85rem', fontStyle: 'italic' }}>
+                            Coursework details have not been submitted or verification is pending.
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {phase.key === 'SYNOPSIS_PENDING' && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        <div style={{ background: 'var(--color-bg, #F8FAFC)', padding: 16, borderRadius: 8, border: '1px solid var(--color-border, #E2E8F0)' }}>
+                          <div style={{ color: 'var(--color-text-secondary, #64748B)', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: 4 }}>Approved Research Topic</div>
+                          <strong style={{ color: 'var(--color-text-primary, #0F172A)', display: 'block', fontSize: '0.9rem', marginBottom: 12 }}>{thesis.title}</strong>
+                          
+                          <div style={{ color: 'var(--color-text-secondary, #64748B)', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: 4 }}>Synopsis Document Proposal</div>
+                          {thesis.synopsisUrl || milestones.find(m => m.type === 'SYNOPSIS')?.documentUrl ? (
+                            <a 
+                              href={`${API_BASE_URL}${thesis.synopsisUrl || milestones.find(m => m.type === 'SYNOPSIS')?.documentUrl}`} 
+                              target="_blank" 
+                              rel="noreferrer" 
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#0284C7', fontWeight: 700, fontSize: '0.85rem', textDecoration: 'underline', marginTop: 4 }}
+                            >
+                              📄 View Submitted Proposal Synopsis PDF
+                            </a>
+                          ) : (
+                            <span style={{ fontSize: '0.8rem', color: '#EF4444' }}>No synopsis document uploaded.</span>
+                          )}
+                        </div>
+
+                        {/* DRC evaluation details */}
+                        <div style={{ background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 8, padding: 16 }}>
+                          <h5 style={{ margin: '0 0 10px 0', fontSize: '0.85rem', fontWeight: 800, color: '#fbbf24', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span>📆</span> Departmental Research Committee (DRC) Evaluation
+                          </h5>
+                          {drcMeetings.length === 0 ? (
+                            <div style={{ fontSize: '0.8rem', color: '#fbbf24' }}>
+                              No DRC evaluation sessions scheduled.
+                            </div>
+                          ) : (
+                            drcMeetings.map((drc, idx) => (
+                              <div key={idx} style={{ borderBottom: idx < drcMeetings.length - 1 ? '1px dashed rgba(245, 158, 11, 0.3)' : 'none', paddingBottom: idx < drcMeetings.length - 1 ? 12 : 0, marginBottom: idx < drcMeetings.length - 1 ? 12 : 0 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                                  <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>Session Allotment Result</span>
+                                  <span style={{ background: drc.status === 'APPROVED' ? '#D1FAE5' : '#FEE2E2', color: drc.status === 'APPROVED' ? '#065F46' : '#991B1B', padding: '2px 8px', borderRadius: 10, fontSize: '0.7rem', fontWeight: 700 }}>
+                                    {drc.status}
+                                  </span>
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', fontSize: '0.8rem', color: '#fbbf24' }}>
+                                  <div>Date: <strong>{new Date(drc.scheduledDate).toLocaleDateString()}</strong></div>
+                                  <div>Time: <strong>{drc.scheduledTime}</strong></div>
+                                  <div style={{ gridColumn: 'span 2' }}>Venue: <strong>{drc.venue}</strong></div>
+                                  {drc.committeeMembers && <div style={{ gridColumn: 'span 2' }}>Committee: <strong>{drc.committeeMembers}</strong></div>}
+                                  {drc.remarks && (
+                                    <div style={{ gridColumn: 'span 2', background: 'var(--color-surface, #FFFFFF)', padding: 8, borderRadius: 6, borderLeft: '3px solid #D97706', marginTop: 4 }}>
+                                      Committee Remarks: <em>"{drc.remarks}"</em>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {phase.key === 'ACTIVE_RESEARCH' && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        {/* RAC Sessions */}
+                        <div style={{ background: 'var(--color-bg, #F8FAFC)', border: '1px solid var(--color-border, #E2E8F0)', borderRadius: 8, padding: 16 }}>
+                          <h5 style={{ margin: '0 0 10px 0', fontSize: '0.85rem', fontWeight: 800, color: 'var(--color-text-primary, #1E293B)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span>📊</span> Research Advisory Committee (RAC) Progress Reviews
+                          </h5>
+                          {racSessions.length === 0 ? (
+                            <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary, #64748B)', fontStyle: 'italic' }}>
+                              No RAC progress reviews recorded yet. Reviews occur at 6-month intervals.
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                              {racSessions.map((rac, idx) => (
+                                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--color-surface, #FFFFFF)', border: '1px solid var(--color-border, #E2E8F0)', borderRadius: 6 }}>
+                                  <div>
+                                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-primary, #334155)' }}>RAC Session #{idx + 1}</span>
+                                    <div style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary, #94A3B8)', marginTop: 2 }}>
+                                      Date: {new Date(rac.scheduledDate).toLocaleDateString()} | Committee: {rac.committeeMembers || 'Guide & Panel'}
+                                    </div>
+                                  </div>
+                                  <span style={{
+                                    background: rac.status === 'SATISFACTORY' ? '#D1FAE5' : '#FEE2E2',
+                                    color: rac.status === 'SATISFACTORY' ? '#065F46' : '#991B1B',
+                                    padding: '2px 8px', borderRadius: 10, fontSize: '0.7rem', fontWeight: 700
+                                  }}>
+                                    {rac.status}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* 6-Month Progress Reports */}
+                        <div style={{ background: 'var(--color-bg, #F8FAFC)', border: '1px solid var(--color-border, #E2E8F0)', borderRadius: 8, padding: 16 }}>
+                          <h5 style={{ margin: '0 0 10px 0', fontSize: '0.85rem', fontWeight: 800, color: 'var(--color-text-primary, #1E293B)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span>📅</span> 6-Month Progress Reports History
+                          </h5>
+                          {milestones.filter(m => m.type === '6_MONTH_REPORT' || m.type === 'PROGRESS_REPORT').length === 0 ? (
+                            <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary, #64748B)', fontStyle: 'italic' }}>
+                              No progress report milestones generated yet.
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                              {milestones.filter(m => m.type === '6_MONTH_REPORT' || m.type === 'PROGRESS_REPORT').map((rep) => (
+                                <div key={rep._id} style={{ padding: 12, background: 'var(--color-surface, #FFFFFF)', border: '1px solid var(--color-border, #E2E8F0)', borderRadius: 6 }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                                    <strong style={{ fontSize: '0.8rem', color: 'var(--color-text-primary, #1E293B)' }}>{rep.title}</strong>
+                                    <span style={{
+                                      background: rep.status === 'APPROVED' ? '#D1FAE5' : rep.status === 'SUBMITTED' ? '#DBEAFE' : '#FEF3C7',
+                                      color: rep.status === 'APPROVED' ? '#065F46' : rep.status === 'SUBMITTED' ? '#1D4ED8' : '#D97706',
+                                      padding: '2px 8px', borderRadius: 10, fontSize: '0.7rem', fontWeight: 700
+                                    }}>
+                                      {rep.status}
+                                    </span>
+                                  </div>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--color-text-secondary, #64748B)' }}>
+                                    <span>Due Date: {new Date(rep.dueDate).toLocaleDateString()}</span>
+                                    {rep.documentUrl && (
+                                      <a href={`${API_BASE_URL}${rep.documentUrl}`} target="_blank" rel="noreferrer" style={{ color: '#0284C7', fontWeight: 600 }}>
+                                        View Uploaded Report
+                                      </a>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {phase.key === 'PRE_SUBMISSION' && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        <div style={{ background: 'var(--color-bg, #F8FAFC)', border: '1px solid var(--color-border, #E2E8F0)', borderRadius: 8, padding: 16 }}>
+                          <h5 style={{ margin: '0 0 12px 0', fontSize: '0.85rem', fontWeight: 800, color: 'var(--color-text-primary, #1E293B)' }}>
+                            Pre-Submission Package Documents
+                          </h5>
+                          {milestones.find(m => m.type === 'PRE_SUBMISSION') ? (
+                            (() => {
+                              const preM = milestones.find(m => m.type === 'PRE_SUBMISSION');
+                              return (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                                    <span style={{ color: 'var(--color-text-secondary, #64748B)' }}>Submission Status:</span>
+                                    <strong style={{ color: '#3B82F6' }}>{preM.status}</strong>
+                                  </div>
+                                  {preM.documentUrl && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem' }}>
+                                      <span>📄</span>
+                                      <a href={`${API_BASE_URL}${preM.documentUrl}`} target="_blank" rel="noreferrer" style={{ color: '#2563EB', fontWeight: 700 }}>
+                                        View Rough Thesis Draft Complete
+                                      </a>
+                                    </div>
+                                  )}
+                                  {preM.plagiarismReportUrl && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem' }}>
+                                      <span>📊</span>
+                                      <a href={`${API_BASE_URL}${preM.plagiarismReportUrl}`} target="_blank" rel="noreferrer" style={{ color: '#10B981', fontWeight: 700 }}>
+                                        View Plagiarism Clearance Certificate
+                                      </a>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()
+                          ) : (
+                            <span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary, #64748B)', fontStyle: 'italic' }}>Pre-submission package not uploaded.</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {phase.key === 'SUBMITTED' && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        <div style={{ background: 'var(--color-bg, #F8FAFC)', border: '1px solid var(--color-border, #E2E8F0)', borderRadius: 8, padding: 16 }}>
+                          <h5 style={{ margin: '0 0 10px 0', fontSize: '0.85rem', fontWeight: 800, color: 'var(--color-text-primary, #1E293B)' }}>
+                            Thesis Board Evaluation Dispatch Tracking
+                          </h5>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 20px', fontSize: '0.8rem', color: 'var(--color-text-primary, #334155)' }}>
+                            <div>Dispatch Status: <strong>{thesis.dispatchDate ? 'DISPATCHED TO EXAMINERS' : 'AWAITING DISPATCH'}</strong></div>
+                            {thesis.dispatchDate && (
+                              <>
+                                <div>Dispatch Date: <strong>{new Date(thesis.dispatchDate).toLocaleDateString()}</strong></div>
+                                <div>Shipping Method: <strong>{thesis.dispatchMethod || 'N/A'}</strong></div>
+                                <div>Tracking Reference: <strong>{thesis.dispatchTrackingNumber || 'N/A'}</strong></div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        <div style={{ background: 'var(--color-bg, #F8FAFC)', border: '1px solid var(--color-border, #E2E8F0)', borderRadius: 8, padding: 16 }}>
+                          <h5 style={{ margin: '0 0 10px 0', fontSize: '0.85rem', fontWeight: 800, color: 'var(--color-text-primary, #1E293B)' }}>
+                            Viva-Voce Oral Defense Examination
+                          </h5>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 20px', fontSize: '0.8rem', color: 'var(--color-text-primary, #334155)' }}>
+                            <div>Defense Status: <strong>{thesis.vivaStatus || 'AWAITING EVALUATION BOARD REPORT'}</strong></div>
+                            {thesis.vivaDate && (
+                              <>
+                                <div>Date Scheduled: <strong>{new Date(thesis.vivaDate).toLocaleDateString()}</strong></div>
+                                <div>Time / Venue: <strong>{thesis.vivaTime} / {thesis.vivaVenue || 'N/A'}</strong></div>
+                              </>
+                            )}
+                            {thesis.vivaRemarks && (
+                              <div style={{ gridColumn: 'span 2', background: 'var(--color-surface, #FFFFFF)', padding: 10, borderLeft: '4px solid #10B981', borderRadius: 6 }}>
+                                Panel Remarks: <strong>"{thesis.vivaRemarks}"</strong>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {phase.key === 'AWARDED' && (
+                      <div style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 8, padding: 16 }}>
+                        <h5 style={{ margin: '0 0 8px 0', fontSize: '0.85rem', fontWeight: 800, color: '#10B981', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span>🏆</span> Ph.D. Degree Conferred Successfully!
+                        </h5>
+                        <div style={{ fontSize: '0.8rem', color: '#10B981', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          <div>Academic Senate Approval Date: <strong>{thesis.awardedAt ? new Date(thesis.awardedAt).toLocaleDateString() : 'N/A'}</strong></div>
+                          {thesis.notificationNumber && <div>Award Notification Number: <strong>{thesis.notificationNumber}</strong></div>}
+                          <div>Clearance Status: <strong>Library, Department, and Admin Clearances COMPLETED</strong></div>
+                          
+                          <div style={{ marginTop: 12, borderTop: '1px solid rgba(16, 185, 129, 0.3)', paddingTop: 8 }}>
+                            🎉 <strong>HPU Academic Council congratulates Dr. {user?.name}!</strong> Your doctorate degree is formally awarded.
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 // ── Main Dashboard ──
 const StudentDashboard = () => {
   const [activeTab, setActiveTab] = useState('profile');
+  const [milestonesSubTab, setMilestonesSubTab] = useState('active');
   const { user } = useContext(AuthContext);
   const { thesis, milestones, loading, fetchMyThesis, submitMilestone } = useContext(ThesisContext);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(user && !user.profileCompleted);
@@ -5818,14 +6574,69 @@ const StudentDashboard = () => {
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <MilestoneTimeline thesis={thesis} milestones={milestones} />
-            {(() => {
-              if (thesis.status === 'COURSEWORK') return <CourseworkPhase thesis={thesis} />;
-              if (thesis.status === 'SYNOPSIS_PENDING') return <SynopsisPhase thesis={thesis} milestones={milestones} onSubmit={submitMilestone} />;
-              if (thesis.status === 'ACTIVE_RESEARCH') return <ActiveResearch thesis={thesis} milestones={milestones} onSubmit={submitMilestone} setActiveTab={setActiveTab} />;
-              if (thesis.status === 'PRE_SUBMISSION') return <PreSubmission thesis={thesis} milestones={milestones} onSubmit={submitMilestone} />;
-              if (thesis.status === 'SUBMITTED' || thesis.status === 'AWARDED') return <SubmittedView thesis={thesis} />;
-              return <div className="card" style={{ padding: 32, color: '#6b7280' }}>No milestones yet.</div>;
-            })()}
+            
+            {/* Custom Sub Tab Selector for Milestones */}
+            <div style={{
+              display: 'flex',
+              background: 'var(--color-bg, #F1F5F9)',
+              padding: '6px',
+              borderRadius: '12px',
+              gap: '8px',
+              maxWidth: '450px',
+              margin: '8px 0',
+              border: '1px solid var(--color-border, #E2E8F0)',
+              boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)'
+            }} className="milestone-tabs-container">
+              <button 
+                onClick={() => setMilestonesSubTab('active')}
+                style={{
+                  flex: 1,
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  background: milestonesSubTab === 'active' ? 'var(--color-surface, #FFFFFF)' : 'transparent',
+                  color: milestonesSubTab === 'active' ? 'var(--color-primary, #1A5A3B)' : 'var(--color-text-secondary, #64748B)',
+                  boxShadow: milestonesSubTab === 'active' ? '0 4px 6px -1px rgba(0,0,0,0.05)' : 'none'
+                }}
+              >
+                🎯 Active Task Workspace
+              </button>
+              <button 
+                onClick={() => setMilestonesSubTab('records')}
+                style={{
+                  flex: 1,
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  background: milestonesSubTab === 'records' ? 'var(--color-surface, #FFFFFF)' : 'transparent',
+                  color: milestonesSubTab === 'records' ? 'var(--color-primary, #1A5A3B)' : 'var(--color-text-secondary, #64748B)',
+                  boxShadow: milestonesSubTab === 'records' ? '0 4px 6px -1px rgba(0,0,0,0.05)' : 'none'
+                }}
+              >
+                📜 All Milestone Records
+              </button>
+            </div>
+
+            {milestonesSubTab === 'active' ? (
+              (() => {
+                if (thesis.status === 'COURSEWORK') return <CourseworkPhase thesis={thesis} />;
+                if (thesis.status === 'SYNOPSIS_PENDING') return <SynopsisPhase thesis={thesis} milestones={milestones} onSubmit={submitMilestone} />;
+                if (thesis.status === 'ACTIVE_RESEARCH') return <ActiveResearch thesis={thesis} milestones={milestones} onSubmit={submitMilestone} setActiveTab={setActiveTab} />;
+                if (thesis.status === 'PRE_SUBMISSION') return <PreSubmission thesis={thesis} milestones={milestones} onSubmit={submitMilestone} />;
+                if (thesis.status === 'SUBMITTED' || thesis.status === 'AWARDED') return <SubmittedView thesis={thesis} />;
+                return <div className="card" style={{ padding: 32, color: '#6b7280' }}>No milestones yet.</div>;
+              })()
+            ) : (
+              <AllMilestonesRecords thesis={thesis} milestones={milestones} user={user} />
+            )}
           </div>
         );
       case 'thesis':

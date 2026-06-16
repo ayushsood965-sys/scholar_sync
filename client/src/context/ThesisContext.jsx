@@ -184,6 +184,36 @@ export const ThesisProvider = ({ children }) => {
     return data;
   };
 
+  const submitCourseworkDetails = async (payload) => {
+    const { data } = await axios.put(`${API}/thesis/me/coursework/submit`, payload, getAuthHeader());
+    setThesis(data);
+    return data;
+  };
+
+  const approveCourseworkFaculty = async (id) => {
+    const { data } = await axios.put(`${API}/thesis/${id}/coursework/approve-faculty`, {}, getAuthHeader());
+    setAllTheses(prev => prev.map(t => t._id === id ? data : t));
+    return data;
+  };
+
+  const rejectCourseworkFaculty = async (id, remarks) => {
+    const { data } = await axios.put(`${API}/thesis/${id}/coursework/reject-faculty`, { remarks }, getAuthHeader());
+    setAllTheses(prev => prev.map(t => t._id === id ? data : t));
+    return data;
+  };
+
+  const approveCourseworkHOD = async (id) => {
+    const { data } = await axios.put(`${API}/thesis/${id}/coursework/approve-hod`, {}, getAuthHeader());
+    setAllTheses(prev => prev.map(t => t._id === id ? data : t));
+    return data;
+  };
+
+  const rejectCourseworkHOD = async (id, remarks) => {
+    const { data } = await axios.put(`${API}/thesis/${id}/coursework/reject-hod`, { remarks }, getAuthHeader());
+    setAllTheses(prev => prev.map(t => t._id === id ? data : t));
+    return data;
+  };
+
   return (
     <ThesisContext.Provider value={{
       thesis, milestones, allTheses, loading, error,
@@ -191,7 +221,9 @@ export const ThesisProvider = ({ children }) => {
       fetchAllTheses, fetchThesisById, verifyEnrollment, assignSupervisor,
       clearCoursework, awardDegree, updateAuditLog,
       fetchAssignedTheses, fetchDeptTheses, drcApprove, scheduleSeminar, seminarClear, finalApprove, reviewMilestone,
-      dispatchThesis, scheduleViva, recordViva, transferScholar, forcePreSubmission
+      dispatchThesis, scheduleViva, recordViva, transferScholar, forcePreSubmission,
+      submitCourseworkDetails, approveCourseworkFaculty, rejectCourseworkFaculty,
+      approveCourseworkHOD, rejectCourseworkHOD
     }}>
       {children}
     </ThesisContext.Provider>

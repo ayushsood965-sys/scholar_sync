@@ -6,18 +6,25 @@ const {
   verifyEnrollment, assignSupervisor, clearCoursework, awardDegree, updateAuditLog,
   getAssignedTheses, getDeptTheses, drcApprove, scheduleSeminar, seminarClear, finalApprove,
   dispatchThesis, scheduleViva, recordViva, transferThesis, forcePreSubmission,
-  searchGlobalTheses
+  searchGlobalTheses,
+  submitCourseworkDetails, approveCourseworkFaculty, rejectCourseworkFaculty,
+  approveCourseworkHOD, rejectCourseworkHOD
 } = require('../controllers/thesisController');
 
 // Scholar
 router.post('/', protect, authorize('STUDENT'), createThesis);
 router.get('/me', protect, authorize('STUDENT'), getMyThesis);
+router.put('/me/coursework/submit', protect, authorize('STUDENT'), submitCourseworkDetails);
 
 // Admin & HOD Department Admins
 router.get('/all', protect, authorize('ADMIN', 'HOD'), getAllTheses);
 router.put('/:id/verify', protect, authorize('ADMIN', 'HOD'), verifyEnrollment);
 router.put('/:id/assign', protect, authorize('ADMIN', 'HOD'), assignSupervisor);
 router.put('/:id/coursework', protect, authorize('ADMIN', 'HOD', 'FACULTY'), clearCoursework);
+router.put('/:id/coursework/approve-faculty', protect, authorize('FACULTY'), approveCourseworkFaculty);
+router.put('/:id/coursework/reject-faculty', protect, authorize('FACULTY'), rejectCourseworkFaculty);
+router.put('/:id/coursework/approve-hod', protect, authorize('HOD'), approveCourseworkHOD);
+router.put('/:id/coursework/reject-hod', protect, authorize('HOD'), rejectCourseworkHOD);
 router.put('/:id/award', protect, authorize('ADMIN', 'HOD'), awardDegree);
 router.put('/:id/audit', protect, authorize('ADMIN', 'HOD'), updateAuditLog);
 router.put('/:id/dispatch', protect, authorize('ADMIN', 'HOD'), dispatchThesis);

@@ -15,6 +15,51 @@ const thesisSchema = new mongoose.Schema(
       default: 'REGISTRATION_PENDING',
     },
     courseworkCompleted: { type: Boolean, default: false },
+    courseworkDetails: {
+      researchMethodology: {
+        type: [
+          {
+            subjectName: { type: String, required: true },
+            marksObtained: { type: Number, required: true },
+            maxMarks: { type: Number, required: true }
+          }
+        ],
+        default: []
+      },
+      researchAnalysis: {
+        type: [
+          {
+            subjectName: { type: String, required: true },
+            marksObtained: { type: Number, required: true },
+            maxMarks: { type: Number, required: true }
+          }
+        ],
+        default: []
+      },
+      elective: {
+        type: [
+          {
+            subjectName: { type: String, required: true },
+            marksObtained: { type: Number, required: true },
+            maxMarks: { type: Number, required: true }
+          }
+        ],
+        default: []
+      }
+    },
+    courseworkStatus: {
+      type: String,
+      enum: ['NOT_SUBMITTED', 'PENDING_FACULTY', 'PENDING_HOD', 'APPROVED', 'REJECTED'],
+      default: 'NOT_SUBMITTED'
+    },
+    courseworkApprovals: {
+      facultyApproved: { type: Boolean, default: false },
+      facultyApproverId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+      facultyApprovedAt: { type: Date, default: null },
+      hodApproved: { type: Boolean, default: false },
+      hodApproverId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+      hodApprovedAt: { type: Date, default: null }
+    },
     enrollmentVerified: { type: Boolean, default: false },
     startDate: { type: Date, default: null },
     submittedAt: { type: Date, default: null },
