@@ -225,12 +225,16 @@ async function seedUserData(selectedDepartments, studentCount = 10, facultyCount
     targetDeptNames = departmentsToSeed.map(d => d.name);
   }
 
-  // Guarantee Forensic Science is always seeded
-  if (!targetDeptNames.includes('Department of Forensic Science')) {
-    targetDeptNames.push('Department of Forensic Science');
-  }
-
   const depts = await Department.find({ name: { $in: targetDeptNames } });
+
+  // Ensure Forensic Science staff is always generated so the 3 special students have their HOD/Supervisor
+  let staffDepts = [...depts];
+  if (!staffDepts.some(d => d.code === 'FORS')) {
+    const forsDept = await Department.findOne({ code: 'FORS' });
+    if (forsDept) {
+      staffDepts.push(forsDept);
+    }
+  }
   
   // Storage arrays for bulk insertions
   const usersToInsert = [];
@@ -238,7 +242,7 @@ async function seedUserData(selectedDepartments, studentCount = 10, facultyCount
   const hodByDept = {};     // deptCode -> HOD user object
 
   console.log('Generating HOD and Faculty user objects...');
-  for (const dept of depts) {
+  for (const dept of staffDepts) {
     const code = dept.code;
     const deptName = dept.name;
 
@@ -329,10 +333,14 @@ async function seedUserData(selectedDepartments, studentCount = 10, facultyCount
   
   // Categorize staff
   for (const staff of insertedStaff) {
-    const deptObj = depts.find(d => d.name === staff.department);
+    const deptObj = departmentsToSeed.find(d => d.name === staff.department);
     if (!deptObj) continue;
     const code = deptObj.code;
     
+    if (!facultyByDept[code]) {
+      facultyByDept[code] = [];
+    }
+
     if (staff.role === 'HOD') {
       hodByDept[code] = staff;
     } else if (staff.role === 'FACULTY') {
@@ -349,20 +357,12 @@ async function seedUserData(selectedDepartments, studentCount = 10, facultyCount
     const deptName = dept.name;
 
     for (let s = 0; s < S; s++) {
-      let studDetails;
       const gender = s % 2 === 0 ? 'Male' : 'Female';
-      if (code === 'FORS' && s === 0) {
-        studDetails = {
-          name: 'Mr. Ayush Sood',
-          username: 'ayushsood@gmail.com'
-        };
-      } else {
-        const details = generateDeterministicName('STUDENT', code, s, gender);
-        studDetails = {
-          name: details.fullName,
-          username: details.email
-        };
-      }
+      const details = generateDeterministicName('STUDENT', code, s, gender);
+      const studDetails = {
+        name: details.fullName,
+        username: details.email
+      };
 
       const assignedFaculty = facultyByDept[code][s % F]; // map s to s % F dynamically
       const thesisMeta = generateThesisDetails(deptName, code, s);
@@ -381,6 +381,8 @@ async function seedUserData(selectedDepartments, studentCount = 10, facultyCount
         admissionDate = '2026-01-15';
       }
 
+      const ssNo = Math.floor(100000000 + Math.random() * 900000000).toString();
+
       const studentObj = {
         name: studDetails.name,
         username: studDetails.username,
@@ -391,6 +393,7 @@ async function seedUserData(selectedDepartments, studentCount = 10, facultyCount
         isVerified: true,
         profileCompleted: true,
         profile: {
+          ssNo,
           phoneNumber: `+91 98765-333${s}0`,
           dob: `199${s}-04-10`,
           gender,
@@ -418,6 +421,135 @@ async function seedUserData(selectedDepartments, studentCount = 10, facultyCount
     }
   }
 
+  // Always seed the additional 3 ID's in forensic science
+  const forsDeptObj = await Department.findOne({ code: 'FORS' });
+  if (forsDeptObj) {
+    const code = 'FORS';
+    const deptName = forsDeptObj.name;
+    const assignedFaculty = facultyByDept[code] ? facultyByDept[code][0] : null;
+
+    const specialStudents = [
+      {
+        name: 'Mr. Ayush Sood',
+        username: 'ayushsood@gmail.com',
+        password: passwordHash,
+        role: 'STUDENT',
+        department: deptName,
+        isActive: true,
+        isVerified: true,
+        profileCompleted: true,
+        profile: {
+          ssNo: Math.floor(100000000 + Math.random() * 900000000).toString(),
+          phoneNumber: '+91 98765-33300',
+          dob: '1990-04-10',
+          gender: 'Male',
+          category: 'General',
+          fatherName: 'Shri R. K. Sood',
+          motherName: 'Smt. Asha Sood',
+          nationality: 'Indian',
+          admissionDate: '2024-11-01', // 19 months ago (active research, has mphil)
+          enrollmentNumber: 'FORS/2024/001',
+          phdMode: 'FULL_TIME',
+          preferredGuideId: assignedFaculty ? assignedFaculty._id.toString() : '',
+          thesisTitle: 'Advanced Forensic DNA Phenotyping for Complex Human Identification',
+          thesisSummary: 'This research project focuses on advanced genetic markers to predict visible physical traits from DNA.',
+          thesisKeywords: 'Forensic Science, DNA, Phenotyping, Genetics',
+          qualifications: {
+            class10: { board: 'CBSE', year: 2012, percentage: 90 },
+            class12: { board: 'CBSE', year: 2014, percentage: 88 },
+            graduation: { degree: 'B.Sc. Forensic Science', university: 'HPU', year: 2017, percentage: 80 },
+            postGraduation: { degree: 'M.Sc. Forensic Science', university: 'HPU', year: 2019, percentage: 83 },
+            mphil: {
+              done: true,
+              university: 'Delhi University',
+              passingYear: '2021',
+              totalMarks: '1000',
+              marksObtained: '850',
+              percentage: '85.00',
+              certificateUrl: '/uploads/sample.pdf'
+            }
+          }
+        }
+      },
+      {
+        name: 'Suman Thakur',
+        username: 'sumanthakur@gmail.com',
+        password: passwordHash,
+        role: 'STUDENT',
+        department: deptName,
+        isActive: true,
+        isVerified: true,
+        profileCompleted: true,
+        profile: {
+          ssNo: Math.floor(100000000 + Math.random() * 900000000).toString(),
+          phoneNumber: '+91 98765-33301',
+          dob: '1992-05-12',
+          gender: 'Female',
+          category: 'OBC',
+          fatherName: 'Shri S. K. Thakur',
+          motherName: 'Smt. Renu Thakur',
+          nationality: 'Indian',
+          admissionDate: '2025-12-01', // coursework phase
+          enrollmentNumber: 'FORS/2025/002',
+          phdMode: 'FULL_TIME',
+          preferredGuideId: assignedFaculty ? assignedFaculty._id.toString() : '',
+          thesisTitle: 'Chemical Characterization of Novel Psychoactive Substances',
+          thesisSummary: 'Identifying designer drugs in seized materials using advanced spectroscopy.',
+          thesisKeywords: 'Forensic, Chemical, Toxicology, Spectroscopy',
+          qualifications: {
+            class10: { board: 'CBSE', year: 2014, percentage: 88 },
+            class12: { board: 'CBSE', year: 2016, percentage: 86 },
+            graduation: { degree: 'B.Sc. Chemistry', university: 'HPU', year: 2019, percentage: 78 },
+            postGraduation: { degree: 'M.Sc. Forensic Science', university: 'HPU', year: 2021, percentage: 81 },
+            mphil: {
+              done: false
+            }
+          }
+        }
+      },
+      {
+        name: 'Gaurav Patel',
+        username: 'gauravpatel@gmail.com',
+        password: passwordHash,
+        role: 'STUDENT',
+        department: deptName,
+        isActive: true,
+        isVerified: true,
+        profileCompleted: true,
+        profile: {
+          ssNo: Math.floor(100000000 + Math.random() * 900000000).toString(),
+          phoneNumber: '+91 98765-33302',
+          dob: '1989-08-15',
+          gender: 'Male',
+          category: 'General',
+          fatherName: 'Shri A. K. Patel',
+          motherName: 'Smt. Sunita Patel',
+          nationality: 'Indian',
+          admissionDate: '2022-09-01', // awarded phase
+          enrollmentNumber: 'FORS/2022/003',
+          phdMode: 'FULL_TIME',
+          preferredGuideId: assignedFaculty ? assignedFaculty._id.toString() : '',
+          thesisTitle: 'Digital Forensic Reconstruction of Encrypted Communication Channels',
+          thesisSummary: 'Decrypting trace communication artifacts from mobile forensic acquisitions.',
+          thesisKeywords: 'Digital Forensics, Encryption, Security, Cryptography',
+          qualifications: {
+            class10: { board: 'CBSE', year: 2010, percentage: 92 },
+            class12: { board: 'CBSE', year: 2012, percentage: 90 },
+            graduation: { degree: 'B.Tech IT', university: 'HPU', year: 2016, percentage: 82 },
+            postGraduation: { degree: 'M.Tech IT', university: 'HPU', year: 2018, percentage: 84 },
+            mphil: {
+              done: false
+            }
+          }
+        }
+      }
+    ];
+
+    for (const specStud of specialStudents) {
+      studentsToInsert.push(specStud);
+    }
+  }
+
   console.log(`Inserting ${studentsToInsert.length} Scholar accounts...`);
   const insertedStudents = await User.insertMany(studentsToInsert);
 
@@ -430,9 +562,10 @@ async function seedUserData(selectedDepartments, studentCount = 10, facultyCount
   const notificationsToInsert = [];
 
   // Map students by dept
+  // Map students by dept
   const studentsByDeptCode = {};
   for (const student of insertedStudents) {
-    const deptObj = depts.find(d => d.name === student.department);
+    const deptObj = departmentsToSeed.find(d => d.name === student.department);
     if (!deptObj) continue;
     const code = deptObj.code;
     if (!studentsByDeptCode[code]) {
@@ -442,18 +575,25 @@ async function seedUserData(selectedDepartments, studentCount = 10, facultyCount
   }
 
   // Timeline insertion
-  for (const dept of depts) {
-    const code = dept.code;
-    const deptName = dept.name;
+  const allDeptCodes = Object.keys(studentsByDeptCode);
+  for (const code of allDeptCodes) {
+    const deptObj = departmentsToSeed.find(d => d.code === code);
+    if (!deptObj) continue;
+    const deptName = deptObj.name;
     const deptStudents = studentsByDeptCode[code] || [];
     const deptFaculty = facultyByDept[code] || [];
     const deptHOD = hodByDept[code];
 
     for (let s = 0; s < deptStudents.length; s++) {
       const student = deptStudents[s];
-      const supervisor = deptFaculty[s % F];
+      const supervisor = deptFaculty.length > 0 ? deptFaculty[s % deptFaculty.length] : null;
+      if (!supervisor) continue;
       
-      const statusMod = s % 3;
+      let statusMod = s % 3;
+      if (student.username === 'ayushsood@gmail.com') statusMod = 1;
+      else if (student.username === 'sumanthakur@gmail.com') statusMod = 2;
+      else if (student.username === 'gauravpatel@gmail.com') statusMod = 0;
+
       let status = 'COURSEWORK';
       let courseworkCompleted = false;
       let enrollmentVerified = true;

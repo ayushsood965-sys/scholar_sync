@@ -354,7 +354,7 @@ const UtilityAction = ({ type }) => {
                         <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: '11px' }}>|</span>
                         <button 
                           type="button" 
-                          onClick={() => setSelectedDepts(['Department of Forensic Science'])}
+                          onClick={() => setSelectedDepts([])}
                           style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}
                         >
                           Deselect All
@@ -377,8 +377,7 @@ const UtilityAction = ({ type }) => {
                         <div style={{ fontSize: '13px', color: '#94a3b8', textAlign: 'center', padding: '10px' }}>Loading departments...</div>
                       ) : (
                         departments.map(d => {
-                          const isForensic = d.name === 'Department of Forensic Science';
-                          const checked = selectedDepts.includes(d.name) || isForensic;
+                          const checked = selectedDepts.includes(d.name);
                           return (
                             <label 
                               key={d.name} 
@@ -387,7 +386,7 @@ const UtilityAction = ({ type }) => {
                                 alignItems: 'center', 
                                 gap: '10px', 
                                 fontSize: '13px', 
-                                cursor: isForensic ? 'not-allowed' : 'pointer',
+                                cursor: 'pointer',
                                 color: checked ? '#fff' : '#94a3b8',
                                 fontWeight: checked ? '600' : '400',
                                 userSelect: 'none'
@@ -396,7 +395,6 @@ const UtilityAction = ({ type }) => {
                               <input 
                                 type="checkbox"
                                 checked={checked}
-                                disabled={isForensic}
                                 onChange={(e) => {
                                   if (e.target.checked) {
                                     setSelectedDepts([...selectedDepts, d.name]);
@@ -404,10 +402,10 @@ const UtilityAction = ({ type }) => {
                                     setSelectedDepts(selectedDepts.filter(name => name !== d.name));
                                   }
                                 }}
-                                style={{ cursor: isForensic ? 'not-allowed' : 'pointer' }}
+                                style={{ cursor: 'pointer' }}
                               />
                               <span>
-                                {d.name} {isForensic && <span style={{ fontSize: '9px', color: '#3b82f6', background: 'rgba(59,130,246,0.15)', padding: '2px 6px', borderRadius: '4px', marginLeft: '4px', fontWeight: 'bold' }}>MANDATORY</span>}
+                                {d.name}
                               </span>
                             </label>
                           );
